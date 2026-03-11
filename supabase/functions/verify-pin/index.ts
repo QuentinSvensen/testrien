@@ -88,7 +88,7 @@ const getMetaValue = async (
 };
 
 const setMetaValue = async (
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   key: string,
   value: string,
 ) => {
