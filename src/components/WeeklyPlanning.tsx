@@ -615,7 +615,8 @@ export function WeeklyPlanning() {
     const counterDays = getAdaptedCounterDays(pm.counter_start_date, pm.day_of_week);
     const counterUrgent = counterDays !== null && counterDays >= 3;
     const overrideCal = calOverrides[pm.id];
-    const ingCal = computeIngredientCalories(meal.ingredients);
+    const effectiveIngredients = pm.ingredients_override ?? meal.ingredients;
+    const ingCal = computeIngredientCalories(effectiveIngredients);
     const isComputedCal = !overrideCal && ingCal !== null;
     const displayCal = overrideCal || (ingCal !== null ? String(ingCal) : meal.calories);
 
