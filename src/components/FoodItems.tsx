@@ -31,6 +31,7 @@ export interface FoodItem {
   is_infinite: boolean;
   is_dry: boolean;
   is_indivisible: boolean;
+  no_counter: boolean;
   storage_type: StorageType;
   quantity: number | null;
   food_type: FoodType;
