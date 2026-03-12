@@ -920,9 +920,9 @@ export function WeeklyPlanning() {
                 );
               })}
               {/* Extra column */}
-              <div className="min-h-[44px] sm:min-h-[52px] rounded-xl border border-dashed border-orange-300/30 p-1 sm:p-1.5 w-12 sm:w-20 flex flex-col items-center">
+              <div className="min-h-[44px] sm:min-h-[52px] rounded-xl border border-dashed border-orange-300/30 p-1 sm:p-1.5 w-14 sm:w-24 flex flex-col items-center">
                 <span className="text-[7px] sm:text-[8px] font-semibold text-orange-400/60 uppercase tracking-wide">Extra</span>
-                <div className="flex flex-col sm:flex-row items-center gap-0.5 mt-1">
+                <div className="flex flex-col items-center gap-0.5 mt-1 w-full">
                   <input
                     type="number"
                     inputMode="numeric"
@@ -939,17 +939,36 @@ export function WeeklyPlanning() {
                     onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                     className="w-full h-5 text-[11px] bg-transparent border border-dashed border-orange-300/20 rounded px-1 text-orange-400 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40 text-center"
                   />
-                  <Checkbox
-                    checked={!!keepOnReset[`extra-${day}`]}
-                    onCheckedChange={(checked) => {
+                  <input
+                    type="number"
+                    inputMode="numeric"
+                    placeholder="prot"
+                    key={`extra-prot-${day}`}
+                    defaultValue={extraProteins[day] || ''}
+                    onBlur={(e) => {
+                      const val = parseInt(e.target.value) || 0;
+                      const updated = { ...extraProteins };
+                      if (val > 0) updated[day] = val;
+                      else delete updated[day];
+                      setPreference.mutate({ key: 'planning_extra_proteins', value: updated });
+                    }}
+                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    className="w-full h-5 text-[11px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center"
+                  />
+                  <button
+                    onClick={() => {
                       const updated = { ...keepOnReset };
-                      if (checked) updated[`extra-${day}`] = true;
-                      else delete updated[`extra-${day}`];
+                      if (updated[`extra-${day}`]) delete updated[`extra-${day}`];
+                      else updated[`extra-${day}`] = true;
                       setPreference.mutate({ key: 'planning_keep_on_reset', value: updated });
                     }}
-                    className="h-3 w-3 shrink-0"
-                    title="Conserver lors du reset"
-                  />
+                    className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors ${
+                      keepOnReset[`extra-${day}`]
+                        ? 'bg-primary/20 text-primary border border-primary/40'
+                        : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                    }`}
+                    title="Sauvegarder les valeurs"
+                  >💾</button>
                 </div>
               </div>
             </div>
