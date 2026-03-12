@@ -240,31 +240,53 @@ const Index = () => {
 
     sundayClearDone.current = true;
     const clearAll = async () => {
-      const keepPrefResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_keep_on_reset').maybeSingle();
-      const keepOnReset: Record<string, boolean> = (keepPrefResult.data?.value as Record<string, boolean>) ?? {};
+      // Load saved snapshots
+      const snapResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_saved_snapshots').maybeSingle();
+      const snapshots: Record<string, { cal?: number; prot?: number }> = (snapResult.data?.value as any) ?? {};
+
       await Promise.all(possibleMeals.map(pm =>
         (supabase as any).from("possible_meals").delete().eq("id", pm.id)
       ));
-      const manualPrefResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_manual_calories').maybeSingle();
-      const currentManual: Record<string, number> = (manualPrefResult.data?.value as Record<string, number>) ?? {};
-      const keptManual: Record<string, number> = {};
-      for (const [key, val] of Object.entries(currentManual)) {
-        if (keepOnReset[`manual-${key}`]) keptManual[key] = val;
+
+      // Restore manual calories & proteins from snapshots
+      const restoredManualCal: Record<string, number> = {};
+      const restoredManualProt: Record<string, number> = {};
+      for (const [key, snap] of Object.entries(snapshots)) {
+        if (key.startsWith('manual-')) {
+          const slotKey = key.replace('manual-', '');
+          if (snap.cal) restoredManualCal[slotKey] = snap.cal;
+          if (snap.prot) restoredManualProt[slotKey] = snap.prot;
+        }
       }
-      setPreference.mutate({ key: 'planning_manual_calories', value: keptManual });
-      const extraPrefResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_extra_calories').maybeSingle();
-      const currentExtra: Record<string, number> = (extraPrefResult.data?.value as Record<string, number>) ?? {};
-      const keptExtra: Record<string, number> = {};
-      for (const [key, val] of Object.entries(currentExtra)) {
-        if (keepOnReset[`extra-${key}`]) keptExtra[key] = val;
+      setPreference.mutate({ key: 'planning_manual_calories', value: restoredManualCal });
+      setPreference.mutate({ key: 'planning_manual_proteins', value: restoredManualProt });
+
+      // Restore extra calories & proteins from snapshots
+      const restoredExtraCal: Record<string, number> = {};
+      const restoredExtraProt: Record<string, number> = {};
+      for (const [key, snap] of Object.entries(snapshots)) {
+        if (key.startsWith('extra-')) {
+          const dayKey = key.replace('extra-', '');
+          if (snap.cal) restoredExtraCal[dayKey] = snap.cal;
+          if (snap.prot) restoredExtraProt[dayKey] = snap.prot;
+        }
       }
-      setPreference.mutate({ key: 'planning_extra_calories', value: keptExtra });
-      const breakfastPrefResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_breakfast').maybeSingle();
-      const currentBreakfast: Record<string, string> = (breakfastPrefResult.data?.value as Record<string, string>) ?? {};
+      setPreference.mutate({ key: 'planning_extra_calories', value: restoredExtraCal });
+      setPreference.mutate({ key: 'planning_extra_proteins', value: restoredExtraProt });
+
+      // Restore breakfast from snapshots
+      const restoredBreakfastCal: Record<string, number> = {};
+      const restoredBreakfastProt: Record<string, number> = {};
       const keptBreakfast: Record<string, string> = {};
-      for (const [key, val] of Object.entries(currentBreakfast)) {
-        if (keepOnReset[`breakfast-${key}`]) keptBreakfast[key] = val;
+      for (const [key, snap] of Object.entries(snapshots)) {
+        if (key.startsWith('breakfast-')) {
+          const dayKey = key.replace('breakfast-', '');
+          if (snap.cal) restoredBreakfastCal[dayKey] = snap.cal;
+          if (snap.prot) restoredBreakfastProt[dayKey] = snap.prot;
+        }
       }
+      setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: restoredBreakfastCal });
+      setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: restoredBreakfastProt });
       setPreference.mutate({ key: 'planning_breakfast', value: keptBreakfast });
       setPreference.mutate({ key: 'planning_drink_checks', value: {} });
       setPreference.mutate({ key: 'last_weekly_reset', value: now.toISOString() });
