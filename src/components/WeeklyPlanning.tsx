@@ -402,7 +402,8 @@ export function WeeklyPlanning() {
   const breakfastManualProteins = getPreference<Record<string, number>>('planning_breakfast_manual_proteins', {});
   const extraProteins = getPreference<Record<string, number>>('planning_extra_proteins', {});
 
-  const keepOnReset = getPreference<Record<string, boolean>>('planning_keep_on_reset', {});
+  const savedSnapshots = getPreference<Record<string, { cal?: number; prot?: number }>>('planning_saved_snapshots', {});
+  const [flashedKeys, setFlashedKeys] = useState<Record<string, boolean>>({});
   const WEEKLY_GOAL = DAILY_GOAL * DEFAULT_WEEKLY_MULTIPLIER;
   const DAILY_PROTEIN_GOAL_PREF = getPreference<number>('planning_protein_goal', DAILY_PROTEIN_GOAL);
   const [editingGoal, setEditingGoal] = useState(false);
