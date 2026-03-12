@@ -977,18 +977,26 @@ export function WeeklyPlanning() {
       })}
 
       {/* Total calorique de la semaine */}
-      <div className="rounded-2xl bg-card/80 backdrop-blur-sm px-4 py-3 flex items-center justify-between flex-wrap gap-1">
-        <span className="text-sm font-bold text-foreground">Total semaine</span>
-        <div className="flex items-center gap-3 flex-wrap ml-auto">
-          <span className="text-xs text-muted-foreground font-medium">
-            Moy. {Math.round(weekTotal / 7)} kcal/j
-          </span>
-          <span className="flex items-center gap-1.5 text-sm font-black text-orange-500">
-            <Flame className="h-4 w-4" />
-            {Math.round(weekTotal)} <span className="text-muted-foreground/50 font-normal text-xs">/ {WEEKLY_GOAL}</span>
-          </span>
-        </div>
-      </div>
+      {(() => {
+        const todayIndex = DAY_KEY_TO_INDEX[todayKey];
+        const daysUpToToday = DAYS.slice(0, todayIndex + 1);
+        const totalUpToToday = daysUpToToday.reduce((sum, d) => sum + getDayCalories(d), 0);
+        const avgCal = daysUpToToday.length > 0 ? Math.round(totalUpToToday / daysUpToToday.length) : 0;
+        return (
+          <div className="rounded-2xl bg-card/80 backdrop-blur-sm px-4 py-3 flex items-center justify-between flex-wrap gap-1">
+            <span className="text-sm font-bold text-foreground">Total semaine</span>
+            <div className="flex items-center gap-3 flex-wrap ml-auto">
+              <span className="text-xs text-muted-foreground font-medium">
+                Moy. {avgCal} kcal/j <span className="text-muted-foreground/40">({daysUpToToday.length}j)</span>
+              </span>
+              <span className="flex items-center gap-1.5 text-sm font-black text-orange-500">
+                <Flame className="h-4 w-4" />
+                {Math.round(weekTotal)} <span className="text-muted-foreground/50 font-normal text-xs">/ {WEEKLY_GOAL}</span>
+              </span>
+            </div>
+          </div>
+        );
+      })()}
 
       {/* Hors planning — drop zone to unplan */}
       <div

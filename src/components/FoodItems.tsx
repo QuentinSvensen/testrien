@@ -649,6 +649,20 @@ function FoodItemCard({ item, color, onUpdate, onDelete, onDuplicate, onDragStar
           {item.counter_start_date ? 'Stop' : 'Compteur'}
         </button>
 
+        {/* No-counter toggle (pas de compteur auto sur reste) */}
+        <button
+          onClick={() => onUpdate({ no_counter: !item.no_counter })}
+          className={`text-[10px] px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 border transition-all ${
+            item.no_counter
+              ? 'bg-cyan-400/30 text-cyan-200 border-cyan-400/50 font-bold'
+              : 'bg-white/10 text-white/50 border-white/20'
+          }`}
+          title={item.no_counter ? 'Compteur auto désactivé (cliquer pour activer)' : 'Désactiver le compteur automatique sur les restes'}
+        >
+          <Timer className="h-2.5 w-2.5" />
+          {item.no_counter ? '⏱✗' : ''}
+        </button>
+
       </div>
     </div>
   );

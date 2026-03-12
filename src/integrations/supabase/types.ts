@@ -28,6 +28,7 @@ export type Database = {
           is_infinite: boolean
           is_meal: boolean
           name: string
+          no_counter: boolean
           protein: string | null
           quantity: number | null
           sort_order: number
@@ -47,6 +48,7 @@ export type Database = {
           is_infinite?: boolean
           is_meal?: boolean
           name: string
+          no_counter?: boolean
           protein?: string | null
           quantity?: number | null
           sort_order?: number
@@ -66,6 +68,7 @@ export type Database = {
           is_infinite?: boolean
           is_meal?: boolean
           name?: string
+          no_counter?: boolean
           protein?: string | null
           quantity?: number | null
           sort_order?: number
