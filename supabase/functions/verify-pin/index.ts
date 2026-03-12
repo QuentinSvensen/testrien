@@ -74,7 +74,7 @@ const verifyAuth = async (authHeader: string | null) => {
 };
 
 const getMetaValue = async (
-  supabaseAdmin: ReturnType<typeof createClient>,
+  supabaseAdmin: any,
   key: string,
 ): Promise<string | null> => {
   const { data, error } = await supabaseAdmin
