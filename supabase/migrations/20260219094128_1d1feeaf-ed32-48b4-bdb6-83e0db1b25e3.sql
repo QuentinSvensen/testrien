@@ -1,0 +1,1 @@
+ALTER TABLE public.food_items ADD COLUMN IF NOT EXISTS is_dry boolean NOT NULL DEFAULT false;
