@@ -967,17 +967,22 @@ export function WeeklyPlanning() {
                   />
                   <button
                     onClick={() => {
-                      const updated = { ...keepOnReset };
-                      if (updated[`extra-${day}`]) delete updated[`extra-${day}`];
-                      else updated[`extra-${day}`] = true;
-                      setPreference.mutate({ key: 'planning_keep_on_reset', value: updated });
+                      const snapKey = `extra-${day}`;
+                      const cal = extraCalories[day] || 0;
+                      const prot = extraProteins[day] || 0;
+                      const updated = { ...savedSnapshots, [snapKey]: { cal, prot } };
+                      setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
+                      setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
+                      setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                     }}
                     className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors ${
-                      keepOnReset[`extra-${day}`]
-                        ? 'bg-primary/20 text-primary border border-primary/40'
-                        : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                      flashedKeys[`extra-${day}`]
+                        ? 'bg-green-500/30 text-green-400 border border-green-400/50'
+                        : savedSnapshots[`extra-${day}`]
+                          ? 'bg-primary/20 text-primary border border-primary/40'
+                          : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
                     }`}
-                    title="Sauvegarder les valeurs"
+                    title={savedSnapshots[`extra-${day}`] ? `Sauvegardé: ${savedSnapshots[`extra-${day}`].cal || 0} kcal / ${savedSnapshots[`extra-${day}`].prot || 0} prot` : 'Sauvegarder les valeurs pour le reset'}
                   >💾</button>
                 </div>
               </div>
