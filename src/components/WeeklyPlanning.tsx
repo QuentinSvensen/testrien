@@ -414,15 +414,19 @@ export function WeeklyPlanning() {
   const getDayProtein = (day: string): number => {
     const mealProt = TIMES.reduce((total, time) => {
       const slotMeals = getMealsForSlot(day, time);
-      return total + slotMeals.reduce((s, pm) => {
-        const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-        const ingPro = computeIngredientProtein(displayIngredients);
-        return s + (ingPro !== null ? ingPro : parseProtein(pm.meals?.protein));
-      }, 0);
+      if (slotMeals.length > 0) {
+        return total + slotMeals.reduce((s, pm) => {
+          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
+          const ingPro = computeIngredientProtein(displayIngredients);
+          return s + (ingPro !== null ? ingPro : parseProtein(pm.meals?.protein));
+        }, 0);
+      }
+      return total + (manualProteins[`${day}-${time}`] || 0);
     }, 0);
     const breakfast = getBreakfastForDay(day);
-    const breakfastProt = breakfast ? parseProtein(breakfast.protein) : 0;
-    return mealProt + breakfastProt;
+    const breakfastProt = breakfast ? parseProtein(breakfast.protein) : (breakfastManualProteins[day] || 0);
+    const extraProt = extraProteins[day] || 0;
+    return mealProt + breakfastProt + extraProt;
   };
 
   const handleDrop = async (e: React.DragEvent, day: string, time: string) => {
