@@ -705,34 +705,55 @@ export function WeeklyPlanning() {
                 </Popover>
                 {/* Manual calorie input when no breakfast selected */}
                 {!getBreakfastForDay(day) && (
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="kcal"
-                    key={`breakfast-cal-${day}`}
-                    defaultValue={breakfastManualCalories[day] || ''}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value) || 0;
-                      const updated = { ...breakfastManualCalories };
-                      if (val > 0) updated[day] = val;
-                      else delete updated[day];
-                      setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: updated });
-                    }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                    className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40"
-                  />
+                  <>
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="kcal"
+                      key={`breakfast-cal-${day}`}
+                      defaultValue={breakfastManualCalories[day] || ''}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const updated = { ...breakfastManualCalories };
+                        if (val > 0) updated[day] = val;
+                        else delete updated[day];
+                        setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: updated });
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40"
+                    />
+                    <input
+                      type="number"
+                      inputMode="numeric"
+                      placeholder="prot"
+                      key={`breakfast-prot-${day}`}
+                      defaultValue={breakfastManualProteins[day] || ''}
+                      onBlur={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        const updated = { ...breakfastManualProteins };
+                        if (val > 0) updated[day] = val;
+                        else delete updated[day];
+                        setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: updated });
+                      }}
+                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40"
+                    />
+                  </>
                 )}
-                <Checkbox
-                  checked={!!keepOnReset[`breakfast-${day}`]}
-                  onCheckedChange={(checked) => {
+                <button
+                  onClick={() => {
                     const updated = { ...keepOnReset };
-                    if (checked) updated[`breakfast-${day}`] = true;
-                    else delete updated[`breakfast-${day}`];
+                    if (updated[`breakfast-${day}`]) delete updated[`breakfast-${day}`];
+                    else updated[`breakfast-${day}`] = true;
                     setPreference.mutate({ key: 'planning_keep_on_reset', value: updated });
                   }}
-                  className="h-3 w-3 shrink-0"
-                  title="Conserver lors du reset"
-                />
+                  className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors ${
+                    keepOnReset[`breakfast-${day}`]
+                      ? 'bg-primary/20 text-primary border border-primary/40'
+                      : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                  }`}
+                  title="Sauvegarder les valeurs"
+                >💾</button>
               </div>
               <div className="flex-1" />
               <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap justify-end">
