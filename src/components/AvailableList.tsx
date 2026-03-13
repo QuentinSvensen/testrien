@@ -962,7 +962,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
             </p>
           }
 
-          {!isPlat && unusedFoodItems.length > 0 && renderUnusedItems(unusedFoodItems)}
+          {!isPlat && (unusedFoodItems.length > 0 || crossCategoryExpiringItems.length > 0) && renderUnusedItems(unusedFoodItems, crossCategoryExpiringItems)}
         </div>
       }
     </div>
