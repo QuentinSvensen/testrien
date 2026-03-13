@@ -88,8 +88,8 @@ export function PossibleList({ category, items, sortMode, onToggleSort, onRandom
     if (sortMode !== "expiration") return items;
 
     return [...items].sort((a, b) => {
-      const aCounter = getCounterDays(a.counter_start_date);
-      const bCounter = getCounterDays(b.counter_start_date);
+      const aCounter = getCounterDays(a.counter_start_date, a);
+      const bCounter = getCounterDays(b.counter_start_date, b);
       // Only re-sort items with same non-null, non-zero counter
       if (aCounter === null || bCounter === null || aCounter !== bCounter) return 0;
 
