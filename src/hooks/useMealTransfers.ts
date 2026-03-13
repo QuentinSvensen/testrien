@@ -229,7 +229,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
       const deltaCount = newU.count - oldU.count;
       if (deltaGrams === 0 && deltaCount === 0) continue;
 
-      const matchingItems = foodItems.filter(fi => strictNameMatch(fi.name, ingName) && !fi.is_infinite).sort(sortStockDeductionPriority);
+      const matchingItems = currentFoodItems.filter(fi => strictNameMatch(fi.name, ingName) && !fi.is_infinite).sort(sortStockDeductionPriority);
 
       if (deltaGrams > 0) {
         let toDeduct = deltaGrams;
