@@ -724,11 +724,14 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
     setAvailPref.mutate({ key: `available_order_${category.value}`, value: reordered.map(u => u.key) });
   };
 
-  const renderUnusedItems = (items: FoodItem[]) => (
+  const renderUnusedItems = (items: FoodItem[], crossCatItems: FoodItem[] = []) => {
+    const allItems = [...items, ...crossCatItems];
+    const crossCatIds = new Set(crossCatItems.map(fi => fi.id));
+    return (
     <div className={`${isPlat ? 'mb-2' : 'mt-4'} rounded-2xl bg-muted/30 border border-border/20 p-3`}>
-      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">🧊 Aliments inutilisés ({items.length})</p>
+      <p className="text-[10px] font-bold text-muted-foreground uppercase tracking-widest mb-2">🧊 Aliments inutilisés ({allItems.length})</p>
       <div className="flex flex-wrap gap-1.5">
-        {[...items].sort((a, b) => {
+        {[...allItems].sort((a, b) => {
           const today = new Date(new Date().toDateString());
           const aCounter = a.counter_start_date ? Math.floor((Date.now() - new Date(a.counter_start_date).getTime()) / 86400000) : null;
           const bCounter = b.counter_start_date ? Math.floor((Date.now() - new Date(b.counter_start_date).getTime()) / 86400000) : null;
@@ -753,8 +756,14 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
           const expLabel = fi.expiration_date ? format(parseISO(fi.expiration_date), 'd MMM', { locale: fr }) : null;
           const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
           const counterUrgent = counterDays !== null && counterDays >= 3;
+          const isCrossCat = crossCatIds.has(fi.id);
           return (
-            <span key={fi.id} className={`text-[11px] px-2.5 py-1.5 rounded-full font-medium transition-colors inline-flex items-center gap-1 ${isExpired ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/40' : (isSoonExpiring ? 'bg-muted/80 text-muted-foreground ring-2 ring-red-500/60' : 'bg-muted/80 text-muted-foreground hover:bg-muted')}`}>
+            <span key={fi.id} className={`text-[11px] px-2.5 py-1.5 rounded-full font-medium transition-colors inline-flex items-center gap-1 ${
+              isCrossCat
+                ? 'bg-amber-500/20 text-amber-300 ring-1 ring-amber-500/40 border border-dashed border-amber-500/30'
+                : isExpired ? 'bg-red-500/20 text-red-300 ring-1 ring-red-500/40'
+                : (isSoonExpiring ? 'bg-muted/80 text-muted-foreground ring-2 ring-red-500/60' : 'bg-muted/80 text-muted-foreground hover:bg-muted')
+            }`}>
               {fi.name}
               {counterDays !== null && (
                 <span className={`text-[9px] font-black px-1 py-0 rounded-full flex items-center gap-0.5 ${counterUrgent ? 'bg-red-500/60 text-white' : 'opacity-70'}`}>
@@ -765,13 +774,14 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
               {qty && <span className="opacity-60">×{qty}</span>}
               {fi.is_infinite && <span className="opacity-60">∞</span>}
               {expLabel && <span className={`text-[9px] ${isExpired ? 'text-red-300' : 'opacity-50'}`}>📅{expLabel}</span>}
-              <button onClick={() => onDeleteFoodItem(fi.id)} className="ml-0.5 opacity-40 hover:opacity-100 hover:text-destructive transition-opacity" title="Supprimer cet aliment">✕</button>
+              {!isCrossCat && <button onClick={() => onDeleteFoodItem(fi.id)} className="ml-0.5 opacity-40 hover:opacity-100 hover:text-destructive transition-opacity" title="Supprimer cet aliment">✕</button>}
             </span>
           );
         })}
       </div>
     </div>
-  );
+    );
+  };
 
   return (
     <div className="rounded-3xl bg-card/80 backdrop-blur-sm p-4">
