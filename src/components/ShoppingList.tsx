@@ -377,7 +377,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
         className={`flex items-center gap-0.5 py-1.5 pl-0.5 pr-1 rounded-lg transition-colors cursor-grab active:cursor-grabbing ${isOver ? 'ring-2 ring-primary/60 bg-primary/5' : ''} ${!item.checked ? 'opacity-40' : ''}`}
       >
         {/* Secondary checkbox OR ambiguous indicator (clickable with group color) */}
-        {isAmbiguous ? (() => {
+        {showGreenChecks && (isAmbiguous ? (() => {
           const ambData = ambiguousItemData.get(item.id);
           const colorIdx = ambData?.colorIndex ?? 0;
           const color = ambiguousColors[colorIdx % ambiguousColors.length];
