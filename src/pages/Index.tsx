@@ -637,6 +637,15 @@ const Index = () => {
                   <button onClick={() => setCoursesTab("liste")} className={`flex-1 py-1.5 rounded-full text-xs font-medium transition-colors ${coursesTab === "liste" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}>🛒 Liste</button>
                   <button onClick={() => setCoursesTab("menu")} className={`flex-1 py-1.5 rounded-full text-xs font-medium transition-colors ${coursesTab === "menu" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}>🎲 Menu</button>
                 </div>
+                <label className="flex items-center gap-1.5 text-[10px] text-muted-foreground cursor-pointer select-none justify-center mt-1.5">
+                  <input
+                    type="checkbox"
+                    checked={getPreference<boolean>('shopping_show_green_checks', true)}
+                    onChange={(e) => setPreference.mutate({ key: 'shopping_show_green_checks', value: e.target.checked })}
+                    className="h-3 w-3 rounded accent-green-500"
+                  />
+                  Menu semaine
+                </label>
               </div>
               {coursesTab === "liste" ? <LazyShoppingList /> : <LazyMealPlanGenerator />}
             </div>

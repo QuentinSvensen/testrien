@@ -621,7 +621,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
               onClick={() => setEditingField(prev => ({ ...prev, [item.id]: "qty" }))}
               className="shrink-0 px-0.5 rounded hover:bg-muted/60 transition-colors"
             >
-              <span className={`text-sm font-bold ${item.secondary_checked ? 'text-green-500' : 'text-foreground'}`}>×{qty}</span>
+              <span className={`text-sm font-bold ${showGreenChecks && item.secondary_checked ? 'text-green-500' : 'text-foreground'}`}>×{qty}</span>
             </button>
           ) : (
             <button
