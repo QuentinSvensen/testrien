@@ -833,8 +833,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
 
       {!collapsed &&
         <div className="flex flex-col gap-2 mt-3">
-          {(unusedFoodItems.length > 0 || crossCategoryExpiringItems.length > 0) && isPlat && renderUnusedItems(unusedFoodItems, crossCategoryExpiringItems)}
-          {!isPlat && (unusedFoodItems.length > 0 || crossCategoryExpiringItems.length > 0) && renderUnusedItems(unusedFoodItems, crossCategoryExpiringItems)}
+          {isPlat && (unusedFoodItems.length > 0 || crossCategoryExpiringItems.length > 0) && renderUnusedItems(unusedFoodItems, crossCategoryExpiringItems)}
 
           {(() => {
             const isMealWithDate: FoodItem[] = (sortedIsMealItems as any).__withDate || [];
