@@ -833,7 +833,7 @@ export function WeeklyPlanning() {
                     setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                     setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                   }}
-                  className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors max-w-[120px] truncate ${
+                  className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
                     flashedKeys[`breakfast-${day}`]
                       ? 'bg-green-500/30 text-green-400 border border-green-400/50'
                       : savedSnapshots[`breakfast-${day}`]
@@ -846,10 +846,7 @@ export function WeeklyPlanning() {
                     if (snap.name) return `Sauvegardé: ${snap.name}`;
                     return `Sauvegardé: ${snap.cal || 0} kcal / ${snap.prot || 0} prot`;
                   })()}
-                >💾{(() => {
-                  const snap = savedSnapshots[`breakfast-${day}`] as any;
-                  return snap?.name ? ` ${snap.name}` : '';
-                })()}</button>
+                >💾</button>
               </div>
               <div className="flex-1" />
               <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap justify-end">
