@@ -616,21 +616,26 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
             />
           </div>
         ) : (
-          qty ? (
-            <button
-              onClick={() => setEditingField(prev => ({ ...prev, [item.id]: "qty" }))}
-              className="shrink-0 px-0.5 rounded hover:bg-muted/60 transition-colors"
-            >
-              <span className={`text-sm font-bold ${showGreenChecks && item.secondary_checked ? 'text-green-500' : 'text-foreground'}`}>×{qty}</span>
-            </button>
-          ) : (
-            <button
-              onClick={() => setEditingField(prev => ({ ...prev, [item.id]: "qty" }))}
-              className="shrink-0 px-0.5 rounded hover:bg-muted/60 transition-colors text-[9px] text-muted-foreground/20"
-            >
-              Qté
-            </button>
-          )
+          (() => {
+            const hideMenuQty = !showGreenChecks && item.secondary_checked;
+            if (hideMenuQty) return null;
+            if (qty) return (
+              <button
+                onClick={() => setEditingField(prev => ({ ...prev, [item.id]: "qty" }))}
+                className="shrink-0 px-0.5 rounded hover:bg-muted/60 transition-colors"
+              >
+                <span className={`text-sm font-bold ${showGreenChecks && item.secondary_checked ? 'text-green-500' : 'text-foreground'}`}>×{qty}</span>
+              </button>
+            );
+            return (
+              <button
+                onClick={() => setEditingField(prev => ({ ...prev, [item.id]: "qty" }))}
+                className="shrink-0 px-0.5 rounded hover:bg-muted/60 transition-colors text-[9px] text-muted-foreground/20"
+              >
+                Qté
+              </button>
+            );
+          })()
         )}
 
         <div className="flex-1" />

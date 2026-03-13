@@ -833,7 +833,7 @@ export function WeeklyPlanning() {
                     setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                     setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                   }}
-                  className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors max-w-[120px] truncate ${
+                  className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
                     flashedKeys[`breakfast-${day}`]
                       ? 'bg-green-500/30 text-green-400 border border-green-400/50'
                       : savedSnapshots[`breakfast-${day}`]
@@ -846,10 +846,7 @@ export function WeeklyPlanning() {
                     if (snap.name) return `Sauvegardé: ${snap.name}`;
                     return `Sauvegardé: ${snap.cal || 0} kcal / ${snap.prot || 0} prot`;
                   })()}
-                >💾{(() => {
-                  const snap = savedSnapshots[`breakfast-${day}`] as any;
-                  return snap?.name ? ` ${snap.name}` : '';
-                })()}</button>
+                >💾</button>
               </div>
               <div className="flex-1" />
               <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap justify-end">
@@ -992,25 +989,27 @@ export function WeeklyPlanning() {
                             onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                             className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40"
                           />
-                          <button
-                            onClick={() => {
-                              const snapKey = `manual-${day}-${time}`;
-                              const cal = manualCalories[`${day}-${time}`] || 0;
-                              const prot = manualProteins[`${day}-${time}`] || 0;
-                              const updated = { ...savedSnapshots, [snapKey]: { cal, prot } };
-                              setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
-                              setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
-                              setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
-                            }}
-                            className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors ${
-                              flashedKeys[`manual-${day}-${time}`]
-                                ? 'bg-green-500/30 text-green-400 border border-green-400/50'
-                                : savedSnapshots[`manual-${day}-${time}`]
-                                  ? 'bg-primary/20 text-primary border border-primary/40'
-                                  : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
-                            }`}
-                            title={savedSnapshots[`manual-${day}-${time}`] ? `Sauvegardé: ${savedSnapshots[`manual-${day}-${time}`].cal || 0} kcal / ${savedSnapshots[`manual-${day}-${time}`].prot || 0} prot` : 'Sauvegarder les valeurs pour le reset'}
-                          >💾</button>
+                          <div className="flex justify-center">
+                            <button
+                              onClick={() => {
+                                const snapKey = `manual-${day}-${time}`;
+                                const cal = manualCalories[`${day}-${time}`] || 0;
+                                const prot = manualProteins[`${day}-${time}`] || 0;
+                                const updated = { ...savedSnapshots, [snapKey]: { cal, prot } };
+                                setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
+                                setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
+                                setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
+                              }}
+                              className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
+                                flashedKeys[`manual-${day}-${time}`]
+                                  ? 'bg-green-500/30 text-green-400 border border-green-400/50'
+                                  : savedSnapshots[`manual-${day}-${time}`]
+                                    ? 'bg-primary/20 text-primary border border-primary/40'
+                                    : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                              }`}
+                              title={savedSnapshots[`manual-${day}-${time}`] ? `Sauvegardé: ${savedSnapshots[`manual-${day}-${time}`].cal || 0} kcal / ${savedSnapshots[`manual-${day}-${time}`].prot || 0} prot` : 'Sauvegarder les valeurs pour le reset'}
+                            >💾</button>
+                          </div>
                         </div>
                       ) : (
                         slotMeals.map((pm) => renderMiniCard(pm, false))
@@ -1065,7 +1064,7 @@ export function WeeklyPlanning() {
                       setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                       setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                     }}
-                    className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors ${
+                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
                       flashedKeys[`extra-${day}`]
                         ? 'bg-green-500/30 text-green-400 border border-green-400/50'
                         : savedSnapshots[`extra-${day}`]

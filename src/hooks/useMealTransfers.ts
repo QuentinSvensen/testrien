@@ -43,6 +43,8 @@ export function useMealTransfers(foodItems: FoodItem[]) {
     const rememberSnapshot = (fi: FoodItem) => { if (!snapshotsById.has(fi.id)) snapshotsById.set(fi.id, { ...fi }); };
 
     for (const group of groups) {
+      // Skip optional ingredient groups — they are not consumed on move to possible
+      if (group.every(alt => alt.optional)) continue;
       const alt = pickBestAlternative(group, stockMap);
       if (!alt) continue;
       const { qty: neededGrams, count: neededCount, name } = alt;

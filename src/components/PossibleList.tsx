@@ -62,9 +62,11 @@ export function PossibleList({ category, items, sortMode, onToggleSort, onRandom
 
   const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
 
-  const getCounterDays = (startDate: string | null): number | null => {
+  const getCounterDays = (startDate: string | null, pm?: PossibleMeal): number | null => {
     if (!startDate) return null;
-    return Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
+    // Freeze counter at the value it had when moved to possible (use created_at as reference)
+    const refTime = pm?.created_at ? new Date(pm.created_at).getTime() : Date.now();
+    return Math.floor((refTime - new Date(startDate).getTime()) / 86400000);
   };
 
   const getDisplayedCalories = (pm: PossibleMeal): number | null => {
@@ -86,8 +88,8 @@ export function PossibleList({ category, items, sortMode, onToggleSort, onRandom
     if (sortMode !== "expiration") return items;
 
     return [...items].sort((a, b) => {
-      const aCounter = getCounterDays(a.counter_start_date);
-      const bCounter = getCounterDays(b.counter_start_date);
+      const aCounter = getCounterDays(a.counter_start_date, a);
+      const bCounter = getCounterDays(b.counter_start_date, b);
       // Only re-sort items with same non-null, non-zero counter
       if (aCounter === null || bCounter === null || aCounter !== bCounter) return 0;
 
