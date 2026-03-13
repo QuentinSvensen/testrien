@@ -1064,7 +1064,7 @@ export function WeeklyPlanning() {
                       setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                       setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                     }}
-                    className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors ${
+                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
                       flashedKeys[`extra-${day}`]
                         ? 'bg-green-500/30 text-green-400 border border-green-400/50'
                         : savedSnapshots[`extra-${day}`]
