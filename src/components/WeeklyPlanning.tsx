@@ -826,20 +826,30 @@ export function WeeklyPlanning() {
                     const snapKey = `breakfast-${day}`;
                     const cal = breakfastManualCalories[day] || 0;
                     const prot = breakfastManualProteins[day] || 0;
-                    const updated = { ...savedSnapshots, [snapKey]: { cal, prot } };
+                    const breakfast = getBreakfastForDay(day);
+                    const mealId = breakfastSelections[day] || undefined;
+                    const updated = { ...savedSnapshots, [snapKey]: { cal, prot, name: breakfast?.name, mealId } };
                     setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
                     setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                     setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                   }}
-                  className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors ${
+                  className={`h-5 px-1.5 text-[9px] rounded font-semibold shrink-0 transition-colors max-w-[120px] truncate ${
                     flashedKeys[`breakfast-${day}`]
                       ? 'bg-green-500/30 text-green-400 border border-green-400/50'
                       : savedSnapshots[`breakfast-${day}`]
                         ? 'bg-primary/20 text-primary border border-primary/40'
                         : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
                   }`}
-                  title={savedSnapshots[`breakfast-${day}`] ? `Sauvegardé: ${savedSnapshots[`breakfast-${day}`].cal || 0} kcal / ${savedSnapshots[`breakfast-${day}`].prot || 0} prot` : 'Sauvegarder les valeurs pour le reset'}
-                >💾</button>
+                  title={(() => {
+                    const snap = savedSnapshots[`breakfast-${day}`] as any;
+                    if (!snap) return 'Sauvegarder les valeurs pour le reset';
+                    if (snap.name) return `Sauvegardé: ${snap.name}`;
+                    return `Sauvegardé: ${snap.cal || 0} kcal / ${snap.prot || 0} prot`;
+                  })()}
+                >💾{(() => {
+                  const snap = savedSnapshots[`breakfast-${day}`] as any;
+                  return snap?.name ? ` ${snap.name}` : '';
+                })()}</button>
               </div>
               <div className="flex-1" />
               <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap justify-end">
