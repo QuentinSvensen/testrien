@@ -283,6 +283,7 @@ const Index = () => {
           const dayKey = key.replace('breakfast-', '');
           if (snap.cal) restoredBreakfastCal[dayKey] = snap.cal;
           if (snap.prot) restoredBreakfastProt[dayKey] = snap.prot;
+          if ((snap as any).mealId) keptBreakfast[dayKey] = (snap as any).mealId;
         }
       }
       setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: restoredBreakfastCal });
