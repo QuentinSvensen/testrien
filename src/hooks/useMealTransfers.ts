@@ -261,7 +261,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
         const toAdd = -deltaGrams;
         // Prefer the exact food item that was originally deducted (from snapshot)
         const snapshotFi = snapshots?.find(s => strictNameMatch(s.name, ingName));
-        const fi = snapshotFi ? (foodItems.find(f => f.id === snapshotFi.id) ?? null) : (matchingItems[0] ?? null);
+        const fi = snapshotFi ? (currentFoodItems.find(f => f.id === snapshotFi.id) ?? null) : (matchingItems[0] ?? null);
         
         if (fi) {
           // Item still exists in stock — add grams to it
