@@ -59,6 +59,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
   const [customRatios, setCustomRatios] = useState<Record<string, number>>({});
   const [editingRatioId, setEditingRatioId] = useState<string | null>(null);
   const [ratioInput, setRatioInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const { getTargetCalorieThreshold } = useCalorieBalance();
   const baseCalorieThreshold = getTargetCalorieThreshold();
   const [tempCalorieOverride, setTempCalorieOverride] = useState<number | null>(null);
@@ -130,6 +131,26 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
     if (u.type === 'isMeal') return u.fi?.name ?? '';
     if (u.type === 'nm') return u.nm?.meal.name ?? '';
     return u.item?.meal.name ?? '';
+  };
+
+  const getUnifiedItemIngredients = (u: {
+    type: 'isMeal' | 'nm' | 'av' | 'partial';
+    fi?: FoodItem;
+    nm?: NameMatch;
+    item?: { meal: Meal };
+  }): string => {
+    if (u.type === 'av' || u.type === 'partial') return u.item?.meal.ingredients ?? '';
+    return '';
+  };
+
+  const matchesSearch = (u: any): boolean => {
+    if (!searchQuery.trim()) return true;
+    const q = normalizeForMatch(searchQuery);
+    const name = normalizeForMatch(getUnifiedItemName(u));
+    if (name.includes(q)) return true;
+    const ing = normalizeForMatch(getUnifiedItemIngredients(u));
+    if (ing.includes(q)) return true;
+    return false;
   };
 
   // 1. Meals realizable via ingredient matching
@@ -337,6 +358,11 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
       ...sortedAvailable.map(item => ({ type: 'av' as const, key: item.meal.id, item })),
       ...partialAvailable.map(item => ({ type: 'partial' as const, key: `partial-${item.meal.id}`, item }))
     ];
+
+    // Apply search filter
+    if (searchQuery.trim()) {
+      items = items.filter(matchesSearch);
+    }
 
     // Au lieu de polluer le state global React customRatios lors du JS de rendu,
     // on gère une copie locale pour cette passe de calcul :
@@ -796,7 +822,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
           </h2>
           <span className="text-sm font-normal text-muted-foreground">{totalCount}</span>
         </button>
-        <Button size="sm" variant="ghost" onClick={onToggleSort} className="text-[10px] gap-0.5 h-6 px-1.5">
+      <Button size="sm" variant="ghost" onClick={onToggleSort} className="text-[10px] gap-0.5 h-6 px-1.5">
           <SortIcon className="h-3 w-3" />
           <span className="hidden sm:inline">{sortLabel}</span>
         </Button>
@@ -806,6 +832,18 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
           </Button>
         )}
       </div>
+
+      {!collapsed && (
+        <div className="mt-2 mb-1">
+          <Input
+            type="text"
+            placeholder="Rechercher..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="h-7 text-xs rounded-xl bg-muted/40 border-border/30 placeholder:text-muted-foreground/40"
+          />
+        </div>
+      )}
 
       {!collapsed && isPlat && (
         <div className="flex items-center gap-3 mt-3 px-3 py-1.5 bg-muted/40 rounded-2xl border border-muted/50">
@@ -826,25 +864,25 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
             </label>
             {useRemainingCalories && (
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[10px] text-muted-foreground">
-                  Seuil max :
-                </span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  defaultValue={Math.round(tempCalorieOverride ?? baseCalorieThreshold)}
-                  key={`temp-cal-${tempCalorieOverride ?? 'base'}-${Math.round(baseCalorieThreshold)}`}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (val && val > 0 && val !== Math.round(baseCalorieThreshold)) {
-                      setTempCalorieOverride(val);
-                    } else {
-                      setTempCalorieOverride(null);
-                    }
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                  className="w-16 h-5 text-[10px] bg-transparent border-none rounded px-1 text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-orange-400/30 text-center hover:text-orange-500 transition-colors"
-                />
+                 <span className="text-[10px] text-muted-foreground">
+                   Seuil max :
+                 </span>
+                 <input
+                   type="number"
+                   inputMode="numeric"
+                   defaultValue={Math.round(tempCalorieOverride ?? baseCalorieThreshold)}
+                   key={`temp-cal-${tempCalorieOverride ?? 'base'}-${Math.round(baseCalorieThreshold)}`}
+                   onBlur={(e) => {
+                     const val = parseInt(e.target.value);
+                     if (val && val > 0 && val !== Math.round(baseCalorieThreshold)) {
+                       setTempCalorieOverride(val);
+                     } else {
+                       setTempCalorieOverride(null);
+                     }
+                   }}
+                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                   className="w-16 h-5 text-sm font-bold bg-transparent border-none rounded px-1 text-foreground focus:outline-none focus:ring-1 focus:ring-orange-400/30 text-center hover:text-orange-500 transition-colors"
+                 />
                 <span className="text-[10px] text-muted-foreground">kcal</span>
                 {tempCalorieOverride !== null && (
                   <button
@@ -899,7 +937,17 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
                 unified.push({ type: 'partial', item, sortDate: expDate, sortCounter: maxCounter, sortCalories: getDisplayedCalories(displayMeal) });
               }
               
-              let filteredUnified = unified;
+              // Apply search filter
+              let filteredUnified = searchQuery.trim() ? unified.filter(u => {
+                const name = normalizeForMatch(u.type === 'isMeal' ? (u.fi?.name ?? '') : u.type === 'nm' ? (u.nm?.meal.name ?? '') : (u.item?.meal.name ?? ''));
+                const q = normalizeForMatch(searchQuery);
+                if (name.includes(q)) return true;
+                if (u.type === 'av' || u.type === 'partial') {
+                  const ing = normalizeForMatch(u.item?.meal.ingredients ?? '');
+                  if (ing.includes(q)) return true;
+                }
+                return false;
+              }) : unified;
               if (useRemainingCalories) {
                 filteredUnified = unified.filter(u => {
                   if (u.type === 'isMeal') {

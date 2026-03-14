@@ -709,20 +709,34 @@ const Index = () => {
                   onUpdateCalories={(id, cal) => updateCalories.mutate({ id, calories: cal })}
                   onUpdateProtein={(id, prot) => updateProtein.mutate({ id, protein: prot })}
                   onUpdateGrams={(id, g) => updateGrams.mutate({ id, grams: g })}
-                  onUpdateIngredients={(id, ing) => {
-                    updateIngredients.mutate({ id, ingredients: ing });
-                    // Propagate cal/prot to other meals with same ingredient names
-                    if (ing) {
-                      const macros = extractIngredientMacros(ing);
-                      if (macros.size > 0) {
-                        for (const m of meals) {
-                          if (m.id === id || !m.ingredients) continue;
-                          const updated = applyIngredientMacros(m.ingredients, macros);
-                          if (updated) updateIngredients.mutate({ id: m.id, ingredients: updated });
-                        }
-                      }
-                    }
-                  }}
+                   onUpdateIngredients={(id, ing) => {
+                     updateIngredients.mutate({ id, ingredients: ing });
+                     // Propagate cal/prot to other meals with same ingredient names
+                     if (ing) {
+                       // First collect macros from ALL meals to have a full picture
+                       const globalMacros = new Map<string, { cal: string; pro: string }>();
+                       for (const m of meals) {
+                         if (!m.ingredients) continue;
+                         const mId = m.id === id ? ing : m.ingredients;
+                         const mMacros = extractIngredientMacros(mId);
+                         for (const [key, val] of mMacros) {
+                           const existing = globalMacros.get(key);
+                           // Keep the most complete: prefer non-empty values
+                           globalMacros.set(key, {
+                             cal: val.cal || existing?.cal || "",
+                             pro: val.pro || existing?.pro || "",
+                           });
+                         }
+                       }
+                       if (globalMacros.size > 0) {
+                         for (const m of meals) {
+                           if (m.id === id || !m.ingredients) continue;
+                           const updated = applyIngredientMacros(m.ingredients, globalMacros);
+                           if (updated) updateIngredients.mutate({ id: m.id, ingredients: updated });
+                         }
+                       }
+                     }
+                   }}
                   onToggleFavorite={(id) => {
                     const meal = meals.find((m) => m.id === id);
                     if (meal) toggleFavorite.mutate({ id, is_favorite: !meal.is_favorite });

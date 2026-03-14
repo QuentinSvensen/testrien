@@ -826,20 +826,29 @@ export function WeeklyPlanning() {
                       {possiblePetitDej.length > 0 && (
                         <>
                           <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Possible</p>
-                          {possiblePetitDej.map(pm => (
-                            <button key={pm.id} onClick={() => setBreakfastForDay(day, pm.meal_id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pm.meal_id ? 'bg-primary/10 font-bold' : ''}`}>
-                              {pm.meals?.name} {pm.meals?.calories ? `(${pm.meals.calories})` : ''}
-                            </button>
-                          ))}
+                          {possiblePetitDej.map(pm => {
+                            const displayIng = pm.ingredients_override ?? pm.meals?.ingredients;
+                            const ingCal = computeIngredientCalories(displayIng);
+                            const calDisplay = ingCal !== null ? String(ingCal) : pm.meals?.calories;
+                            return (
+                              <button key={pm.id} onClick={() => setBreakfastForDay(day, pm.meal_id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pm.meal_id ? 'bg-primary/10 font-bold' : ''}`}>
+                                {pm.meals?.name} {calDisplay ? `(${calDisplay})` : ''}
+                              </button>
+                            );
+                          })}
                           <div className="border-t border-border/40 my-1" />
                         </>
                       )}
                       <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Tous</p>
-                      {petitDejMeals.map(m => (
-                        <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
-                          {m.name} {m.calories ? `(${m.calories})` : ''}
-                        </button>
-                      ))}
+                      {petitDejMeals.map(m => {
+                        const ingCal = computeIngredientCalories(m.ingredients);
+                        const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
+                        return (
+                          <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
+                            {m.name} {calDisplay ? `(${calDisplay})` : ''}
+                          </button>
+                        );
+                      })}
                       {petitDejMeals.length === 0 && possiblePetitDej.length === 0 && (
                         <p className="text-[10px] text-muted-foreground italic px-2 py-1">Aucun petit déj</p>
                       )}

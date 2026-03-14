@@ -446,19 +446,40 @@ export function buildScaledMealForRatio(meal: Meal, ratio: number, stockMap?: Ma
 
 export function scaleIngredientStringExact(rawIngredients: string | null, ratio: number, stockMap?: Map<string, StockInfo>): string | null {
   if (!rawIngredients?.trim()) return null;
-  return rawIngredients.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean)
-    .map(group => {
+  
+  // First pass: determine the effective ratio considering count-based rounding
+  // If any count-based ingredient rounds up, all ingredients should use that rounded ratio
+  let effectiveRatio = ratio;
+  const groups = rawIngredients.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
+  
+  for (const group of groups) {
+    const alt = group.split(/\|/).map(s => s.trim()).filter(Boolean)[0];
+    if (!alt) continue;
+    const isOptional = alt.startsWith("?");
+    const cleanAlt = isOptional ? alt.slice(1).trim() : alt;
+    const { text: withoutMetrics } = extractMetrics(cleanAlt);
+    const parsed = parseIngredientLineRaw(withoutMetrics);
+    
+    if (parsed.count > 0 && parsed.qty === 0) {
+      const scaledCount = Math.round(parsed.count * ratio);
+      const actualRatio = scaledCount / parsed.count;
+      if (Math.abs(actualRatio - ratio) > 0.001) {
+        effectiveRatio = actualRatio;
+      }
+    }
+  }
+  
+  return groups.map(group => {
       return group.split(/\|/).map(s => s.trim()).filter(Boolean)
         .map(alt => {
           const isOptional = alt.startsWith("?");
           const cleanAlt = isOptional ? alt.slice(1).trim() : alt;
           
-          // Use extractMetrics to preserve both {cal} and [pro] suffixes
           const { text: withoutMetrics, cal, pro } = extractMetrics(cleanAlt);
           const parsed = parseIngredientLineRaw(withoutMetrics);
           
-          let scaledQtyRaw = parsed.qty > 0 ? parsed.qty * ratio : 0;
-          let scaledCountRaw = parsed.count > 0 ? parsed.count * ratio : 0;
+          let scaledQtyRaw = parsed.qty > 0 ? parsed.qty * effectiveRatio : 0;
+          let scaledCountRaw = parsed.count > 0 ? parsed.count * effectiveRatio : 0;
 
           if (parsed.count > 0 && parsed.qty === 0) {
             scaledCountRaw = Math.round(scaledCountRaw);
