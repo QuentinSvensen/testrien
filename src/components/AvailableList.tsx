@@ -133,6 +133,26 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
     return u.item?.meal.name ?? '';
   };
 
+  const getUnifiedItemIngredients = (u: {
+    type: 'isMeal' | 'nm' | 'av' | 'partial';
+    fi?: FoodItem;
+    nm?: NameMatch;
+    item?: { meal: Meal };
+  }): string => {
+    if (u.type === 'av' || u.type === 'partial') return u.item?.meal.ingredients ?? '';
+    return '';
+  };
+
+  const matchesSearch = (u: any): boolean => {
+    if (!searchQuery.trim()) return true;
+    const q = normalizeForMatch(searchQuery);
+    const name = normalizeForMatch(getUnifiedItemName(u));
+    if (name.includes(q)) return true;
+    const ing = normalizeForMatch(getUnifiedItemIngredients(u));
+    if (ing.includes(q)) return true;
+    return false;
+  };
+
   // 1. Meals realizable via ingredient matching
   const available: { meal: Meal; multiple: number | null }[] = meals
     .filter(meal => meal.ingredients?.trim())
