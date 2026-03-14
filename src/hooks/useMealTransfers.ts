@@ -91,7 +91,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
               updatesById.set(fi.id, { id: fi.id, quantity: fullUnits, grams: formatNumeric(perUnit), ...(fi.counter_start_date ? { counter_start_date: null } : {}) });
             } else { updatesById.set(fi.id, { id: fi.id, delete: true }); }
           } else {
-            const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele';
+            const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
             updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
           }
         }
