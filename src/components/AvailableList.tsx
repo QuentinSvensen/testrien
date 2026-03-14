@@ -359,6 +359,11 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
       ...partialAvailable.map(item => ({ type: 'partial' as const, key: `partial-${item.meal.id}`, item }))
     ];
 
+    // Apply search filter
+    if (searchQuery.trim()) {
+      items = items.filter(matchesSearch);
+    }
+
     // Au lieu de polluer le state global React customRatios lors du JS de rendu,
     // on gère une copie locale pour cette passe de calcul :
     const localCalculatedRatios: Record<string, number> = {};
