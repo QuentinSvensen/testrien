@@ -59,6 +59,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
   const [customRatios, setCustomRatios] = useState<Record<string, number>>({});
   const [editingRatioId, setEditingRatioId] = useState<string | null>(null);
   const [ratioInput, setRatioInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
   const { getTargetCalorieThreshold } = useCalorieBalance();
   const baseCalorieThreshold = getTargetCalorieThreshold();
   const [tempCalorieOverride, setTempCalorieOverride] = useState<number | null>(null);
