@@ -255,7 +255,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
                 supabase.from("food_items").update({ quantity: rem > 0 ? Math.max(1, fullUnits + 1) : fullUnits, grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}), ...(shouldClearCounter ? { counter_start_date: null } : {}) } as any).eq("id", fi.id)
               );
             } else {
-              const shouldStartCounter = remaining > 0 && remaining < parseQty(fi.grams) && !fi.counter_start_date && fi.storage_type !== 'surgele';
+              const shouldStartCounter = remaining > 0 && remaining < parseQty(fi.grams) && !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
               await safeMutate("Ajustement stock", () =>
                 supabase.from("food_items").update({ grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) } as any).eq("id", fi.id)
               );

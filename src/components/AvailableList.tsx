@@ -839,25 +839,25 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
             </label>
             {useRemainingCalories && (
               <div className="flex items-center gap-1.5 mt-0.5">
-                <span className="text-[10px] text-muted-foreground">
-                  Seuil max :
-                </span>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  defaultValue={Math.round(tempCalorieOverride ?? baseCalorieThreshold)}
-                  key={`temp-cal-${tempCalorieOverride ?? 'base'}-${Math.round(baseCalorieThreshold)}`}
-                  onBlur={(e) => {
-                    const val = parseInt(e.target.value);
-                    if (val && val > 0 && val !== Math.round(baseCalorieThreshold)) {
-                      setTempCalorieOverride(val);
-                    } else {
-                      setTempCalorieOverride(null);
-                    }
-                  }}
-                  onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                  className="w-16 h-5 text-[10px] bg-transparent border-none rounded px-1 text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-orange-400/30 text-center hover:text-orange-500 transition-colors"
-                />
+                 <span className="text-[10px] text-muted-foreground">
+                   Seuil max :
+                 </span>
+                 <input
+                   type="number"
+                   inputMode="numeric"
+                   defaultValue={Math.round(tempCalorieOverride ?? baseCalorieThreshold)}
+                   key={`temp-cal-${tempCalorieOverride ?? 'base'}-${Math.round(baseCalorieThreshold)}`}
+                   onBlur={(e) => {
+                     const val = parseInt(e.target.value);
+                     if (val && val > 0 && val !== Math.round(baseCalorieThreshold)) {
+                       setTempCalorieOverride(val);
+                     } else {
+                       setTempCalorieOverride(null);
+                     }
+                   }}
+                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                   className="w-16 h-5 text-sm font-bold bg-transparent border-none rounded px-1 text-foreground focus:outline-none focus:ring-1 focus:ring-orange-400/30 text-center hover:text-orange-500 transition-colors"
+                 />
                 <span className="text-[10px] text-muted-foreground">kcal</span>
                 {tempCalorieOverride !== null && (
                   <button
