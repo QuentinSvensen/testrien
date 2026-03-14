@@ -462,9 +462,13 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
           onCheckedChange={(checked) => {
             toggleItem.mutate({ id: item.id, checked: !!checked });
             if (!checked) {
-              // Unchecking yellow also unchecks green
+              // Unchecking yellow also unchecks green and clears quantity
               if (item.secondary_checked) {
                 toggleSecondaryCheck.mutate({ id: item.id, secondary_checked: false });
+              }
+              if (item.quantity) {
+                updateItemQuantity.mutate({ id: item.id, quantity: null });
+                setLocalQuantities(prev => { const next = { ...prev }; delete next[item.id]; return next; });
               }
             }
           }}
