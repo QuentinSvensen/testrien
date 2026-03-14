@@ -249,12 +249,15 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             if (fi.quantity && fi.quantity >= 1 && perUnit > 0) {
               const fullUnits = Math.floor(remaining / perUnit);
               const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
+              const shouldStartCounter = rem > 0 && !fi.counter_start_date && fi.storage_type !== 'surgele';
+              const shouldClearCounter = rem <= 0 && fi.counter_start_date;
               await safeMutate("Ajustement stock", () =>
-                supabase.from("food_items").update({ quantity: rem > 0 ? Math.max(1, fullUnits + 1) : fullUnits, grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null) } as any).eq("id", fi.id)
+                supabase.from("food_items").update({ quantity: rem > 0 ? Math.max(1, fullUnits + 1) : fullUnits, grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}), ...(shouldClearCounter ? { counter_start_date: null } : {}) } as any).eq("id", fi.id)
               );
             } else {
+              const shouldStartCounter = remaining > 0 && remaining < parseQty(fi.grams) && !fi.counter_start_date && fi.storage_type !== 'surgele';
               await safeMutate("Ajustement stock", () =>
-                supabase.from("food_items").update({ grams: formatNumeric(remaining) } as any).eq("id", fi.id)
+                supabase.from("food_items").update({ grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) } as any).eq("id", fi.id)
               );
             }
           }
