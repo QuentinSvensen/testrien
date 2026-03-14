@@ -85,7 +85,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             const fullUnits = Math.floor(remaining / perUnit);
             const remainder = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
             if (remainder > 0) {
-              const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele';
+              const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
               updatesById.set(fi.id, { id: fi.id, quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, remainder), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
             } else if (fullUnits > 0) {
               updatesById.set(fi.id, { id: fi.id, quantity: fullUnits, grams: formatNumeric(perUnit), ...(fi.counter_start_date ? { counter_start_date: null } : {}) });
