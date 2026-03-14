@@ -948,8 +948,27 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
                 return getUnifiedItemName(a).localeCompare(getUnifiedItemName(b));
               });
 
-              const firstIsMealIdx = !isPlat ? filteredUnified.findIndex(u => u.type === 'isMeal') : -1;
+              // Find where past/today ends and future begins
+              const todayStr = new Date().toISOString().slice(0, 10);
+              let dateSeparatorInserted = false;
+
               return filteredUnified.map((u, idx) => {
+                const elements: React.ReactNode[] = [];
+
+                // Date separator: between past/today and future items (only for group 2 = has date, no counter)
+                if (!dateSeparatorInserted && u.sortDate && u.sortDate > todayStr && (u.sortCounter === null || u.sortCounter <= 0)) {
+                  // Check that at least one previous item had a date ≤ today
+                  const hasPastBefore = filteredUnified.slice(0, idx).some(prev => prev.sortDate && prev.sortDate <= todayStr && (prev.sortCounter === null || prev.sortCounter <= 0));
+                  if (hasPastBefore) {
+                    dateSeparatorInserted = true;
+                    elements.push(
+                      <div key="sep-date-future" className="my-1.5">
+                        <Separator className="opacity-30" />
+                      </div>
+                    );
+                  }
+                }
+
                 const sep = (idx === firstIsMealIdx && firstIsMealIdx > 0) ? (
                   <div key={`sep-ismeal`} className="flex items-center gap-2 my-2">
                     <Separator className="flex-1" />
@@ -961,7 +980,10 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
                   : u.type === 'nm' ? renderNameMatchCard(u.nm, u.nmIdx, idx)
                   : u.type === 'partial' ? renderPartialCard(u.item, idx)
                   : renderAvailableCard(u.item, idx);
-                return sep ? <Fragment key={`wrapper-${idx}`}>{sep}{card}</Fragment> : card;
+                if (elements.length > 0 || sep) {
+                  return <Fragment key={`wrapper-${idx}`}>{...elements}{sep}{card}</Fragment>;
+                }
+                return card;
               });
             }
 
