@@ -395,3 +395,43 @@ export function computeIngredientProtein(ingredientStr: string | null, isAvailab
   }
   return hasPro ? Math.round(total) : null;
 }
+
+/**
+ * Extract a map of ingredient name → { cal, pro } from an ingredient string.
+ * Only includes ingredients that have at least one of cal or pro set.
+ */
+export function extractIngredientMacros(ingredientStr: string | null): Map<string, { cal: string; pro: string }> {
+  const map = new Map<string, { cal: string; pro: string }>();
+  if (!ingredientStr?.trim()) return map;
+  const lines = parseIngredientsToLines(ingredientStr);
+  for (const line of lines) {
+    if (!line.name.trim()) continue;
+    const cal = line.cal?.trim() || "";
+    const pro = line.pro?.trim() || "";
+    if (cal || pro) {
+      map.set(normalizeKey(line.name), { cal, pro });
+    }
+  }
+  return map;
+}
+
+/**
+ * Apply macros from a source map to an ingredient string.
+ * For each ingredient with a matching name in the map, overwrite cal/pro.
+ * Returns the updated ingredient string, or null if nothing changed.
+ */
+export function applyIngredientMacros(ingredientStr: string | null, macros: Map<string, { cal: string; pro: string }>): string | null {
+  if (!ingredientStr?.trim() || macros.size === 0) return null;
+  const lines = parseIngredientsToLines(ingredientStr);
+  let changed = false;
+  for (const line of lines) {
+    if (!line.name.trim()) continue;
+    const key = normalizeKey(line.name);
+    const macro = macros.get(key);
+    if (macro) {
+      if (macro.cal && line.cal !== macro.cal) { line.cal = macro.cal; changed = true; }
+      if (macro.pro && line.pro !== macro.pro) { line.pro = macro.pro; changed = true; }
+    }
+  }
+  return changed ? serializeIngredients(lines) : null;
+}
