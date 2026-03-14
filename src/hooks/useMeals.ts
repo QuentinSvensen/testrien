@@ -434,8 +434,11 @@ export function useMeals(options?: { enabled?: boolean }) {
 
   const sortByExpiration = (items: PossibleMeal[]) =>
     [...items].sort((a, b) => {
-      const aCounter = a.counter_start_date ? Math.floor((Date.now() - new Date(a.counter_start_date).getTime()) / 86400000) : null;
-      const bCounter = b.counter_start_date ? Math.floor((Date.now() - new Date(b.counter_start_date).getTime()) / 86400000) : null;
+      // Freeze counter at created_at time (not Date.now()) so it doesn't increase day by day
+      const aRef = a.created_at ? new Date(a.created_at).getTime() : Date.now();
+      const bRef = b.created_at ? new Date(b.created_at).getTime() : Date.now();
+      const aCounter = a.counter_start_date ? Math.floor((aRef - new Date(a.counter_start_date).getTime()) / 86400000) : null;
+      const bCounter = b.counter_start_date ? Math.floor((bRef - new Date(b.counter_start_date).getTime()) / 86400000) : null;
       const aHasDate = !!a.expiration_date;
       const bHasDate = !!b.expiration_date;
       const aHasCounter = aCounter !== null;

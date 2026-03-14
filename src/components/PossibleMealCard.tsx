@@ -456,11 +456,7 @@ export function PossibleMealCard({
               <Weight className="h-2.5 w-2.5" />{meal.grams}
             </button>
           )}
-          {detectedRatio !== null && (
-            <button onClick={() => { setEditValue(detectedRatio >= 1 ? `x${Math.round(detectedRatio * 10) / 10}` : `${Math.round(detectedRatio * 100)}%`); setEditing("ratio"); }} className="bg-orange-500/80 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full hover:bg-orange-500/90 transition-colors shrink-0">
-              {detectedRatio >= 1 && Number.isInteger(detectedRatio) ? `x${detectedRatio}` : `${Math.round(detectedRatio * 100)}%`}
-            </button>
-          )}
+          {/* ratio badge moved to absolute top-right */}
           {(() => {
             const ingCal = computeIngredientCalories(displayIngredients);
             let displayCal = ingCal !== null ? String(ingCal) : meal.calories;

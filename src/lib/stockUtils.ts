@@ -327,6 +327,7 @@ export function compareExpirationWithCounter(
   const aEffective = aCounter !== null && aCounter > 0;
   const bEffective = bCounter !== null && bCounter > 0;
 
+  // Groups: 0=active counter, 1=no date & no counter (top), 2=has date, 3=has counter=0 but no date
   const aGroup = aEffective ? 0 : (!aDate && aCounter === null ? 1 : (!!aDate ? 2 : 3));
   const bGroup = bEffective ? 0 : (!bDate && bCounter === null ? 1 : (!!bDate ? 2 : 3));
 
@@ -338,7 +339,7 @@ export function compareExpirationWithCounter(
     if (bDate) return 1;
     return 0;
   }
-  if (aGroup === 1) return aDate!.localeCompare(bDate!);
+  if (aGroup === 2) return aDate!.localeCompare(bDate!);
   return 0;
 }
 
