@@ -843,7 +843,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
                     }
                   }}
                   onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-                  className="w-16 h-5 text-[10px] bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 focus:outline-none focus:border-orange-400/50 text-center"
+                  className="w-16 h-5 text-[10px] bg-transparent border-none rounded px-1 text-muted-foreground/60 focus:outline-none focus:ring-1 focus:ring-orange-400/30 text-center hover:text-orange-500 transition-colors"
                 />
                 <span className="text-[10px] text-muted-foreground">kcal</span>
                 {tempCalorieOverride !== null && (

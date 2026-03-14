@@ -823,22 +823,23 @@ export function WeeklyPlanning() {
                       <button onClick={() => setBreakfastForDay(day, null)} className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors">
                         — Aucun
                       </button>
-                      {petitDejMeals.map(m => (
-                        <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
-                          {m.name} {m.calories ? `(${m.calories})` : ''}
-                        </button>
-                      ))}
                       {possiblePetitDej.length > 0 && (
                         <>
-                          <div className="border-t border-border/40 my-1" />
                           <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Possible</p>
                           {possiblePetitDej.map(pm => (
                             <button key={pm.id} onClick={() => setBreakfastForDay(day, pm.meal_id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pm.meal_id ? 'bg-primary/10 font-bold' : ''}`}>
                               {pm.meals?.name} {pm.meals?.calories ? `(${pm.meals.calories})` : ''}
                             </button>
                           ))}
+                          <div className="border-t border-border/40 my-1" />
                         </>
                       )}
+                      <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Tous</p>
+                      {petitDejMeals.map(m => (
+                        <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
+                          {m.name} {m.calories ? `(${m.calories})` : ''}
+                        </button>
+                      ))}
                       {petitDejMeals.length === 0 && possiblePetitDej.length === 0 && (
                         <p className="text-[10px] text-muted-foreground italic px-2 py-1">Aucun petit déj</p>
                       )}

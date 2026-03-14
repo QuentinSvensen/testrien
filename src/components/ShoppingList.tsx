@@ -450,7 +450,10 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
             checked={item.secondary_checked}
             onCheckedChange={(checked) => {
               toggleSecondaryCheck.mutate({ id: item.id, secondary_checked: !!checked });
-              // Don't modify the item's quantity — green qty is computed on-the-fly
+              if (!checked && item.quantity) {
+                updateItemQuantity.mutate({ id: item.id, quantity: null });
+                setLocalQuantities(prev => { const next = { ...prev }; delete next[item.id]; return next; });
+              }
             }}
             className="shrink-0 opacity-100 data-[state=checked]:bg-green-400 data-[state=checked]:border-green-400 data-[state=checked]:text-white"
           />
@@ -462,9 +465,13 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
           onCheckedChange={(checked) => {
             toggleItem.mutate({ id: item.id, checked: !!checked });
             if (!checked) {
-              // Unchecking yellow also unchecks green
+              // Unchecking yellow also unchecks green and clears quantity
               if (item.secondary_checked) {
                 toggleSecondaryCheck.mutate({ id: item.id, secondary_checked: false });
+              }
+              if (item.quantity) {
+                updateItemQuantity.mutate({ id: item.id, quantity: null });
+                setLocalQuantities(prev => { const next = { ...prev }; delete next[item.id]; return next; });
               }
             }
           }}

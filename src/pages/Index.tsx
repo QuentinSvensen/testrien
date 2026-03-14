@@ -790,15 +790,18 @@ const Index = () => {
                 onRandomPick={() => handleRandomPick(cat.value)}
                 onRemove={(id) => { removeFromPossible.mutate(id); }}
                 onReturnWithoutDeduction={async (id) => {
+                  const pm = getPossibleByCategory(cat.value).find(p => p.id === id);
                   const snapshots = deductionSnapshots[id];
-                  if (snapshots && snapshots.length > 0) {
+                  if (pm?.ingredients_override && pm?.meals) {
+                    // Card was edited — restore based on current override ingredients
+                    const mealForRestore = { ...pm.meals, ingredients: pm.ingredients_override };
+                    await restoreIngredientsToStock(mealForRestore, snapshots);
+                  } else if (snapshots && snapshots.length > 0) {
                     await restoreIngredientsToStock({} as Meal, snapshots);
-                    updateSnapshots(prev => { const next = { ...prev }; delete next[id]; return next; });
-                  } else {
-                    const allPossible = getPossibleByCategory(cat.value);
-                    const pm = allPossible.find(p => p.id === id);
-                    if (pm?.meals) await restoreIngredientsToStock(pm.meals);
+                  } else if (pm?.meals) {
+                    await restoreIngredientsToStock(pm.meals);
                   }
+                  updateSnapshots(prev => { const next = { ...prev }; delete next[id]; return next; });
                   removeFromPossible.mutate(id);
                   setUnParUnSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
                 }}

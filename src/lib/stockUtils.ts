@@ -327,8 +327,8 @@ export function compareExpirationWithCounter(
   const aEffective = aCounter !== null && aCounter > 0;
   const bEffective = bCounter !== null && bCounter > 0;
 
-  const aGroup = aEffective ? 0 : (!!aDate ? 1 : (aCounter !== null && aCounter === 0 ? 2 : 3));
-  const bGroup = bEffective ? 0 : (!!bDate ? 1 : (bCounter !== null && bCounter === 0 ? 2 : 3));
+  const aGroup = aEffective ? 0 : (!aDate && aCounter === null ? 1 : (!!aDate ? 2 : 3));
+  const bGroup = bEffective ? 0 : (!bDate && bCounter === null ? 1 : (!!bDate ? 2 : 3));
 
   if (aGroup !== bGroup) return aGroup - bGroup;
   if (aGroup === 0) {
