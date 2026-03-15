@@ -62,7 +62,8 @@ export function useCalorieBalance() {
         return total + slotMeals.reduce((s, pm) => {
           const override = calOverrides[pm.id];
           if (override) return s + parseCalories(override);
-          const ingCal = computeIngredientCalories(pm.meals?.ingredients);
+          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
+          const ingCal = computeIngredientCalories(displayIngredients);
           if (ingCal !== null) return s + ingCal;
           return s + parseCalories(pm.meals?.calories);
         }, 0);
