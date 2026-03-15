@@ -164,3 +164,9 @@ All colors MUST be HSL.
   75% { transform: translateX(6px); }
 }
 .animate-shake { animation: shake 0.3s ease-in-out 2; }
+
+@media (max-width: 414px) {
+  .planning-responsive {
+    zoom: 0.92;
+  }
+}
