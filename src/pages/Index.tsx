@@ -746,7 +746,7 @@ const Index = () => {
                      } else {
                        updateIngredients.mutate({ id, ingredients: ing });
                      }
-                   }
+                   }}
                   onToggleFavorite={(id) => {
                     const meal = meals.find((m) => m.id === id);
                     if (meal) toggleFavorite.mutate({ id, is_favorite: !meal.is_favorite });
