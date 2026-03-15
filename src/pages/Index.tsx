@@ -455,7 +455,10 @@ const Index = () => {
       });
     } else {
       addMeal.mutate({ name: trimmedName, category: newCategory }, {
-        onSuccess: () => { setNewName(""); setDialogOpen(false); toast({ title: "Repas ajouté 🎉" }); }
+        onSuccess: (newMealResult) => {
+          setNewName(""); setDialogOpen(false); toast({ title: "Repas ajouté 🎉" });
+          // Auto-fill macros from existing meals for the new meal's ingredients (will be done when ingredients are added)
+        }
       });
     }
   };
