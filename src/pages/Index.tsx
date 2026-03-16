@@ -158,6 +158,7 @@ const Index = () => {
       importPossibleList();
       importAvailableList();
       importUnParUnSection();
+      importMaxMealGenerator();
     };
     if ('requestIdleCallback' in window) {
       (window as any).requestIdleCallback(preload);
