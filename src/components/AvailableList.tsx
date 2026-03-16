@@ -584,13 +584,29 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
 
   const renderNameMatchCard = (nm: NameMatch, idx: number, unifiedIdx?: number) => {
     const { meal, fi, portionsAvailable } = nm;
+    const nmKey = `nm-${meal.id}-${fi.id}`;
     const expLabel = formatExpirationLabel(fi.expiration_date);
     const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
-    const displayGrams = fi.quantity && fi.quantity > 1 && fi.grams
+    const customRatio = customRatios[nmKey];
+    const effectiveRatio = customRatio ?? 1;
+    const baseGrams = fi.quantity && fi.quantity > 1 && fi.grams
       ? `${parseQty(fi.grams) * fi.quantity}g`
       : (meal.grams ?? (fi.is_infinite ? "∞" : fi.grams ?? null));
+    // Scale grams and calories if ratio != 1
+    let displayGrams = baseGrams;
+    let displayMeal = meal;
+    if (effectiveRatio !== 1 && fi.is_infinite) {
+      const baseG = parseQty(meal.grams);
+      const scaledG = baseG > 0 ? Math.round(baseG * effectiveRatio) : 0;
+      const baseCal = parseFloat((meal.calories || "0").replace(/[^0-9.]/g, "").replace(",", ".")) || 0;
+      const scaledCal = baseCal > 0 ? Math.round(baseCal * effectiveRatio) : 0;
+      const basePro = parseFloat((meal.protein || "0").replace(/[^0-9.]/g, "").replace(",", ".")) || 0;
+      const scaledPro = basePro > 0 ? Math.round(basePro * effectiveRatio) : 0;
+      displayGrams = scaledG > 0 ? `${scaledG}g` : baseGrams;
+      displayMeal = { ...meal, grams: displayGrams, calories: scaledCal > 0 ? String(scaledCal) : meal.calories, protein: scaledPro > 0 ? String(scaledPro) : meal.protein };
+    }
     const expIsTodayNm = isToday(fi.expiration_date);
-    const fakeMeal: Meal = { ...meal, id: `nm-${meal.id}-${fi.id}`, grams: displayGrams, color: meal.color };
+    const fakeMeal: Meal = { ...displayMeal, id: nmKey, grams: displayGrams, color: meal.color };
     return (
       <div key={`nm-${idx}`} className="relative">
         <MealCard meal={fakeMeal}
@@ -602,9 +618,40 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
           hideDelete expirationLabel={expLabel} expirationDate={fi.expiration_date} expirationIsToday={expIsTodayNm} maxIngredientCounter={counterDays} />
+        {fi.is_infinite ? (
+          editingRatioId === nmKey ? (
+            <div className="absolute top-1 right-2 z-20">
+              <Input autoFocus value={ratioInput}
+                onChange={(e) => setRatioInput(e.target.value)}
+                onBlur={() => commitRatio(nmKey, 99)}
+                onKeyDown={(e) => { if (e.key === "Enter") commitRatio(nmKey, 99); if (e.key === "Escape") setEditingRatioId(null); }}
+                placeholder="x2, x3..."
+                className="w-20 h-6 text-[10px] bg-black/80 text-white border-white/30 placeholder:text-white/40 px-1.5 rounded-full shadow-lg focus-visible:ring-1 focus-visible:ring-white/50"
+              />
+            </div>
+          ) : (
+            <div className="absolute top-1 right-2 z-10 flex items-center shadow flex-row-reverse">
+              <button
+                onClick={() => { setEditingRatioId(nmKey); setRatioInput(customRatio ? formatRatioBadge(customRatio) : ""); }}
+                className={`text-white text-[10px] font-black px-1.5 py-0.5 transition-colors ${!customRatio ? 'bg-black/60 hover:bg-black/80 rounded-full' : 'bg-black/60 hover:bg-black/80 rounded-r-full pl-1'}`}
+              >
+                <InfinityIcon className="inline h-[13px] w-[13px]" />
+              </button>
+              {customRatio && (
+                <button
+                  onClick={() => { setEditingRatioId(nmKey); setRatioInput(formatRatioBadge(customRatio)); }}
+                  className="bg-orange-500/80 text-white text-[10px] font-black px-1.5 py-0.5 hover:bg-orange-500/90 transition-colors rounded-l-full pr-1"
+                >
+                  {formatRatioBadge(customRatio)}
+                </button>
+              )}
+            </div>
+          )
+        ) : (
           <div className="absolute top-1 right-2 z-10 bg-black/60 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow flex items-center gap-0.5">
-          {fi.is_infinite ? <InfinityIcon className="inline h-[15px] w-[15px]" /> : portionsAvailable !== null ? `x${portionsAvailable}` : `x${fi.quantity ?? 1}`}
+            {portionsAvailable !== null ? `x${portionsAvailable}` : `x${fi.quantity ?? 1}`}
           </div>
+        )}
       </div>
     );
   };
