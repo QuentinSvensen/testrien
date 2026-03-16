@@ -651,7 +651,7 @@ export function WeeklyPlanning() {
     const meal = pm.meals;
     if (!meal) return null;
     const expired = isExpiredOnDay(pm.expiration_date, pm.day_of_week);
-    const counterDays = getAdaptedCounterDays(pm.counter_start_date, pm.day_of_week);
+    const counterDays = getAdaptedCounterDays(pm.counter_start_date, pm.day_of_week, pm.created_at);
     const counterUrgent = counterDays !== null && counterDays >= 3;
     let isPast = false;
     if (pm.day_of_week) {

@@ -160,7 +160,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
             <span className="text-[8px] text-white/50 text-center">P</span>
           </div>
           {ingLines.map((line, idx) => (
-            <div key={idx} className="grid grid-cols-[1.5rem_1rem_3.5rem_2.5rem_1fr_2.5rem_2.5rem] gap-1">
+            <div key={idx} className="grid grid-cols-[1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 pl-0 pr-0">
               <button
                 type="button"
                 onClick={() => toggleOr(idx)}

@@ -226,7 +226,8 @@ export function extractMetrics(raw: string): { text: string; cal: string; pro: s
 /** Removes {cal} and [pro] strings globally for clean UI display */
 export function cleanIngredientText(text: string | null | undefined): string {
   if (!text) return "";
-  return text.replace(/\{[^}]+\}|\[[^\]]+\]/g, "").replace(/\s+/g, " ").trim();
+  // Strip {number} cal markers and [number] protein markers — use * to also catch empty {}
+  return text.replace(/\{[^}]*\}/g, "").replace(/\[[^\]]*\]/g, "").replace(/\s+/g, " ").trim();
 }
 
 export function parseIngredientLineDisplay(raw: string): IngLine {
