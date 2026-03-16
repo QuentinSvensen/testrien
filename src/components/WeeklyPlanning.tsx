@@ -154,6 +154,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchCancel}
+      onDoubleClick={onDoubleClick}
       className={`rounded-xl text-white select-none
         ${touchDragActive ? "cursor-grabbing" : "cursor-grab active:cursor-grabbing"}
         transition-transform hover:scale-[1.01]
