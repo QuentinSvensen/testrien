@@ -69,8 +69,8 @@ const verifyAuth = async (authHeader: string | null) => {
     },
   );
 
-  const { data, error } = await supabaseAnon.auth.getClaims(token);
-  return !error && !!data?.claims;
+  const { data: { user }, error } = await supabaseAnon.auth.getUser(token);
+  return !error && !!user;
 };
 
 const getMetaValue = async (
