@@ -442,22 +442,22 @@ const Index = () => {
     setDialogOpen(true);
   };
 
-  const handleAdd = () => {
+  const handleAdd = (target?: "all" | "possible") => {
+    const finalTarget = target || addTarget;
     const validationError = validateMealName(newName);
     if (validationError) {
       toast({ title: "Données invalides", description: validationError, variant: "destructive" });
       return;
     }
     const trimmedName = newName.trim();
-    if (addTarget === "possible") {
+    if (finalTarget === "possible") {
       addMealToPossibleDirectly.mutate({ name: trimmedName, category: newCategory }, {
         onSuccess: () => { setNewName(""); setDialogOpen(false); toast({ title: "Repas ajouté aux possibles 🎉" }); }
       });
     } else {
       addMeal.mutate({ name: trimmedName, category: newCategory }, {
-        onSuccess: (newMealResult) => {
+        onSuccess: () => {
           setNewName(""); setDialogOpen(false); toast({ title: "Repas ajouté 🎉" });
-          // Auto-fill macros from existing meals for the new meal's ingredients (will be done when ingredients are added)
         }
       });
     }
