@@ -79,9 +79,11 @@ function getCounterDays(startDate: string | null): number | null {
 }
 
 /** Counter days adapted: adds offset based on the difference between target day and today */
-function getAdaptedCounterDays(startDate: string | null, dayKey: string | null): number | null {
+function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
   if (!startDate) return null;
-  const baseDays = Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
+  // Freeze counter at the value it had when moved to possible
+  const refTime = createdAt ? new Date(createdAt).getTime() : Date.now();
+  const baseDays = Math.floor((refTime - new Date(startDate).getTime()) / 86400000);
   if (!dayKey) return baseDays;
   const targetDate = getDateForDayKey(dayKey);
   const today = new Date();
