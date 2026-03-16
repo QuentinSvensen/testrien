@@ -44,6 +44,7 @@ const importShoppingList = () => import("@/components/ShoppingList").then((m) =>
 const importMealPlanGenerator = () => import("@/components/MealPlanGenerator").then((m) => ({ default: m.MealPlanGenerator }));
 const importFoodItems = () => import("@/components/FoodItems").then((m) => ({ default: m.FoodItems }));
 const importFoodItemsSuggestions = () => import("@/components/FoodItemsSuggestions").then((m) => ({ default: m.FoodItemsSuggestions }));
+const importMaxMealGenerator = () => import("@/components/MaxMealGenerator").then((m) => ({ default: m.MaxMealGenerator }));
 const importWeeklyPlanning = () => import("@/components/WeeklyPlanning").then((m) => ({ default: m.WeeklyPlanning }));
 const importMasterList = () => import("@/components/MasterList").then((m) => ({ default: m.MasterList }));
 const importPossibleList = () => import("@/components/PossibleList").then((m) => ({ default: m.PossibleList }));
