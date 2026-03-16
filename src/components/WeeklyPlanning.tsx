@@ -130,7 +130,7 @@ interface TouchDragState {
 }
 
 // ─── PlanningMiniCard ────────────────────────────────────────────────────────
-function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPast, displayCal, isComputedCal, displayPro, isComputedPro, compact, isTouchDevice, touchDragActive, slotDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onRemove, onCalorieChange, expiredIngredientNames, expiringSoonIngredientNames }: {
+function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPast, displayCal, isComputedCal, displayPro, isComputedPro, compact, isTouchDevice, touchDragActive, slotDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onRemove, onCalorieChange, expiredIngredientNames, expiringSoonIngredientNames, onDoubleClick }: {
   pm: PossibleMeal; meal: any; expired: boolean; counterDays: number | null; counterUrgent: boolean; isPast: boolean; displayCal: string | null; isComputedCal: boolean; displayPro: string | null; isComputedPro: boolean; compact: boolean;
   isTouchDevice: boolean; touchDragActive: boolean; slotDragOver: string | null;
   onDragStart: (e: React.DragEvent) => void; onDragOver: (e: React.DragEvent) => void; onDragLeave: () => void; onDrop: (e: React.DragEvent) => void;
@@ -138,6 +138,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
   onRemove: () => void; onCalorieChange: (val: string | null) => void;
   expiredIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
+  onDoubleClick?: () => void;
 }) {
   const [editingCal, setEditingCal] = useState(false);
   const [calValue, setCalValue] = useState("");
