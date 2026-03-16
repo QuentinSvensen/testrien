@@ -378,6 +378,9 @@ export function WeeklyPlanning() {
   const todayKey = JS_DAY_TO_KEY[new Date().getDay()];
   const isTouchDevice = typeof window !== "undefined" && (navigator.maxTouchPoints > 0 || "ontouchstart" in window);
 
+  const [popupPm, setPopupPm] = useState<PossibleMeal | null>(null);
+  const [additiveModes, setAdditiveModes] = useState<Record<string, { active: boolean; value: string }>>({});
+
   useEffect(() => {
     if (todayRef.current) {
       setTimeout(() => {
