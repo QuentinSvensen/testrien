@@ -632,6 +632,7 @@ const Index = () => {
             <div>
               <LazyFoodItems />
               <LazyFoodItemsSuggestions foodItems={foodItems} existingMealNames={meals.filter(m => m.is_available).map(m => m.name)} />
+              <LazyMaxMealGenerator foodItems={foodItems} meals={meals} />
             </div>
           )}
           {mainPage === "courses" && (
