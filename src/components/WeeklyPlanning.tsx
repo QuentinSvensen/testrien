@@ -4,9 +4,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useCalorieBalance } from "@/hooks/useCalorieBalance";
-import { Timer, Flame, Weight, Calendar, Lock } from "lucide-react";
+import { Timer, Flame, Weight, Calendar, Lock, Plus } from "lucide-react";
 import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
@@ -129,7 +130,7 @@ interface TouchDragState {
 }
 
 // ─── PlanningMiniCard ────────────────────────────────────────────────────────
-function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPast, displayCal, isComputedCal, displayPro, isComputedPro, compact, isTouchDevice, touchDragActive, slotDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onRemove, onCalorieChange, expiredIngredientNames, expiringSoonIngredientNames }: {
+function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPast, displayCal, isComputedCal, displayPro, isComputedPro, compact, isTouchDevice, touchDragActive, slotDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onRemove, onCalorieChange, expiredIngredientNames, expiringSoonIngredientNames, onDoubleClick }: {
   pm: PossibleMeal; meal: any; expired: boolean; counterDays: number | null; counterUrgent: boolean; isPast: boolean; displayCal: string | null; isComputedCal: boolean; displayPro: string | null; isComputedPro: boolean; compact: boolean;
   isTouchDevice: boolean; touchDragActive: boolean; slotDragOver: string | null;
   onDragStart: (e: React.DragEvent) => void; onDragOver: (e: React.DragEvent) => void; onDragLeave: () => void; onDrop: (e: React.DragEvent) => void;
@@ -137,6 +138,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
   onRemove: () => void; onCalorieChange: (val: string | null) => void;
   expiredIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
+  onDoubleClick?: () => void;
 }) {
   const [editingCal, setEditingCal] = useState(false);
   const [calValue, setCalValue] = useState("");
@@ -152,6 +154,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
       onTouchMove={onTouchMove}
       onTouchEnd={onTouchEnd}
       onTouchCancel={onTouchCancel}
+      onDoubleClick={onDoubleClick}
       className={`rounded-xl text-white select-none
         ${touchDragActive ? "cursor-grabbing" : "cursor-grab active:cursor-grabbing"}
         transition-transform hover:scale-[1.01]
@@ -374,6 +377,9 @@ export function WeeklyPlanning() {
   const todayRef = useRef<HTMLDivElement | null>(null);
   const todayKey = JS_DAY_TO_KEY[new Date().getDay()];
   const isTouchDevice = typeof window !== "undefined" && (navigator.maxTouchPoints > 0 || "ontouchstart" in window);
+
+  const [popupPm, setPopupPm] = useState<PossibleMeal | null>(null);
+  const [additiveModes, setAdditiveModes] = useState<Record<string, { active: boolean; value: string }>>({});
 
   useEffect(() => {
     if (todayRef.current) {
@@ -717,6 +723,7 @@ export function WeeklyPlanning() {
           else delete updated[pm.id];
           setPreference.mutate({ key: 'planning_cal_overrides', value: updated });
         }}
+        onDoubleClick={() => setPopupPm(pm)}
       />
     );
   };
@@ -1212,6 +1219,70 @@ export function WeeklyPlanning() {
           <div className="flex flex-wrap gap-2">{unplanned.map((pm) => renderMiniCard(pm, true))}</div>
         )}
       </div>
+
+      {/* Double-click popup dialog */}
+      <Dialog open={!!popupPm} onOpenChange={(open) => { if (!open) setPopupPm(null); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Détails du repas</DialogTitle>
+          {popupPm && popupPm.meals && (() => {
+            const meal = popupPm.meals;
+            const displayIngredients = popupPm.ingredients_override ?? meal.ingredients;
+            const ingCal = computeIngredientCalories(displayIngredients);
+            const ingPro = computeIngredientProtein(displayIngredients);
+            const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
+            const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
+            const counterDays = getAdaptedCounterDays(popupPm.counter_start_date, popupPm.day_of_week, popupPm.created_at);
+            const expired = isExpiredOnDay(popupPm.expiration_date, popupPm.day_of_week);
+            return (
+              <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: meal.color }}>
+                <h3 className="text-lg font-bold mb-2">{getCategoryEmoji(meal.category)} {meal.name}</h3>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {displayCal && (
+                    <span className="text-sm font-bold bg-black/30 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <Flame className="h-3.5 w-3.5" /> {displayCal} kcal
+                    </span>
+                  )}
+                  {displayPro && (
+                    <span className="text-sm font-bold bg-blue-600/50 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      🍗 {displayPro}g
+                    </span>
+                  )}
+                  {meal.grams && (
+                    <span className="text-sm bg-white/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <Weight className="h-3.5 w-3.5" /> {meal.grams}
+                    </span>
+                  )}
+                  {counterDays !== null && (
+                    <span className={`text-sm font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${counterDays >= 3 ? 'bg-red-600' : 'bg-black/40'}`}>
+                      <Timer className="h-3.5 w-3.5" /> {counterDays}j
+                    </span>
+                  )}
+                </div>
+                {popupPm.expiration_date && (
+                  <p className={`text-sm mb-2 ${expired ? 'text-red-200 font-bold' : 'text-white/70'}`}>
+                    📅 {format(parseISO(popupPm.expiration_date), "d MMMM yyyy", { locale: fr })}
+                  </p>
+                )}
+                {displayIngredients && (
+                  <div className="bg-black/20 rounded-xl p-3 mt-1">
+                    <p className="text-xs font-semibold text-white/60 mb-1 uppercase tracking-wide">Ingrédients</p>
+                    <div className="text-sm text-white/90 space-y-0.5">
+                      {displayIngredients.split(/[,\n]+/).map((g, i) => (
+                        <p key={i}>{cleanIngredientText(g.trim())}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {popupPm.day_of_week && popupPm.meal_time && (
+                  <p className="text-xs text-white/50 mt-3">
+                    {DAY_LABELS[popupPm.day_of_week]} — {TIME_LABELS[popupPm.meal_time]}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

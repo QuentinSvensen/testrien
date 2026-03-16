@@ -44,6 +44,7 @@ const importShoppingList = () => import("@/components/ShoppingList").then((m) =>
 const importMealPlanGenerator = () => import("@/components/MealPlanGenerator").then((m) => ({ default: m.MealPlanGenerator }));
 const importFoodItems = () => import("@/components/FoodItems").then((m) => ({ default: m.FoodItems }));
 const importFoodItemsSuggestions = () => import("@/components/FoodItemsSuggestions").then((m) => ({ default: m.FoodItemsSuggestions }));
+const importMaxMealGenerator = () => import("@/components/MaxMealGenerator").then((m) => ({ default: m.MaxMealGenerator }));
 const importWeeklyPlanning = () => import("@/components/WeeklyPlanning").then((m) => ({ default: m.WeeklyPlanning }));
 const importMasterList = () => import("@/components/MasterList").then((m) => ({ default: m.MasterList }));
 const importPossibleList = () => import("@/components/PossibleList").then((m) => ({ default: m.PossibleList }));
@@ -54,6 +55,7 @@ const LazyShoppingList = lazy(importShoppingList);
 const LazyMealPlanGenerator = lazy(importMealPlanGenerator);
 const LazyFoodItems = lazy(importFoodItems);
 const LazyFoodItemsSuggestions = lazy(importFoodItemsSuggestions);
+const LazyMaxMealGenerator = lazy(importMaxMealGenerator);
 const LazyWeeklyPlanning = lazy(importWeeklyPlanning);
 const LazyMasterList = lazy(importMasterList);
 const LazyPossibleList = lazy(importPossibleList);
@@ -156,6 +158,7 @@ const Index = () => {
       importPossibleList();
       importAvailableList();
       importUnParUnSection();
+      importMaxMealGenerator();
     };
     if ('requestIdleCallback' in window) {
       (window as any).requestIdleCallback(preload);
@@ -632,6 +635,7 @@ const Index = () => {
             <div>
               <LazyFoodItems />
               <LazyFoodItemsSuggestions foodItems={foodItems} existingMealNames={meals.filter(m => m.is_available).map(m => m.name)} />
+              <LazyMaxMealGenerator foodItems={foodItems} meals={meals} />
             </div>
           )}
           {mainPage === "courses" && (
