@@ -723,6 +723,11 @@ export function WeeklyPlanning() {
           else delete updated[pm.id];
           setPreference.mutate({ key: 'planning_cal_overrides', value: updated });
         }}
+        onDoubleClick={() => setPopupPm(pm)}
+          if (val) updated[pm.id] = val;
+          else delete updated[pm.id];
+          setPreference.mutate({ key: 'planning_cal_overrides', value: updated });
+        }}
       />
     );
   };
