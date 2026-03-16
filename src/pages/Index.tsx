@@ -442,22 +442,22 @@ const Index = () => {
     setDialogOpen(true);
   };
 
-  const handleAdd = () => {
+  const handleAdd = (target?: "all" | "possible") => {
+    const finalTarget = target || addTarget;
     const validationError = validateMealName(newName);
     if (validationError) {
       toast({ title: "Données invalides", description: validationError, variant: "destructive" });
       return;
     }
     const trimmedName = newName.trim();
-    if (addTarget === "possible") {
+    if (finalTarget === "possible") {
       addMealToPossibleDirectly.mutate({ name: trimmedName, category: newCategory }, {
         onSuccess: () => { setNewName(""); setDialogOpen(false); toast({ title: "Repas ajouté aux possibles 🎉" }); }
       });
     } else {
       addMeal.mutate({ name: trimmedName, category: newCategory }, {
-        onSuccess: (newMealResult) => {
+        onSuccess: () => {
           setNewName(""); setDialogOpen(false); toast({ title: "Repas ajouté 🎉" });
-          // Auto-fill macros from existing meals for the new meal's ingredients (will be done when ingredients are added)
         }
       });
     }
@@ -681,8 +681,8 @@ const Index = () => {
                       <SelectContent>{CATEGORIES.map((c) => <SelectItem key={c.value} value={c.value}>{c.emoji} {c.label}</SelectItem>)}</SelectContent>
                     </Select>
                     <div className="flex gap-2">
-                      <Button onClick={() => { setAddTarget("all"); handleAdd(); }} disabled={!newName.trim()} className="flex-1 text-xs rounded-xl">Tous les repas</Button>
-                      <Button onClick={() => { setAddTarget("possible"); handleAdd(); }} disabled={!newName.trim()} variant="secondary" className="flex-1 text-xs rounded-xl">Possibles uniquement</Button>
+                      <Button onClick={() => handleAdd("all")} disabled={!newName.trim()} className="flex-1 text-xs rounded-xl">Tous les repas</Button>
+                      <Button onClick={() => handleAdd("possible")} disabled={!newName.trim()} variant="secondary" className="flex-1 text-xs rounded-xl">Possibles uniquement</Button>
                     </div>
                   </div>
                 </DialogContent>

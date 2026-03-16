@@ -287,17 +287,17 @@ export function PossibleMealCard({
           }}
           className="flex flex-col gap-1 mt-1.5"
         >
-          <div className="grid grid-cols-[1.5rem_1rem_3.5rem_2.5rem_1fr_2.5rem_2.5rem] gap-1 mb-0.5">
-            <span className="text-[9px] text-white/50 text-center">Ou</span>
-            <span className="text-[9px] text-white/50 text-center">?</span>
-            <span className="text-[9px] text-white/50 text-center">Grammes</span>
-            <span className="text-[9px] text-white/50 text-center">Qté</span>
-            <span className="text-[9px] text-white/50">Nom</span>
-            <span className="text-[9px] text-white/50 text-center">Cal</span>
-            <span className="text-[9px] text-white/50 text-center">Prot</span>
+          <div className="grid grid-cols-[1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 mb-0.5 pl-0 pr-0">
+            <span className="text-[8px] text-white/50 text-center">Ou</span>
+            <span className="text-[8px] text-white/50 text-center">?</span>
+            <span className="text-[8px] text-white/50 text-center">g</span>
+            <span className="text-[8px] text-white/50 text-center">#</span>
+            <span className="text-[8px] text-white/50">Nom</span>
+            <span className="text-[8px] text-white/50 text-center">Cal</span>
+            <span className="text-[8px] text-white/50 text-center">P</span>
           </div>
           {ingLines.map((line, idx) => (
-            <div key={idx} className="grid grid-cols-[1.5rem_1rem_3.5rem_2.5rem_1fr_2.5rem_2.5rem] gap-1">
+            <div key={idx} className="grid grid-cols-[1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 pl-0 pr-0">
               <button
                 type="button"
                 onClick={() => toggleOr(idx)}
