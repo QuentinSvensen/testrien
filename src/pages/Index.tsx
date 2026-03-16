@@ -55,6 +55,7 @@ const LazyShoppingList = lazy(importShoppingList);
 const LazyMealPlanGenerator = lazy(importMealPlanGenerator);
 const LazyFoodItems = lazy(importFoodItems);
 const LazyFoodItemsSuggestions = lazy(importFoodItemsSuggestions);
+const LazyMaxMealGenerator = lazy(importMaxMealGenerator);
 const LazyWeeklyPlanning = lazy(importWeeklyPlanning);
 const LazyMasterList = lazy(importMasterList);
 const LazyPossibleList = lazy(importPossibleList);
