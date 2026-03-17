@@ -250,16 +250,25 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
             {totalG > 0 && <span className="text-xs text-white/80 font-bold">{formatNumeric(totalG)}g</span>}
             {qty && <span className="text-xs text-white/80 font-bold">×{qty}</span>}
             {fi.is_infinite && <span className="text-xs text-white/80 font-bold">∞</span>}
-            {fi.calories && (
-              <span className="text-[10px] font-bold text-white bg-orange-500/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
-                🔥{fi.calories}
-              </span>
-            )}
-            {fi.protein && (
-              <span className="text-[10px] font-bold text-white bg-blue-600/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
-                🍗{fi.protein}
-              </span>
-            )}
+            {(() => {
+              const fiMacro = macroLookup.get(normalizeKey(fi.name));
+              const calDisplay = fi.calories || fiMacro?.cal || null;
+              const proDisplay = fi.protein || fiMacro?.pro || null;
+              return (
+                <>
+                  {calDisplay && (
+                    <span className="text-[10px] font-bold text-white bg-orange-500/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
+                      🔥{calDisplay}
+                    </span>
+                  )}
+                  {proDisplay && (
+                    <span className="text-[10px] font-bold text-white bg-blue-600/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
+                      🍗{proDisplay}
+                    </span>
+                  )}
+                </>
+              );
+            })()}
             {expLabel && (
               <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${isExpired ? 'bg-red-500/60 text-white' : 'bg-white/20 text-white/90'}`}>
                 📅{expLabel}
