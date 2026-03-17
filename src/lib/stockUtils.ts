@@ -79,8 +79,10 @@ export function buildStockMap(foodItems: FoodItem[]): Map<string, StockInfo> {
 }
 
 export function findStockKey(stockMap: Map<string, StockInfo>, name: string): string | null {
-  for (const key of stockMap.keys()) {
-    if (strictNameMatch(key, name)) return key;
+  const key = normalizeKey(name);
+  if (stockMap.has(key)) return key;
+  for (const k of stockMap.keys()) {
+    if (strictNameMatch(k, name)) return k;
   }
   return null;
 }
