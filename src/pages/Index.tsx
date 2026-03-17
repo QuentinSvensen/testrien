@@ -656,7 +656,21 @@ const Index = () => {
                   <input
                     type="checkbox"
                     checked={getPreference<boolean>('shopping_show_green_checks', true)}
-                    onChange={(e) => setPreference.mutate({ key: 'shopping_show_green_checks', value: e.target.checked })}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setPreference.mutate({ key: 'shopping_show_green_checks', value: checked });
+                      if (!checked) {
+                        // Clear all secondary checks and menu-derived quantities
+                        for (const item of shoppingItems) {
+                          if (item.secondary_checked) {
+                            toggleShoppingSecondaryCheck.mutate({ id: item.id, secondary_checked: false });
+                            if (!item.checked && item.quantity) {
+                              updateShoppingItemQuantity.mutate({ id: item.id, quantity: null });
+                            }
+                          }
+                        }
+                      }
+                    }}
                     className="h-3 w-3 rounded accent-green-500"
                   />
                   Menu semaine
