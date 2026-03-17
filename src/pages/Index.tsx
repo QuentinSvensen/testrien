@@ -664,9 +664,10 @@ const Index = () => {
                         for (const item of shoppingItems) {
                           if (item.secondary_checked) {
                             toggleShoppingSecondaryCheck.mutate({ id: item.id, secondary_checked: false });
-                            if (!item.checked && item.quantity) {
-                              updateShoppingItemQuantity.mutate({ id: item.id, quantity: null });
-                            }
+                          }
+                          // Clear quantities on items without yellow check
+                          if (!item.checked && item.quantity) {
+                            updateShoppingItemQuantity.mutate({ id: item.id, quantity: null });
                           }
                         }
                       }
@@ -810,24 +811,24 @@ const Index = () => {
                     const counterDate = getEarliestIngredientCounterDate(meal, foodItems);
                     const result = await addMealToPossibleDirectly.mutateAsync({
                       name: meal.name, category: cat.value, colorSeed: meal.id,
-                      calories: partialMeal.calories, protein: partialMeal.protein, grams: partialMeal.grams, ingredients: partialMeal.ingredients, expiration_date: expDate, counter_start_date: counterDate,
+                      calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: expDate, counter_start_date: counterDate,
                     });
-                    if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
+                    if (result?.id) {
+                      updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
+                      if (partialMeal.ingredients && partialMeal.ingredients !== meal.ingredients) {
+                        updatePossibleIngredients.mutate({ id: result.id, ingredients_override: partialMeal.ingredients });
+                      }
+                    }
                   }}
                   onMoveNameMatchToPossible={async (meal, fi, ratio) => {
                     if (fi.is_infinite && ratio && ratio !== 1) {
-                      // Infinite card with multiplier - create scaled possible meal
-                      const baseCal = parseFloat((meal.calories || "0").replace(/[^0-9.]/g, "")) || 0;
-                      const basePro = parseFloat((meal.protein || "0").replace(/[^0-9.]/g, "")) || 0;
+                      // Infinite card with multiplier - create with ORIGINAL values, set override for scaling
                       const baseGrams = parseQty(meal.grams);
-                      const scaledCal = baseCal > 0 ? String(Math.round(baseCal * ratio)) : meal.calories;
-                      const scaledPro = basePro > 0 ? String(Math.round(basePro * ratio)) : meal.protein;
-                      const scaledGrams = baseGrams > 0 ? String(Math.round(baseGrams * ratio)) : meal.grams;
                       const baseIng = meal.ingredients ? meal.ingredients : (baseGrams > 0 ? `${baseGrams}g ${meal.name}` : null);
                       const scaledIng = baseIng ? scaleIngredientStringExact(baseIng, ratio) : null;
                       const result = await addMealToPossibleDirectly.mutateAsync({
                         name: meal.name, category: cat.value, colorSeed: meal.id,
-                        calories: scaledCal, protein: scaledPro, grams: scaledGrams,
+                        calories: meal.calories, protein: meal.protein, grams: meal.grams,
                         ingredients: baseIng,
                       });
                       if (result?.id && scaledIng) {

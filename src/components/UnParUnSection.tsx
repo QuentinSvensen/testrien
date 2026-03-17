@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { ChevronDown, ChevronRight, Drumstick, Wheat, ArrowUpDown, CalendarDays, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -6,7 +6,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import type { Meal } from "@/hooks/useMeals";
 import { colorFromName, type FoodItem } from "@/components/FoodItems";
 import { buildStockMap, findStockKey, getMealMultiple } from "@/lib/stockUtils";
-import { normalizeForMatch, strictNameMatch, parseIngredientGroups, formatNumeric, getFoodItemTotalGrams } from "@/lib/ingredientUtils";
+import { normalizeForMatch, strictNameMatch, parseIngredientGroups, formatNumeric, getFoodItemTotalGrams, extractIngredientMacros, normalizeKey } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -59,6 +59,22 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
       }
     }
   }
+
+  // Build macro lookup from all meal ingredients
+  const macroLookup = useMemo(() => {
+    const map = new Map<string, { cal: string; pro: string }>();
+    for (const meal of allMeals) {
+      if (!meal.ingredients) continue;
+      const macros = extractIngredientMacros(meal.ingredients);
+      for (const [key, val] of macros) {
+        const existing = map.get(key);
+        if (!existing || (!existing.cal && val.cal) || (!existing.pro && val.pro)) {
+          map.set(key, { cal: val.cal || existing?.cal || "", pro: val.pro || existing?.pro || "" });
+        }
+      }
+    }
+    return map;
+  }, [allMeals]);
 
   const isUnused = (fi: FoodItem) => {
     const fiKey = normalizeForMatch(fi.name);
@@ -234,16 +250,25 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
             {totalG > 0 && <span className="text-xs text-white/80 font-bold">{formatNumeric(totalG)}g</span>}
             {qty && <span className="text-xs text-white/80 font-bold">×{qty}</span>}
             {fi.is_infinite && <span className="text-xs text-white/80 font-bold">∞</span>}
-            {fi.calories && (
-              <span className="text-[10px] font-bold text-white bg-orange-500/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
-                🔥{fi.calories}
-              </span>
-            )}
-            {fi.protein && (
-              <span className="text-[10px] font-bold text-white bg-blue-600/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
-                🍗{fi.protein}
-              </span>
-            )}
+            {(() => {
+              const fiMacro = macroLookup.get(normalizeKey(fi.name));
+              const calDisplay = fi.calories || fiMacro?.cal || null;
+              const proDisplay = fi.protein || fiMacro?.pro || null;
+              return (
+                <>
+                  {calDisplay && (
+                    <span className="text-[10px] font-bold text-white bg-orange-500/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
+                      🔥{calDisplay}
+                    </span>
+                  )}
+                  {proDisplay && (
+                    <span className="text-[10px] font-bold text-white bg-blue-600/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
+                      🍗{proDisplay}
+                    </span>
+                  )}
+                </>
+              );
+            })()}
             {expLabel && (
               <span className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 ${isExpired ? 'bg-red-500/60 text-white' : 'bg-white/20 text-white/90'}`}>
                 📅{expLabel}
