@@ -220,8 +220,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ protein } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('protein'),
   });
 
   const updateIngredients = useMutation({
