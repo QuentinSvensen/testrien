@@ -244,6 +244,13 @@ const Index = () => {
 
     sundayClearDone.current = true;
     const clearAll = async () => {
+      // Verify no duplicate reset from DB
+      const { data: freshResetPref } = await supabase.from('user_preferences')
+        .select('value').eq('key', 'last_weekly_reset').maybeSingle();
+      if (freshResetPref?.value) {
+        const freshResetDate = new Date(String(freshResetPref.value));
+        if (freshResetDate.getTime() >= mostRecentResetTarget.getTime()) return;
+      }
       // Load saved snapshots
       const snapResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_saved_snapshots').maybeSingle();
       const snapshots: Record<string, { cal?: number; prot?: number }> = (snapResult.data?.value as any) ?? {};
