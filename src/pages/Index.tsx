@@ -810,9 +810,14 @@ const Index = () => {
                     const counterDate = getEarliestIngredientCounterDate(meal, foodItems);
                     const result = await addMealToPossibleDirectly.mutateAsync({
                       name: meal.name, category: cat.value, colorSeed: meal.id,
-                      calories: partialMeal.calories, protein: partialMeal.protein, grams: partialMeal.grams, ingredients: partialMeal.ingredients, expiration_date: expDate, counter_start_date: counterDate,
+                      calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: expDate, counter_start_date: counterDate,
                     });
-                    if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
+                    if (result?.id) {
+                      updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
+                      if (partialMeal.ingredients && partialMeal.ingredients !== meal.ingredients) {
+                        updatePossibleIngredients.mutate({ id: result.id, ingredients_override: partialMeal.ingredients });
+                      }
+                    }
                   }}
                   onMoveNameMatchToPossible={async (meal, fi, ratio) => {
                     if (fi.is_infinite && ratio && ratio !== 1) {
