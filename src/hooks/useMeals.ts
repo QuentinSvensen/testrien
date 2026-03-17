@@ -55,6 +55,33 @@ export function useMeals(options?: { enabled?: boolean }) {
     qc.invalidateQueries({ queryKey: ["meals"] });
     qc.invalidateQueries({ queryKey: ["possible_meals"] });
   };
+  const invalidateMeals = () => qc.invalidateQueries({ queryKey: ["meals"] });
+  const invalidatePM = () => qc.invalidateQueries({ queryKey: ["possible_meals"] });
+
+  // Optimistic update helpers
+  const optimisticMealUpdate = (id: string, update: Partial<Meal>) => {
+    qc.setQueryData<Meal[]>(["meals"], old => old?.map(m => m.id === id ? { ...m, ...update } : m) ?? []);
+    qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+      old?.map(pm => pm.meal_id === id ? { ...pm, meals: { ...pm.meals, ...update } as Meal } : pm) ?? []
+    );
+  };
+
+  const withMealOptimistic = (field: string) => ({
+    onMutate: async (vars: { id: string; [key: string]: any }) => {
+      await qc.cancelQueries({ queryKey: ["meals"] });
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prevMeals = qc.getQueryData<Meal[]>(["meals"]);
+      const prevPM = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      optimisticMealUpdate(vars.id, { [field]: vars[field] });
+      return { prevMeals, prevPM };
+    },
+    onError: (_err: Error, _vars: any, ctx: any) => {
+      if (ctx?.prevMeals) qc.setQueryData(["meals"], ctx.prevMeals);
+      if (ctx?.prevPM) qc.setQueryData(["possible_meals"], ctx.prevPM);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
+  });
 
   useEffect(() => {
     if (!enabled) return;
@@ -109,11 +136,12 @@ export function useMeals(options?: { enabled?: boolean }) {
       const maxOrder = meals.filter(m => m.category === category).reduce((max, m) => Math.max(max, m.sort_order), -1);
       const { data: inserted, error: insertErr } = await supabase
         .from("meals")
-        .insert({ name, category, color: colorFromName(name), sort_order: maxOrder + 1, is_available: true })
+        .insert({ name, category, color: 'temp', sort_order: maxOrder + 1, is_available: true })
         .select()
         .single();
       if (insertErr) throw insertErr;
-      const { error } = await supabase.from("meals").update({ color: colorFromName(inserted.id) }).eq("id", inserted.id);
+      const finalColor = colorFromName(inserted.id);
+      const { error } = await supabase.from("meals").update({ color: finalColor }).eq("id", inserted.id);
       if (error) throw error;
     },
     onSuccess: invalidateAll,
@@ -168,8 +196,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ name }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('name'),
   });
 
   const updateCalories = useMutation({
@@ -177,8 +204,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ calories }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('calories'),
   });
 
   const updateGrams = useMutation({
@@ -186,8 +212,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ grams }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('grams'),
   });
 
   const updateProtein = useMutation({
@@ -195,8 +220,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ protein } as any).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('protein'),
   });
 
   const updateIngredients = useMutation({
@@ -204,8 +228,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ ingredients }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('ingredients'),
   });
 
   const updateOvenTemp = useMutation({
@@ -213,8 +236,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ oven_temp }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('oven_temp'),
   });
 
   const updateOvenMinutes = useMutation({
@@ -222,8 +244,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ oven_minutes }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('oven_minutes'),
   });
 
   const toggleFavorite = useMutation({
@@ -257,12 +278,27 @@ export function useMeals(options?: { enabled?: boolean }) {
 
   const reorderMeals = useMutation({
     mutationFn: async (items: { id: string; sort_order: number }[]) => {
-      await Promise.all(items.map((item) =>
-        supabase.from("meals").update({ sort_order: item.sort_order }).eq("id", item.id)
-      ));
+      const { error } = await (supabase.rpc as any)('batch_reorder_meals', { items });
+      if (error) {
+        await Promise.all(items.map((item) =>
+          supabase.from("meals").update({ sort_order: item.sort_order }).eq("id", item.id)
+        ));
+      }
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async (items) => {
+      await qc.cancelQueries({ queryKey: ["meals"] });
+      const prev = qc.getQueryData<Meal[]>(["meals"]);
+      const orderMap = new Map(items.map(i => [i.id, i.sort_order]));
+      qc.setQueryData<Meal[]>(["meals"], old =>
+        old?.map(m => orderMap.has(m.id) ? { ...m, sort_order: orderMap.get(m.id)! } : m) ?? []
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
   });
 
   // --- Possible meal mutations ---
@@ -345,8 +381,19 @@ export function useMeals(options?: { enabled?: boolean }) {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async ({ id, day_of_week, meal_time }) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+        old?.map(pm => pm.id === id ? { ...pm, day_of_week, meal_time } : pm) ?? []
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
   });
 
   const updateCounter = useMutation({
@@ -379,12 +426,27 @@ export function useMeals(options?: { enabled?: boolean }) {
 
   const reorderPossibleMeals = useMutation({
     mutationFn: async (items: { id: string; sort_order: number }[]) => {
-      await Promise.all(items.map((item) =>
-        supabase.from("possible_meals").update({ sort_order: item.sort_order }).eq("id", item.id)
-      ));
+      const { error } = await (supabase.rpc as any)('batch_reorder_possible_meals', { items });
+      if (error) {
+        await Promise.all(items.map((item) =>
+          supabase.from("possible_meals").update({ sort_order: item.sort_order }).eq("id", item.id)
+        ));
+      }
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async (items) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      const orderMap = new Map(items.map(i => [i.id, i.sort_order]));
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+        old?.map(pm => orderMap.has(pm.id) ? { ...pm, sort_order: orderMap.get(pm.id)! } : pm) ?? []
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
   });
 
   const updatePossibleIngredients = useMutation({
@@ -395,8 +457,19 @@ export function useMeals(options?: { enabled?: boolean }) {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async ({ id, ingredients_override }) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+        old?.map(pm => pm.id === id ? { ...pm, ingredients_override } : pm) ?? []
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
   });
 
   const updatePossibleQuantity = useMutation({

@@ -326,7 +326,11 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      batch_reorder_meals: { Args: { items: Json }; Returns: undefined }
+      batch_reorder_possible_meals: {
+        Args: { items: Json }
+        Returns: undefined
+      }
     }
     Enums: {
       [_ in never]: never

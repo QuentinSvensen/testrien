@@ -174,9 +174,24 @@ const Index = () => {
   }, []);
 
   useEffect(() => {
-    const handleUnload = () => { supabase.auth.signOut(); };
+    const TAB_KEY = 'mealcards_open_tabs';
+    const count = parseInt(localStorage.getItem(TAB_KEY) || '0');
+    localStorage.setItem(TAB_KEY, String(count + 1));
+    const handleUnload = () => {
+      const current = parseInt(localStorage.getItem(TAB_KEY) || '1');
+      if (current <= 1) {
+        supabase.auth.signOut();
+        localStorage.setItem(TAB_KEY, '0');
+      } else {
+        localStorage.setItem(TAB_KEY, String(current - 1));
+      }
+    };
     window.addEventListener("beforeunload", handleUnload);
-    return () => window.removeEventListener("beforeunload", handleUnload);
+    return () => {
+      window.removeEventListener("beforeunload", handleUnload);
+      const current = parseInt(localStorage.getItem(TAB_KEY) || '1');
+      localStorage.setItem(TAB_KEY, String(Math.max(0, current - 1)));
+    };
   }, []);
 
   // unlocked computed above to gate data hooks before PIN unlock
@@ -325,13 +340,16 @@ const Index = () => {
   const persistedSnapshots = getPreference<Record<string, FoodItem[]>>(SNAPSHOT_PREF_KEY, {});
   const [deductionSnapshots, setDeductionSnapshots] = useState<Record<string, FoodItem[]>>({});
   const snapshotsSynced = useRef(false);
+  const snapshotsJsonRef = useRef('');
   useEffect(() => {
     if (snapshotsSynced.current) return;
-    if (persistedSnapshots && Object.keys(persistedSnapshots).length > 0) {
-      setDeductionSnapshots(persistedSnapshots);
-      snapshotsSynced.current = true;
-    }
-  }, [JSON.stringify(persistedSnapshots)]);
+    if (!persistedSnapshots || Object.keys(persistedSnapshots).length === 0) return;
+    const json = JSON.stringify(persistedSnapshots);
+    if (json === snapshotsJsonRef.current) return;
+    snapshotsJsonRef.current = json;
+    setDeductionSnapshots(persistedSnapshots);
+    snapshotsSynced.current = true;
+  }, [persistedSnapshots]);
   const updateSnapshots = (updater: (prev: Record<string, FoodItem[]>) => Record<string, FoodItem[]>) => {
     setDeductionSnapshots(prev => {
       const next = updater(prev);

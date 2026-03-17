@@ -22,6 +22,38 @@ export {
   getFoodItemTotalGrams, parseIngredientLine, parseIngredientGroups,
 };
 
+// ─── Food Item Index ────────────────────────────────────────────────────────
+
+export type FoodItemIndex = Map<string, FoodItem[]>;
+
+/** Build a lookup index from foodItems for O(1) name-based access */
+export function buildFoodItemIndex(foodItems: FoodItem[]): FoodItemIndex {
+  const index = new Map<string, FoodItem[]>();
+  for (const fi of foodItems) {
+    const key = normalizeKey(fi.name);
+    const arr = index.get(key);
+    if (arr) arr.push(fi);
+    else index.set(key, [fi]);
+  }
+  return index;
+}
+
+/** O(1) lookup by normalized key, with fuzzy fallback for typo tolerance */
+function lookupFoodItems(name: string, foodItems: FoodItem[], index?: FoodItemIndex): FoodItem[] {
+  if (index) {
+    const exact = index.get(normalizeKey(name));
+    if (exact && exact.length > 0) return exact;
+    const results: FoodItem[] = [];
+    for (const [, items] of index) {
+      if (items.length > 0 && strictNameMatch(items[0].name, name)) {
+        results.push(...items);
+      }
+    }
+    return results;
+  }
+  return foodItems.filter(fi => strictNameMatch(fi.name, name));
+}
+
 // ─── Stock Map ──────────────────────────────────────────────────────────────
 
 export interface StockInfo { grams: number; count: number; infinite: boolean; indivisibleUnit: number; }
@@ -47,8 +79,10 @@ export function buildStockMap(foodItems: FoodItem[]): Map<string, StockInfo> {
 }
 
 export function findStockKey(stockMap: Map<string, StockInfo>, name: string): string | null {
-  for (const key of stockMap.keys()) {
-    if (strictNameMatch(key, name)) return key;
+  const key = normalizeKey(name);
+  if (stockMap.has(key)) return key;
+  for (const k of stockMap.keys()) {
+    if (strictNameMatch(k, name)) return k;
   }
   return null;
 }
@@ -155,57 +189,58 @@ export function getMealFractionalRatio(meal: Meal, stockMap: Map<string, StockIn
 
 // ─── Ingredient Analysis ────────────────────────────────────────────────────
 
-export function getEarliestIngredientExpiration(meal: Meal, foodItems: FoodItem[]): string | null {
+export function getEarliestIngredientExpiration(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): string | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let earliest: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.expiration_date && (!earliest || fi.expiration_date < earliest))
-      earliest = fi.expiration_date;
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.expiration_date && (!earliest || fi.expiration_date < earliest))
+        earliest = fi.expiration_date;
+    }
   }
   return earliest;
 }
 
-export function getExpiringIngredientName(meal: Meal, foodItems: FoodItem[]): string | null {
+export function getExpiringIngredientName(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): string | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let earliest: string | null = null;
   let name: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.expiration_date && (!earliest || fi.expiration_date < earliest)) {
-      earliest = fi.expiration_date;
-      name = alt.name;
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.expiration_date && (!earliest || fi.expiration_date < earliest)) {
+        earliest = fi.expiration_date;
+        name = alt.name;
+      }
     }
   }
   return name;
 }
 
-export function getExpiredIngredientNames(meal: Meal, foodItems: FoodItem[]): Set<string> {
+export function getExpiredIngredientNames(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): Set<string> {
   const expired = new Set<string>();
   if (!meal.ingredients?.trim()) return expired;
   
-  // Create a local "today" at midnight to avoid UTC offset issues with ISO strings
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
   const groups = parseIngredientGroups(meal.ingredients);
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.expiration_date) {
-      const expDateParts = fi.expiration_date.split('-');
-      // Parse as local midnight
-      const expDate = new Date(parseInt(expDateParts[0]), parseInt(expDateParts[1]) - 1, parseInt(expDateParts[2]));
-      
-      if (expDate <= today) {
-        expired.add(normalizeKey(alt.name));
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.expiration_date) {
+        const expDateParts = fi.expiration_date.split('-');
+        const expDate = new Date(parseInt(expDateParts[0]), parseInt(expDateParts[1]) - 1, parseInt(expDateParts[2]));
+        if (expDate <= today) {
+          expired.add(normalizeKey(alt.name));
+        }
       }
     }
   }
   return expired;
 }
 
-export function getExpiringSoonIngredientNames(meal: Meal, foodItems: FoodItem[]): Set<string> {
-  // Returns only the SINGLE ingredient with the earliest future expiration date (within 7 days).
-  // This ensures only the most urgent ingredient gets the "soon" ring highlight.
+export function getExpiringSoonIngredientNames(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): Set<string> {
   const soon = new Set<string>();
   if (!meal.ingredients?.trim()) return soon;
   
@@ -217,15 +252,16 @@ export function getExpiringSoonIngredientNames(meal: Meal, foodItems: FoodItem[]
   const groups = parseIngredientGroups(meal.ingredients);
   let earliestDate: string | null = null;
   let earliestName: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.expiration_date) {
-      const expDateParts = fi.expiration_date.split('-');
-      const exp = new Date(parseInt(expDateParts[0]), parseInt(expDateParts[1]) - 1, parseInt(expDateParts[2]));
-      
-      if (exp > today && exp <= soonDate) {
-        if (!earliestDate || fi.expiration_date < earliestDate) {
-          earliestDate = fi.expiration_date;
-          earliestName = normalizeKey(alt.name);
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.expiration_date) {
+        const expDateParts = fi.expiration_date.split('-');
+        const exp = new Date(parseInt(expDateParts[0]), parseInt(expDateParts[1]) - 1, parseInt(expDateParts[2]));
+        if (exp > today && exp <= soonDate) {
+          if (!earliestDate || fi.expiration_date < earliestDate) {
+            earliestDate = fi.expiration_date;
+            earliestName = normalizeKey(alt.name);
+          }
         }
       }
     }
@@ -234,51 +270,59 @@ export function getExpiringSoonIngredientNames(meal: Meal, foodItems: FoodItem[]
   return soon;
 }
 
-export function getMaxIngredientCounter(meal: Meal, foodItems: FoodItem[]): number | null {
+export function getMaxIngredientCounter(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): number | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let maxDays: number | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.counter_start_date) {
-      const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
-      if (maxDays === null || days > maxDays) maxDays = days;
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.counter_start_date) {
+        const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
+        if (maxDays === null || days > maxDays) maxDays = days;
+      }
     }
   }
   return maxDays;
 }
 
-export function getEarliestIngredientCounterDate(meal: Meal, foodItems: FoodItem[]): string | null {
+export function getEarliestIngredientCounterDate(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): string | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let earliest: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.counter_start_date) {
-      if (!earliest || fi.counter_start_date < earliest) earliest = fi.counter_start_date;
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.counter_start_date) {
+        if (!earliest || fi.counter_start_date < earliest) earliest = fi.counter_start_date;
+      }
     }
   }
   return earliest;
 }
 
-export function getMaxIngredientCounterName(meal: Meal, foodItems: FoodItem[]): string | null {
+export function getMaxIngredientCounterName(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): string | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let maxDays: number | null = null;
   let maxName: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.counter_start_date) {
-      const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
-      if (maxDays === null || days > maxDays) { maxDays = days; maxName = fi.name; }
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.counter_start_date) {
+        const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
+        if (maxDays === null || days > maxDays) { maxDays = days; maxName = fi.name; }
+      }
     }
   }
   return maxName;
 }
 
-export function getCounterIngredientNames(meal: Meal, foodItems: FoodItem[]): Set<string> {
+export function getCounterIngredientNames(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): Set<string> {
   const result = new Set<string>();
   if (!meal.ingredients?.trim()) return result;
   const groups = parseIngredientGroups(meal.ingredients);
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.counter_start_date) result.add(normalizeKey(alt.name));
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.counter_start_date) result.add(normalizeKey(alt.name));
+    }
   }
   return result;
 }

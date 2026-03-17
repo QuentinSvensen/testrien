@@ -91,6 +91,8 @@ export function strictNameMatch(a: string, b: string): boolean {
   const nb = normalizeKey(b);
   if (na === nb) return true;
   if (!na || !nb) return false;
+  // Short words (≤3 chars) require exact match to avoid false positives (riz/ris, sel/sol)
+  if (na.length <= 3 || nb.length <= 3) return false;
   // Reject if word counts differ (e.g. "speculoos" vs "pate speculoos")
   const wordsA = na.split(/\s+/);
   const wordsB = nb.split(/\s+/);
@@ -298,8 +300,16 @@ export function serializeIngredients(lines: IngLine[]): string | null {
  * For each ingredient with {cal}: if qty (grams) present → cal * qty / 100. If count present → cal * count.
  * Returns null if no ingredient has cal data.
  */
+const _calCache = new Map<string, number | null>();
+const _proCache = new Map<string, number | null>();
+const MACRO_CACHE_MAX = 500;
+
 export function computeIngredientCalories(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
   if (!ingredientStr?.trim()) return null;
+  if (!isAvailable) {
+    const cached = _calCache.get(ingredientStr);
+    if (cached !== undefined) return cached;
+  }
   const lines = parseIngredientsToLines(ingredientStr);
   let total = 0;
   let hasCal = false;
@@ -342,7 +352,12 @@ export function computeIngredientCalories(ingredientStr: string | null, isAvaila
       total += calVal;
     }
   }
-  return hasCal ? Math.round(total) : null;
+  const result = hasCal ? Math.round(total) : null;
+  if (!isAvailable) {
+    if (_calCache.size > MACRO_CACHE_MAX) _calCache.clear();
+    _calCache.set(ingredientStr!, result);
+  }
+  return result;
 }
 
 /**
@@ -352,6 +367,10 @@ export function computeIngredientCalories(ingredientStr: string | null, isAvaila
  */
 export function computeIngredientProtein(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
   if (!ingredientStr?.trim()) return null;
+  if (!isAvailable) {
+    const cached = _proCache.get(ingredientStr);
+    if (cached !== undefined) return cached;
+  }
   const lines = parseIngredientsToLines(ingredientStr);
   let total = 0;
   let hasPro = false;
@@ -394,7 +413,12 @@ export function computeIngredientProtein(ingredientStr: string | null, isAvailab
       total += proVal;
     }
   }
-  return hasPro ? Math.round(total) : null;
+  const result = hasPro ? Math.round(total) : null;
+  if (!isAvailable) {
+    if (_proCache.size > MACRO_CACHE_MAX) _proCache.clear();
+    _proCache.set(ingredientStr!, result);
+  }
+  return result;
 }
 
 /**

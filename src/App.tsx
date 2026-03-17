@@ -8,6 +8,7 @@ import { BrowserRouter, Routes, Route, Navigate } from "react-router-dom";
 import { ThemeProvider } from "next-themes";
 import Index from "./pages/Index";
 import NotFound from "./pages/NotFound";
+import { ErrorBoundary } from "./components/ErrorBoundary";
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -42,15 +43,17 @@ const App = () => (
         <Toaster />
         <Sonner />
   <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Navigate to="/repas" replace />} />
-            <Route path="/aliments" element={<Index />} />
-            <Route path="/repas" element={<Index />} />
-            <Route path="/planning" element={<Index />} />
-            <Route path="/courses" element={<Index />} />
-            {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
-            <Route path="*" element={<NotFound />} />
-          </Routes>
+          <ErrorBoundary section="Application">
+            <Routes>
+              <Route path="/" element={<Navigate to="/repas" replace />} />
+              <Route path="/aliments" element={<Index />} />
+              <Route path="/repas" element={<Index />} />
+              <Route path="/planning" element={<Index />} />
+              <Route path="/courses" element={<Index />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
+              <Route path="*" element={<NotFound />} />
+            </Routes>
+          </ErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </PersistQueryClientProvider>
