@@ -91,6 +91,8 @@ export function strictNameMatch(a: string, b: string): boolean {
   const nb = normalizeKey(b);
   if (na === nb) return true;
   if (!na || !nb) return false;
+  // Short words (≤3 chars) require exact match to avoid false positives (riz/ris, sel/sol)
+  if (na.length <= 3 || nb.length <= 3) return false;
   // Reject if word counts differ (e.g. "speculoos" vs "pate speculoos")
   const wordsA = na.split(/\s+/);
   const wordsB = nb.split(/\s+/);
