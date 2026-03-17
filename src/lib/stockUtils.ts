@@ -202,15 +202,17 @@ export function getEarliestIngredientExpiration(meal: Meal, foodItems: FoodItem[
   return earliest;
 }
 
-export function getExpiringIngredientName(meal: Meal, foodItems: FoodItem[]): string | null {
+export function getExpiringIngredientName(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): string | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let earliest: string | null = null;
   let name: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.expiration_date && (!earliest || fi.expiration_date < earliest)) {
-      earliest = fi.expiration_date;
-      name = alt.name;
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.expiration_date && (!earliest || fi.expiration_date < earliest)) {
+        earliest = fi.expiration_date;
+        name = alt.name;
+      }
     }
   }
   return name;
