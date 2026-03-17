@@ -182,19 +182,31 @@ export function PossibleMealCard({
       const qty = parseInt(editValue.trim());
       if (!isNaN(qty) && qty >= 1) onUpdateQuantity(qty);
     }
-    if (editing === "ratio" && meal.ingredients && onUpdatePossibleIngredients) {
+    if (editing === "ratio") {
       const trimmed = editValue.trim().toLowerCase();
       let ratio: number | null = null;
       if (trimmed.startsWith("x")) {
         const mult = parseFloat(trimmed.slice(1));
-        if (!isNaN(mult) && mult >= 0.5) ratio = mult;
+        if (!isNaN(mult) && mult >= 0.1) ratio = mult;
       } else {
         const pct = parseFloat(trimmed.replace("%", ""));
-        if (!isNaN(pct) && pct >= 50) ratio = pct / 100;
+        if (!isNaN(pct) && pct >= 10) ratio = pct / 100;
       }
       if (ratio !== null) {
-        const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
-        onUpdatePossibleIngredients(scaledIngredients);
+        if (meal.ingredients && onUpdatePossibleIngredients) {
+          const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
+          onUpdatePossibleIngredients(scaledIngredients);
+        } else {
+          // Scale calories and grams directly for cards without ingredients
+          if (meal.calories) {
+            const baseCal = parseFloat(meal.calories.replace(/[^0-9.]/g, '')) || 0;
+            if (baseCal > 0) onUpdateCalories(String(Math.round(baseCal * ratio)));
+          }
+          if (meal.grams) {
+            const baseG = parseFloat(meal.grams.replace(/[^0-9.]/g, '')) || 0;
+            if (baseG > 0) onUpdateGrams(String(Math.round(baseG * ratio)));
+          }
+        }
       }
     }
     setEditing(null);
