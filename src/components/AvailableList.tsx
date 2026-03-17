@@ -39,7 +39,7 @@ interface AvailableListProps {
   onMovePartialToPossible: (meal: Meal, ratio: number) => void;
   onMoveFoodItemToPossible: (fi: FoodItem) => void;
   onDeleteFoodItem: (id: string) => void;
-  onMoveNameMatchToPossible: (meal: Meal, fi: FoodItem) => void;
+  onMoveNameMatchToPossible: (meal: Meal, fi: FoodItem, ratio?: number) => void;
   onRename: (id: string, name: string) => void;
   onUpdateCalories: (id: string, cal: string | null) => void;
   onUpdateGrams: (id: string, g: string | null) => void;
