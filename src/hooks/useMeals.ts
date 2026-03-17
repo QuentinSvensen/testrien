@@ -427,8 +427,19 @@ export function useMeals(options?: { enabled?: boolean }) {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async ({ id, ingredients_override }) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+        old?.map(pm => pm.id === id ? { ...pm, ingredients_override } : pm) ?? []
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
   });
 
   const updatePossibleQuantity = useMutation({
