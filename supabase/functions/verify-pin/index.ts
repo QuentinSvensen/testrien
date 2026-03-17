@@ -164,17 +164,11 @@ serve(async (req) => {
     }
 
     if (body.admin_stats) {
-      const authed = await verifyAuth(req.headers.get("authorization"));
-      if (!authed) {
-        return new Response(JSON.stringify({ success: false, error: "Non autorisé" }), {
-          status: 401,
-          headers: { ...corsHeaders, "Content-Type": "application/json" },
-        });
-      }
-
+      // Public read-only stats endpoint to avoid startup 401 loops when session expires.
+      // Sensitive operations (reset_blocked) remain protected by verifyAuth.
       const blockedRaw = await getMetaValue(supabaseAdmin, BLOCKED_COUNT_KEY);
       const blocked_count = Number.parseInt(blockedRaw ?? "0", 10) || 0;
-      return new Response(JSON.stringify({ blocked_count }), {
+      return new Response(JSON.stringify({ success: true, blocked_count }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
