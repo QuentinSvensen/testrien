@@ -82,15 +82,17 @@ function getCounterDays(startDate: string | null): number | null {
 /** Counter days adapted: adds offset based on the difference between target day and today */
 function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
   if (!startDate) return null;
-  // Freeze counter at the value it had when moved to possible
-  const refTime = createdAt ? new Date(createdAt).getTime() : Date.now();
-  const baseDays = Math.floor((refTime - new Date(startDate).getTime()) / 86400000);
+  const startTime = new Date(startDate).getTime();
+  const createdTime = createdAt ? new Date(createdAt).getTime() : Date.now();
+  // If counter started after card was created, don't freeze - use real time
+  const refTime = startTime > createdTime ? Date.now() : createdTime;
+  const baseDays = Math.max(0, Math.floor((refTime - startTime) / 86400000));
   if (!dayKey) return baseDays;
   const targetDate = getDateForDayKey(dayKey);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dayOffset = Math.round((targetDate.getTime() - today.getTime()) / 86400000);
-  return baseDays + dayOffset;
+  return Math.max(0, baseDays + dayOffset);
 }
 
 function isExpiredDate(d: string | null) {
