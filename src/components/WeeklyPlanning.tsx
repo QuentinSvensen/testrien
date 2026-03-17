@@ -941,9 +941,9 @@ export function WeeklyPlanning() {
                         const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
                         const ingPro = computeIngredientProtein(m.ingredients);
                         const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
-                        return (
+                          return (
                           <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
-                            {m.name} {(calDisplay || proDisplay) ? `(${calDisplay || ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
+                            {m.name} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                           </button>
                         );
                       })}

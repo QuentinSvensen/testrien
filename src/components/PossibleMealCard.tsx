@@ -196,16 +196,16 @@ export function PossibleMealCard({
         if (meal.ingredients && onUpdatePossibleIngredients) {
           const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
           onUpdatePossibleIngredients(scaledIngredients);
-        } else {
-          // Scale calories and grams directly for cards without ingredients
-          if (meal.calories) {
-            const baseCal = parseFloat(meal.calories.replace(/[^0-9.]/g, '')) || 0;
-            if (baseCal > 0) onUpdateCalories(String(Math.round(baseCal * ratio)));
-          }
-          if (meal.grams) {
-            const baseG = parseFloat(meal.grams.replace(/[^0-9.]/g, '')) || 0;
-            if (baseG > 0) onUpdateGrams(String(Math.round(baseG * ratio)));
-          }
+        }
+        // Always scale grams when applying ratio
+        if (meal.grams) {
+          const baseG = parseFloat(meal.grams.replace(/[^0-9.]/g, '')) || 0;
+          if (baseG > 0) onUpdateGrams(String(Math.round(baseG * ratio)));
+        }
+        // Scale calories directly only for cards without ingredients
+        if (!meal.ingredients && meal.calories) {
+          const baseCal = parseFloat(meal.calories.replace(/[^0-9.]/g, '')) || 0;
+          if (baseCal > 0) onUpdateCalories(String(Math.round(baseCal * ratio)));
         }
       }
     }

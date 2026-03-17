@@ -664,9 +664,10 @@ const Index = () => {
                         for (const item of shoppingItems) {
                           if (item.secondary_checked) {
                             toggleShoppingSecondaryCheck.mutate({ id: item.id, secondary_checked: false });
-                            if (!item.checked && item.quantity) {
-                              updateShoppingItemQuantity.mutate({ id: item.id, quantity: null });
-                            }
+                          }
+                          // Clear quantities on items without yellow check
+                          if (!item.checked && item.quantity) {
+                            updateShoppingItemQuantity.mutate({ id: item.id, quantity: null });
                           }
                         }
                       }
