@@ -55,6 +55,33 @@ export function useMeals(options?: { enabled?: boolean }) {
     qc.invalidateQueries({ queryKey: ["meals"] });
     qc.invalidateQueries({ queryKey: ["possible_meals"] });
   };
+  const invalidateMeals = () => qc.invalidateQueries({ queryKey: ["meals"] });
+  const invalidatePM = () => qc.invalidateQueries({ queryKey: ["possible_meals"] });
+
+  // Optimistic update helpers
+  const optimisticMealUpdate = (id: string, update: Partial<Meal>) => {
+    qc.setQueryData<Meal[]>(["meals"], old => old?.map(m => m.id === id ? { ...m, ...update } : m) ?? []);
+    qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+      old?.map(pm => pm.meal_id === id ? { ...pm, meals: { ...pm.meals, ...update } as Meal } : pm) ?? []
+    );
+  };
+
+  const withMealOptimistic = (field: string) => ({
+    onMutate: async (vars: { id: string; [key: string]: any }) => {
+      await qc.cancelQueries({ queryKey: ["meals"] });
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prevMeals = qc.getQueryData<Meal[]>(["meals"]);
+      const prevPM = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      optimisticMealUpdate(vars.id, { [field]: vars[field] });
+      return { prevMeals, prevPM };
+    },
+    onError: (_err: Error, _vars: any, ctx: any) => {
+      if (ctx?.prevMeals) qc.setQueryData(["meals"], ctx.prevMeals);
+      if (ctx?.prevPM) qc.setQueryData(["possible_meals"], ctx.prevPM);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
+  });
 
   useEffect(() => {
     if (!enabled) return;
