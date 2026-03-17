@@ -364,6 +364,12 @@ export function WeeklyPlanning() {
     if (mealId) updated[day] = mealId;
     else delete updated[day];
     setPreference.mutate({ key: 'planning_breakfast', value: updated });
+    // Disable auto-consume when changing breakfast selection
+    if (autoConsumeBreakfast[day]) {
+      const updatedAC = { ...autoConsumeBreakfast };
+      delete updatedAC[day];
+      setPreference.mutate({ key: 'planning_auto_consume_breakfast', value: updatedAC });
+    }
   };
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   const [dragOverUnplanned, setDragOverUnplanned] = useState(false);
