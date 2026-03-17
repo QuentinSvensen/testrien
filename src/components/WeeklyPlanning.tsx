@@ -1065,38 +1065,30 @@ export function WeeklyPlanning() {
                     <div className="mt-0.5 space-y-1">
                       {slotMeals.length === 0 ? (
                       <div className="flex flex-col items-start gap-0.5">
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder="kcal"
-                            key={`manual-${day}-${time}`}
-                            defaultValue={manualCalories[`${day}-${time}`] || ''}
-                            onBlur={(e) => {
-                              const val = parseInt(e.target.value) || 0;
+                          <PlanningInput
+                            storageKey={`manual-${day}-${time}`}
+                            currentValue={manualCalories[`${day}-${time}`] || 0}
+                            onSave={(val) => {
                               const key = `${day}-${time}`;
                               const updated = { ...manualCalories };
                               if (val > 0) updated[key] = val;
                               else delete updated[key];
                               setPreference.mutate({ key: 'planning_manual_calories', value: updated });
                             }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            placeholder="kcal"
                             className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-muted-foreground/20 rounded px-1 text-muted-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 text-center"
                           />
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder="prot"
-                            key={`manual-prot-${day}-${time}`}
-                            defaultValue={manualProteins[`${day}-${time}`] || ''}
-                            onBlur={(e) => {
-                              const val = parseInt(e.target.value) || 0;
+                          <PlanningInput
+                            storageKey={`manual-prot-${day}-${time}`}
+                            currentValue={manualProteins[`${day}-${time}`] || 0}
+                            onSave={(val) => {
                               const key = `${day}-${time}`;
                               const updated = { ...manualProteins };
                               if (val > 0) updated[key] = val;
                               else delete updated[key];
                               setPreference.mutate({ key: 'planning_manual_proteins', value: updated });
                             }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            placeholder="prot"
                             className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center"
                           />
                           <div className="w-14 flex justify-center">
