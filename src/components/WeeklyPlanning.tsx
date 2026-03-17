@@ -856,9 +856,11 @@ export function WeeklyPlanning() {
                             const displayIng = pm.ingredients_override ?? pm.meals?.ingredients;
                             const ingCal = computeIngredientCalories(displayIng);
                             const calDisplay = ingCal !== null ? String(ingCal) : pm.meals?.calories;
+                            const ingPro = computeIngredientProtein(displayIng);
+                            const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
                             return (
                               <button key={pm.id} onClick={() => setBreakfastForDay(day, pm.meal_id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pm.meal_id ? 'bg-primary/10 font-bold' : ''}`}>
-                                {pm.meals?.name} {calDisplay ? `(${calDisplay})` : ''}
+                                {pm.meals?.name} {(calDisplay || proDisplay) ? `(${calDisplay || ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                               </button>
                             );
                           })}
@@ -869,9 +871,11 @@ export function WeeklyPlanning() {
                       {petitDejMeals.map(m => {
                         const ingCal = computeIngredientCalories(m.ingredients);
                         const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
+                        const ingPro = computeIngredientProtein(m.ingredients);
+                        const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
                         return (
                           <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
-                            {m.name} {calDisplay ? `(${calDisplay})` : ''}
+                            {m.name} {(calDisplay || proDisplay) ? `(${calDisplay || ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                           </button>
                         );
                       })}
