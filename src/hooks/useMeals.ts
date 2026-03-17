@@ -136,11 +136,12 @@ export function useMeals(options?: { enabled?: boolean }) {
       const maxOrder = meals.filter(m => m.category === category).reduce((max, m) => Math.max(max, m.sort_order), -1);
       const { data: inserted, error: insertErr } = await supabase
         .from("meals")
-        .insert({ name, category, color: colorFromName(name), sort_order: maxOrder + 1, is_available: true })
+        .insert({ name, category, color: 'temp', sort_order: maxOrder + 1, is_available: true })
         .select()
         .single();
       if (insertErr) throw insertErr;
-      const { error } = await supabase.from("meals").update({ color: colorFromName(inserted.id) }).eq("id", inserted.id);
+      const finalColor = colorFromName(inserted.id);
+      const { error } = await supabase.from("meals").update({ color: finalColor }).eq("id", inserted.id);
       if (error) throw error;
     },
     onSuccess: invalidateAll,
