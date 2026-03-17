@@ -285,13 +285,15 @@ export function getMaxIngredientCounter(meal: Meal, foodItems: FoodItem[], index
   return maxDays;
 }
 
-export function getEarliestIngredientCounterDate(meal: Meal, foodItems: FoodItem[]): string | null {
+export function getEarliestIngredientCounterDate(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): string | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let earliest: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.counter_start_date) {
-      if (!earliest || fi.counter_start_date < earliest) earliest = fi.counter_start_date;
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.counter_start_date) {
+        if (!earliest || fi.counter_start_date < earliest) earliest = fi.counter_start_date;
+      }
     }
   }
   return earliest;
