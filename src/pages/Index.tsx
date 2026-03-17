@@ -136,7 +136,7 @@ const Index = () => {
     getMealsByCategory, getPossibleByCategory, sortByExpiration, sortByPlanning, getRandomPossible
   } = useMeals({ enabled: unlocked });
 
-  const { groups: shoppingGroups, items: shoppingItems } = useShoppingList({ enabled: unlocked });
+  const { groups: shoppingGroups, items: shoppingItems, toggleSecondaryCheck: toggleShoppingSecondaryCheck, updateItemQuantity: updateShoppingItemQuantity } = useShoppingList({ enabled: unlocked });
   const { getPreference, setPreference, isLoading: isPreferencesLoading } = usePreferences({ enabled: unlocked });
   
   const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
