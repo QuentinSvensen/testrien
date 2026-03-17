@@ -352,7 +352,12 @@ export function computeIngredientCalories(ingredientStr: string | null, isAvaila
       total += calVal;
     }
   }
-  return hasCal ? Math.round(total) : null;
+  const result = hasCal ? Math.round(total) : null;
+  if (!isAvailable) {
+    if (_calCache.size > MACRO_CACHE_MAX) _calCache.clear();
+    _calCache.set(ingredientStr!, result);
+  }
+  return result;
 }
 
 /**
