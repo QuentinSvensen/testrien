@@ -39,7 +39,7 @@ interface AvailableListProps {
   onMovePartialToPossible: (meal: Meal, ratio: number) => void;
   onMoveFoodItemToPossible: (fi: FoodItem) => void;
   onDeleteFoodItem: (id: string) => void;
-  onMoveNameMatchToPossible: (meal: Meal, fi: FoodItem) => void;
+  onMoveNameMatchToPossible: (meal: Meal, fi: FoodItem, ratio?: number) => void;
   onRename: (id: string, name: string) => void;
   onUpdateCalories: (id: string, cal: string | null) => void;
   onUpdateGrams: (id: string, g: string | null) => void;
@@ -610,7 +610,10 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
     return (
       <div key={`nm-${idx}`} className="relative">
         <MealCard meal={fakeMeal}
-          onMoveToPossible={() => onMoveNameMatchToPossible(meal, fi)}
+          onMoveToPossible={() => {
+            const cr = customRatios[nmKey];
+            onMoveNameMatchToPossible(meal, fi, cr && cr !== 1 ? cr : undefined);
+          }}
           onRename={(name) => onRename(meal.id, name)} onDelete={() => {}} onUpdateCalories={(cal) => onUpdateCalories(meal.id, cal)} onUpdateGrams={(g) => onUpdateGrams(meal.id, g)} onUpdateIngredients={(ing) => onUpdateIngredients(meal.id, ing)}
           onToggleFavorite={() => onToggleFavorite(meal.id)}
           onUpdateOvenTemp={(t) => onUpdateOvenTemp(meal.id, t)} onUpdateOvenMinutes={(m) => onUpdateOvenMinutes(meal.id, m)}

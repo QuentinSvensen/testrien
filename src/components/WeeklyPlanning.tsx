@@ -82,15 +82,17 @@ function getCounterDays(startDate: string | null): number | null {
 /** Counter days adapted: adds offset based on the difference between target day and today */
 function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
   if (!startDate) return null;
-  // Freeze counter at the value it had when moved to possible
-  const refTime = createdAt ? new Date(createdAt).getTime() : Date.now();
-  const baseDays = Math.floor((refTime - new Date(startDate).getTime()) / 86400000);
+  const startTime = new Date(startDate).getTime();
+  const createdTime = createdAt ? new Date(createdAt).getTime() : Date.now();
+  // If counter started after card was created, don't freeze - use real time
+  const refTime = startTime > createdTime ? Date.now() : createdTime;
+  const baseDays = Math.max(0, Math.floor((refTime - startTime) / 86400000));
   if (!dayKey) return baseDays;
   const targetDate = getDateForDayKey(dayKey);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dayOffset = Math.round((targetDate.getTime() - today.getTime()) / 86400000);
-  return baseDays + dayOffset;
+  return Math.max(0, baseDays + dayOffset);
 }
 
 function isExpiredDate(d: string | null) {
@@ -362,6 +364,12 @@ export function WeeklyPlanning() {
     if (mealId) updated[day] = mealId;
     else delete updated[day];
     setPreference.mutate({ key: 'planning_breakfast', value: updated });
+    // Disable auto-consume when changing breakfast selection
+    if (autoConsumeBreakfast[day]) {
+      const updatedAC = { ...autoConsumeBreakfast };
+      delete updatedAC[day];
+      setPreference.mutate({ key: 'planning_auto_consume_breakfast', value: updatedAC });
+    }
   };
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   const [dragOverUnplanned, setDragOverUnplanned] = useState(false);
@@ -398,59 +406,68 @@ export function WeeklyPlanning() {
   const autoConsumeChecked = useRef(false);
   useEffect(() => {
     if (autoConsumeChecked.current) return;
+    if (foodItems.length === 0) return; // Wait for data to load
     autoConsumeChecked.current = true;
     
-    const todayIdx = DAY_KEY_TO_INDEX[todayKey];
-    const pastDays = DAYS.filter((_, i) => i < todayIdx);
-    
-    const toConsume: string[] = [];
-    for (const day of pastDays) {
-      if (autoConsumeBreakfast[day] && breakfastSelections[day] && !autoConsumedDays[day]) {
-        toConsume.push(day);
+    const runAutoConsume = async () => {
+      // Verify from DB to prevent duplicate consumption
+      const { data: freshConsumedData } = await supabase.from('user_preferences')
+        .select('value').eq('key', 'planning_auto_consumed_days').maybeSingle();
+      const freshConsumed = (freshConsumedData?.value as Record<string, boolean>) ?? {};
+
+      const todayIdx = DAY_KEY_TO_INDEX[todayKey];
+      const pastDays = DAYS.filter((_, i) => i < todayIdx);
+      
+      const toConsume: string[] = [];
+      for (const day of pastDays) {
+        if (autoConsumeBreakfast[day] && breakfastSelections[day] && !freshConsumed[day]) {
+          toConsume.push(day);
+        }
       }
-    }
-    
-    if (toConsume.length > 0) {
-      const updatedConsumed = { ...autoConsumedDays };
-      for (const day of toConsume) {
-        updatedConsumed[day] = true;
-        const mealId = breakfastSelections[day];
-        const breakfast = petitDejMeals.find(m => m.id === mealId) || possibleMeals.find(pm => pm.meal_id === mealId)?.meals;
-        if (breakfast) {
-          // Deduct breakfast from stock (name match)
-          const mealGrams = breakfast.grams ? parseFloat(breakfast.grams.replace(/[^0-9.]/g, '')) : 0;
-          const nameMatch = foodItems.find(fi => fi.name.toLowerCase().trim() === breakfast.name.toLowerCase().trim() && !fi.is_infinite);
-          if (nameMatch) {
-            if (mealGrams > 0) {
-              const perUnit = parseFloat((nameMatch.grams || '0').replace(/[^0-9.]/g, ''));
-              if (perUnit > 0) {
-                const totalAvail = (nameMatch.quantity ?? 1) * perUnit;
-                const remaining = totalAvail - mealGrams;
-                if (remaining <= 0) {
-                  supabase.from("food_items").delete().eq("id", nameMatch.id).then(() => qc.invalidateQueries({ queryKey: ["food_items"] }));
+      
+      if (toConsume.length > 0) {
+        const updatedConsumed = { ...freshConsumed };
+        for (const day of toConsume) {
+          updatedConsumed[day] = true;
+          const mealId = breakfastSelections[day];
+          const breakfast = petitDejMeals.find(m => m.id === mealId) || possibleMeals.find(pm => pm.meal_id === mealId)?.meals;
+          if (breakfast) {
+            const mealGrams = breakfast.grams ? parseFloat(breakfast.grams.replace(/[^0-9.]/g, '')) : 0;
+            const nameMatch = foodItems.find(fi => fi.name.toLowerCase().trim() === breakfast.name.toLowerCase().trim() && !fi.is_infinite);
+            if (nameMatch) {
+              if (mealGrams > 0) {
+                const perUnit = parseFloat((nameMatch.grams || '0').replace(/[^0-9.]/g, ''));
+                if (perUnit > 0) {
+                  const totalAvail = (nameMatch.quantity ?? 1) * perUnit;
+                  const remaining = totalAvail - mealGrams;
+                  if (remaining <= 0) {
+                    await supabase.from("food_items").delete().eq("id", nameMatch.id);
+                  } else {
+                    const fullUnits = Math.floor(remaining / perUnit);
+                    const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
+                    await supabase.from("food_items").update({ 
+                      quantity: rem > 0 ? fullUnits + 1 : Math.max(1, fullUnits), 
+                      grams: rem > 0 ? `${perUnit}(${rem})` : String(perUnit) 
+                    } as any).eq("id", nameMatch.id);
+                  }
+                }
+              } else {
+                const currentQty = nameMatch.quantity ?? 1;
+                if (currentQty <= 1) {
+                  await supabase.from("food_items").delete().eq("id", nameMatch.id);
                 } else {
-                  const fullUnits = Math.floor(remaining / perUnit);
-                  const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
-                  supabase.from("food_items").update({ 
-                    quantity: rem > 0 ? fullUnits + 1 : Math.max(1, fullUnits), 
-                    grams: rem > 0 ? `${perUnit}(${rem})` : String(perUnit) 
-                  } as any).eq("id", nameMatch.id).then(() => qc.invalidateQueries({ queryKey: ["food_items"] }));
+                  await supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", nameMatch.id);
                 }
               }
-            } else {
-              const currentQty = nameMatch.quantity ?? 1;
-              if (currentQty <= 1) {
-                supabase.from("food_items").delete().eq("id", nameMatch.id).then(() => qc.invalidateQueries({ queryKey: ["food_items"] }));
-              } else {
-                supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", nameMatch.id).then(() => qc.invalidateQueries({ queryKey: ["food_items"] }));
-              }
+              qc.invalidateQueries({ queryKey: ["food_items"] });
             }
           }
         }
+        setPreference.mutate({ key: 'planning_auto_consumed_days', value: updatedConsumed });
       }
-      setPreference.mutate({ key: 'planning_auto_consumed_days', value: updatedConsumed });
-    }
-  }, []);
+    };
+    runAutoConsume();
+  }, [foodItems.length]);
 
   const planningMeals = possibleMeals.filter((pm) => {
     if (pm.meals?.category === "plat") return true;
@@ -839,9 +856,11 @@ export function WeeklyPlanning() {
                             const displayIng = pm.ingredients_override ?? pm.meals?.ingredients;
                             const ingCal = computeIngredientCalories(displayIng);
                             const calDisplay = ingCal !== null ? String(ingCal) : pm.meals?.calories;
+                            const ingPro = computeIngredientProtein(displayIng);
+                            const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
                             return (
                               <button key={pm.id} onClick={() => setBreakfastForDay(day, pm.meal_id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pm.meal_id ? 'bg-primary/10 font-bold' : ''}`}>
-                                {pm.meals?.name} {calDisplay ? `(${calDisplay})` : ''}
+                                {pm.meals?.name} {(calDisplay || proDisplay) ? `(${calDisplay || ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                               </button>
                             );
                           })}
@@ -852,9 +871,11 @@ export function WeeklyPlanning() {
                       {petitDejMeals.map(m => {
                         const ingCal = computeIngredientCalories(m.ingredients);
                         const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
+                        const ingPro = computeIngredientProtein(m.ingredients);
+                        const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
                         return (
                           <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
-                            {m.name} {calDisplay ? `(${calDisplay})` : ''}
+                            {m.name} {(calDisplay || proDisplay) ? `(${calDisplay || ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                           </button>
                         );
                       })}
@@ -867,36 +888,28 @@ export function WeeklyPlanning() {
                 {/* Manual calorie input when no breakfast selected */}
                 {!getBreakfastForDay(day) && (
                   <>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="kcal"
-                      key={`breakfast-cal-${day}`}
-                      defaultValue={breakfastManualCalories[day] || ''}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value) || 0;
+                    <PlanningInput
+                      storageKey={`breakfast-cal-${day}`}
+                      currentValue={breakfastManualCalories[day] || 0}
+                      onSave={(val) => {
                         const updated = { ...breakfastManualCalories };
                         if (val > 0) updated[day] = val;
                         else delete updated[day];
                         setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: updated });
                       }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      placeholder="kcal"
                       className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40"
                     />
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="prot"
-                      key={`breakfast-prot-${day}`}
-                      defaultValue={breakfastManualProteins[day] || ''}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value) || 0;
+                    <PlanningInput
+                      storageKey={`breakfast-prot-${day}`}
+                      currentValue={breakfastManualProteins[day] || 0}
+                      onSave={(val) => {
                         const updated = { ...breakfastManualProteins };
                         if (val > 0) updated[day] = val;
                         else delete updated[day];
                         setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: updated });
                       }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      placeholder="prot"
                       className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40"
                     />
                   </>
@@ -1052,38 +1065,30 @@ export function WeeklyPlanning() {
                     <div className="mt-0.5 space-y-1">
                       {slotMeals.length === 0 ? (
                       <div className="flex flex-col items-start gap-0.5">
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder="kcal"
-                            key={`manual-${day}-${time}`}
-                            defaultValue={manualCalories[`${day}-${time}`] || ''}
-                            onBlur={(e) => {
-                              const val = parseInt(e.target.value) || 0;
+                          <PlanningInput
+                            storageKey={`manual-${day}-${time}`}
+                            currentValue={manualCalories[`${day}-${time}`] || 0}
+                            onSave={(val) => {
                               const key = `${day}-${time}`;
                               const updated = { ...manualCalories };
                               if (val > 0) updated[key] = val;
                               else delete updated[key];
                               setPreference.mutate({ key: 'planning_manual_calories', value: updated });
                             }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            placeholder="kcal"
                             className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-muted-foreground/20 rounded px-1 text-muted-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 text-center"
                           />
-                          <input
-                            type="number"
-                            inputMode="numeric"
-                            placeholder="prot"
-                            key={`manual-prot-${day}-${time}`}
-                            defaultValue={manualProteins[`${day}-${time}`] || ''}
-                            onBlur={(e) => {
-                              const val = parseInt(e.target.value) || 0;
+                          <PlanningInput
+                            storageKey={`manual-prot-${day}-${time}`}
+                            currentValue={manualProteins[`${day}-${time}`] || 0}
+                            onSave={(val) => {
                               const key = `${day}-${time}`;
                               const updated = { ...manualProteins };
                               if (val > 0) updated[key] = val;
                               else delete updated[key];
                               setPreference.mutate({ key: 'planning_manual_proteins', value: updated });
                             }}
-                            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                            placeholder="prot"
                             className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center"
                           />
                           <div className="w-14 flex justify-center">
@@ -1119,36 +1124,28 @@ export function WeeklyPlanning() {
               <div className="min-h-[44px] sm:min-h-[52px] rounded-xl border border-dashed border-orange-300/30 p-1 sm:p-1.5 w-12 sm:w-20 flex flex-col items-center">
                 <span className="text-[7px] sm:text-[8px] font-semibold text-orange-400/60 uppercase tracking-wide">Extra</span>
                 <div className="flex flex-col items-center gap-0.5 mt-1 w-full">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="kcal"
-                    key={`extra-${day}`}
-                    defaultValue={extraCalories[day] || ''}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value) || 0;
+                  <PlanningInput
+                    storageKey={`extra-${day}`}
+                    currentValue={extraCalories[day] || 0}
+                    onSave={(val) => {
                       const updated = { ...extraCalories };
                       if (val > 0) updated[day] = val;
                       else delete updated[day];
                       setPreference.mutate({ key: 'planning_extra_calories', value: updated });
                     }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    placeholder="kcal"
                     className="w-full h-5 text-[11px] bg-transparent border border-dashed border-orange-300/20 rounded px-1 text-orange-400 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40 text-center"
                   />
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="prot"
-                    key={`extra-prot-${day}`}
-                    defaultValue={extraProteins[day] || ''}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value) || 0;
+                  <PlanningInput
+                    storageKey={`extra-prot-${day}`}
+                    currentValue={extraProteins[day] || 0}
+                    onSave={(val) => {
                       const updated = { ...extraProteins };
                       if (val > 0) updated[day] = val;
                       else delete updated[day];
                       setPreference.mutate({ key: 'planning_extra_proteins', value: updated });
                     }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    placeholder="prot"
                     className="w-full h-5 text-[11px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center"
                   />
                   <button

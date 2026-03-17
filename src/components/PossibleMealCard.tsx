@@ -68,15 +68,17 @@ function getDateForDayKey(dayKey: string): Date {
 
 function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
   if (!startDate) return null;
-  // Freeze counter at the value it had when moved to possible
-  const refTime = createdAt ? new Date(createdAt).getTime() : Date.now();
-  const baseDays = Math.floor((refTime - new Date(startDate).getTime()) / 86400000);
+  const startTime = new Date(startDate).getTime();
+  const createdTime = createdAt ? new Date(createdAt).getTime() : Date.now();
+  // If counter started after card was created, don't freeze - use real time
+  const refTime = startTime > createdTime ? Date.now() : createdTime;
+  const baseDays = Math.max(0, Math.floor((refTime - startTime) / 86400000));
   if (!dayKey) return baseDays;
   const targetDate = getDateForDayKey(dayKey);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
   const dayOffset = Math.round((targetDate.getTime() - today.getTime()) / 86400000);
-  return baseDays + dayOffset;
+  return Math.max(0, baseDays + dayOffset);
 }
 
 // Ingredient parsing utilities imported from @/lib/ingredientUtils
@@ -180,19 +182,31 @@ export function PossibleMealCard({
       const qty = parseInt(editValue.trim());
       if (!isNaN(qty) && qty >= 1) onUpdateQuantity(qty);
     }
-    if (editing === "ratio" && meal.ingredients && onUpdatePossibleIngredients) {
+    if (editing === "ratio") {
       const trimmed = editValue.trim().toLowerCase();
       let ratio: number | null = null;
       if (trimmed.startsWith("x")) {
         const mult = parseFloat(trimmed.slice(1));
-        if (!isNaN(mult) && mult >= 0.5) ratio = mult;
+        if (!isNaN(mult) && mult >= 0.1) ratio = mult;
       } else {
         const pct = parseFloat(trimmed.replace("%", ""));
-        if (!isNaN(pct) && pct >= 50) ratio = pct / 100;
+        if (!isNaN(pct) && pct >= 10) ratio = pct / 100;
       }
       if (ratio !== null) {
-        const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
-        onUpdatePossibleIngredients(scaledIngredients);
+        if (meal.ingredients && onUpdatePossibleIngredients) {
+          const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
+          onUpdatePossibleIngredients(scaledIngredients);
+        } else {
+          // Scale calories and grams directly for cards without ingredients
+          if (meal.calories) {
+            const baseCal = parseFloat(meal.calories.replace(/[^0-9.]/g, '')) || 0;
+            if (baseCal > 0) onUpdateCalories(String(Math.round(baseCal * ratio)));
+          }
+          if (meal.grams) {
+            const baseG = parseFloat(meal.grams.replace(/[^0-9.]/g, '')) || 0;
+            if (baseG > 0) onUpdateGrams(String(Math.round(baseG * ratio)));
+          }
+        }
       }
     }
     setEditing(null);
@@ -549,11 +563,9 @@ export function PossibleMealCard({
               <DropdownMenuItem onClick={onDelete} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" /> Supprimer
               </DropdownMenuItem>
-              {meal.ingredients && onUpdatePossibleIngredients && (
-                <DropdownMenuItem onClick={() => { setEditValue(""); setEditing("ratio"); }}>
-                  <Percent className="mr-2 h-4 w-4" /> Pourcentage
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem onClick={() => { setEditValue(""); setEditing("ratio"); }}>
+                <Percent className="mr-2 h-4 w-4" /> Pourcentage / Multiple
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>

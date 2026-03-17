@@ -136,7 +136,7 @@ const Index = () => {
     getMealsByCategory, getPossibleByCategory, sortByExpiration, sortByPlanning, getRandomPossible
   } = useMeals({ enabled: unlocked });
 
-  const { groups: shoppingGroups, items: shoppingItems } = useShoppingList({ enabled: unlocked });
+  const { groups: shoppingGroups, items: shoppingItems, toggleSecondaryCheck: toggleShoppingSecondaryCheck, updateItemQuantity: updateShoppingItemQuantity } = useShoppingList({ enabled: unlocked });
   const { getPreference, setPreference, isLoading: isPreferencesLoading } = usePreferences({ enabled: unlocked });
   
   const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
@@ -244,6 +244,13 @@ const Index = () => {
 
     sundayClearDone.current = true;
     const clearAll = async () => {
+      // Verify no duplicate reset from DB
+      const { data: freshResetPref } = await supabase.from('user_preferences')
+        .select('value').eq('key', 'last_weekly_reset').maybeSingle();
+      if (freshResetPref?.value) {
+        const freshResetDate = new Date(String(freshResetPref.value));
+        if (freshResetDate.getTime() >= mostRecentResetTarget.getTime()) return;
+      }
       // Load saved snapshots
       const snapResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_saved_snapshots').maybeSingle();
       const snapshots: Record<string, { cal?: number; prot?: number }> = (snapResult.data?.value as any) ?? {};
@@ -649,7 +656,21 @@ const Index = () => {
                   <input
                     type="checkbox"
                     checked={getPreference<boolean>('shopping_show_green_checks', true)}
-                    onChange={(e) => setPreference.mutate({ key: 'shopping_show_green_checks', value: e.target.checked })}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setPreference.mutate({ key: 'shopping_show_green_checks', value: checked });
+                      if (!checked) {
+                        // Clear all secondary checks and menu-derived quantities
+                        for (const item of shoppingItems) {
+                          if (item.secondary_checked) {
+                            toggleShoppingSecondaryCheck.mutate({ id: item.id, secondary_checked: false });
+                            if (!item.checked && item.quantity) {
+                              updateShoppingItemQuantity.mutate({ id: item.id, quantity: null });
+                            }
+                          }
+                        }
+                      }
+                    }}
                     className="h-3 w-3 rounded accent-green-500"
                   />
                   Menu semaine
@@ -793,9 +814,29 @@ const Index = () => {
                     });
                     if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
                   }}
-                  onMoveNameMatchToPossible={async (meal, fi) => {
+                  onMoveNameMatchToPossible={async (meal, fi, ratio) => {
+                    if (fi.is_infinite && ratio && ratio !== 1) {
+                      // Infinite card with multiplier - create scaled possible meal
+                      const baseCal = parseFloat((meal.calories || "0").replace(/[^0-9.]/g, "")) || 0;
+                      const basePro = parseFloat((meal.protein || "0").replace(/[^0-9.]/g, "")) || 0;
+                      const baseGrams = parseQty(meal.grams);
+                      const scaledCal = baseCal > 0 ? String(Math.round(baseCal * ratio)) : meal.calories;
+                      const scaledPro = basePro > 0 ? String(Math.round(basePro * ratio)) : meal.protein;
+                      const scaledGrams = baseGrams > 0 ? String(Math.round(baseGrams * ratio)) : meal.grams;
+                      const baseIng = meal.ingredients ? meal.ingredients : (baseGrams > 0 ? `${baseGrams}g ${meal.name}` : null);
+                      const scaledIng = baseIng ? scaleIngredientStringExact(baseIng, ratio) : null;
+                      const result = await addMealToPossibleDirectly.mutateAsync({
+                        name: meal.name, category: cat.value, colorSeed: meal.id,
+                        calories: scaledCal, protein: scaledPro, grams: scaledGrams,
+                        ingredients: baseIng,
+                      });
+                      if (result?.id && scaledIng) {
+                        updatePossibleIngredients.mutate({ id: result.id, ingredients_override: scaledIng });
+                      }
+                      return;
+                    }
                     const snapshot = [{ ...fi }];
-                    await deductNameMatchStock(meal);
+                    if (!fi.is_infinite) await deductNameMatchStock(meal);
                     const result = await moveToPossible.mutateAsync({ mealId: meal.id, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
                     if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshot }));
                   }}
