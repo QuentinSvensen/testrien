@@ -218,23 +218,22 @@ export function getExpiringIngredientName(meal: Meal, foodItems: FoodItem[], ind
   return name;
 }
 
-export function getExpiredIngredientNames(meal: Meal, foodItems: FoodItem[]): Set<string> {
+export function getExpiredIngredientNames(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): Set<string> {
   const expired = new Set<string>();
   if (!meal.ingredients?.trim()) return expired;
   
-  // Create a local "today" at midnight to avoid UTC offset issues with ISO strings
   const now = new Date();
   const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
   
   const groups = parseIngredientGroups(meal.ingredients);
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.expiration_date) {
-      const expDateParts = fi.expiration_date.split('-');
-      // Parse as local midnight
-      const expDate = new Date(parseInt(expDateParts[0]), parseInt(expDateParts[1]) - 1, parseInt(expDateParts[2]));
-      
-      if (expDate <= today) {
-        expired.add(normalizeKey(alt.name));
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.expiration_date) {
+        const expDateParts = fi.expiration_date.split('-');
+        const expDate = new Date(parseInt(expDateParts[0]), parseInt(expDateParts[1]) - 1, parseInt(expDateParts[2]));
+        if (expDate <= today) {
+          expired.add(normalizeKey(alt.name));
+        }
       }
     }
   }
