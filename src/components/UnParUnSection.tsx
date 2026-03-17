@@ -60,6 +60,22 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
     }
   }
 
+  // Build macro lookup from all meal ingredients
+  const macroLookup = useMemo(() => {
+    const map = new Map<string, { cal: string; pro: string }>();
+    for (const meal of allMeals) {
+      if (!meal.ingredients) continue;
+      const macros = extractIngredientMacros(meal.ingredients);
+      for (const [key, val] of macros) {
+        const existing = map.get(key);
+        if (!existing || (!existing.cal && val.cal) || (!existing.pro && val.pro)) {
+          map.set(key, { cal: val.cal || existing?.cal || "", pro: val.pro || existing?.pro || "" });
+        }
+      }
+    }
+    return map;
+  }, [allMeals]);
+
   const isUnused = (fi: FoodItem) => {
     const fiKey = normalizeForMatch(fi.name);
     for (const usedKey of usedIngredientKeys) {
