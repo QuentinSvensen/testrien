@@ -315,12 +315,14 @@ export function getMaxIngredientCounterName(meal: Meal, foodItems: FoodItem[], i
   return maxName;
 }
 
-export function getCounterIngredientNames(meal: Meal, foodItems: FoodItem[]): Set<string> {
+export function getCounterIngredientNames(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): Set<string> {
   const result = new Set<string>();
   if (!meal.ingredients?.trim()) return result;
   const groups = parseIngredientGroups(meal.ingredients);
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.counter_start_date) result.add(normalizeKey(alt.name));
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.counter_start_date) result.add(normalizeKey(alt.name));
+    }
   }
   return result;
 }

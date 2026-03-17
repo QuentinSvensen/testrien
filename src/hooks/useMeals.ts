@@ -426,12 +426,27 @@ export function useMeals(options?: { enabled?: boolean }) {
 
   const reorderPossibleMeals = useMutation({
     mutationFn: async (items: { id: string; sort_order: number }[]) => {
-      await Promise.all(items.map((item) =>
-        supabase.from("possible_meals").update({ sort_order: item.sort_order }).eq("id", item.id)
-      ));
+      const { error } = await (supabase.rpc as any)('batch_reorder_possible_meals', { items });
+      if (error) {
+        await Promise.all(items.map((item) =>
+          supabase.from("possible_meals").update({ sort_order: item.sort_order }).eq("id", item.id)
+        ));
+      }
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async (items) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      const orderMap = new Map(items.map(i => [i.id, i.sort_order]));
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+        old?.map(pm => orderMap.has(pm.id) ? { ...pm, sort_order: orderMap.get(pm.id)! } : pm) ?? []
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
   });
 
   const updatePossibleIngredients = useMutation({

@@ -413,7 +413,12 @@ export function computeIngredientProtein(ingredientStr: string | null, isAvailab
       total += proVal;
     }
   }
-  return hasPro ? Math.round(total) : null;
+  const result = hasPro ? Math.round(total) : null;
+  if (!isAvailable) {
+    if (_proCache.size > MACRO_CACHE_MAX) _proCache.clear();
+    _proCache.set(ingredientStr!, result);
+  }
+  return result;
 }
 
 /**

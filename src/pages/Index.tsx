@@ -340,13 +340,16 @@ const Index = () => {
   const persistedSnapshots = getPreference<Record<string, FoodItem[]>>(SNAPSHOT_PREF_KEY, {});
   const [deductionSnapshots, setDeductionSnapshots] = useState<Record<string, FoodItem[]>>({});
   const snapshotsSynced = useRef(false);
+  const snapshotsJsonRef = useRef('');
   useEffect(() => {
     if (snapshotsSynced.current) return;
-    if (persistedSnapshots && Object.keys(persistedSnapshots).length > 0) {
-      setDeductionSnapshots(persistedSnapshots);
-      snapshotsSynced.current = true;
-    }
-  }, [JSON.stringify(persistedSnapshots)]);
+    if (!persistedSnapshots || Object.keys(persistedSnapshots).length === 0) return;
+    const json = JSON.stringify(persistedSnapshots);
+    if (json === snapshotsJsonRef.current) return;
+    snapshotsJsonRef.current = json;
+    setDeductionSnapshots(persistedSnapshots);
+    snapshotsSynced.current = true;
+  }, [persistedSnapshots]);
   const updateSnapshots = (updater: (prev: Record<string, FoodItem[]>) => Record<string, FoodItem[]>) => {
     setDeductionSnapshots(prev => {
       const next = updater(prev);
