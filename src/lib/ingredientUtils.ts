@@ -367,6 +367,10 @@ export function computeIngredientCalories(ingredientStr: string | null, isAvaila
  */
 export function computeIngredientProtein(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
   if (!ingredientStr?.trim()) return null;
+  if (!isAvailable) {
+    const cached = _proCache.get(ingredientStr);
+    if (cached !== undefined) return cached;
+  }
   const lines = parseIngredientsToLines(ingredientStr);
   let total = 0;
   let hasPro = false;
