@@ -928,7 +928,7 @@ export function WeeklyPlanning() {
                             const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
                             return (
                               <button key={pm.id} onClick={() => setBreakfastForDay(day, pm.meal_id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pm.meal_id ? 'bg-primary/10 font-bold' : ''}`}>
-                                {pm.meals?.name} {(calDisplay || proDisplay) ? `(${calDisplay || ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
+                                {pm.meals?.name} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                               </button>
                             );
                           })}
