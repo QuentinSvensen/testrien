@@ -204,8 +204,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ calories }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('calories'),
   });
 
   const updateGrams = useMutation({
