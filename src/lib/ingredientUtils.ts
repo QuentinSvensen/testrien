@@ -300,8 +300,16 @@ export function serializeIngredients(lines: IngLine[]): string | null {
  * For each ingredient with {cal}: if qty (grams) present → cal * qty / 100. If count present → cal * count.
  * Returns null if no ingredient has cal data.
  */
+const _calCache = new Map<string, number | null>();
+const _proCache = new Map<string, number | null>();
+const MACRO_CACHE_MAX = 500;
+
 export function computeIngredientCalories(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
   if (!ingredientStr?.trim()) return null;
+  if (!isAvailable) {
+    const cached = _calCache.get(ingredientStr);
+    if (cached !== undefined) return cached;
+  }
   const lines = parseIngredientsToLines(ingredientStr);
   let total = 0;
   let hasCal = false;
