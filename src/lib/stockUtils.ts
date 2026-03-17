@@ -270,14 +270,16 @@ export function getExpiringSoonIngredientNames(meal: Meal, foodItems: FoodItem[]
   return soon;
 }
 
-export function getMaxIngredientCounter(meal: Meal, foodItems: FoodItem[]): number | null {
+export function getMaxIngredientCounter(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): number | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let maxDays: number | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.counter_start_date) {
-      const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
-      if (maxDays === null || days > maxDays) maxDays = days;
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.counter_start_date) {
+        const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
+        if (maxDays === null || days > maxDays) maxDays = days;
+      }
     }
   }
   return maxDays;
