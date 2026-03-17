@@ -406,59 +406,68 @@ export function WeeklyPlanning() {
   const autoConsumeChecked = useRef(false);
   useEffect(() => {
     if (autoConsumeChecked.current) return;
+    if (foodItems.length === 0) return; // Wait for data to load
     autoConsumeChecked.current = true;
     
-    const todayIdx = DAY_KEY_TO_INDEX[todayKey];
-    const pastDays = DAYS.filter((_, i) => i < todayIdx);
-    
-    const toConsume: string[] = [];
-    for (const day of pastDays) {
-      if (autoConsumeBreakfast[day] && breakfastSelections[day] && !autoConsumedDays[day]) {
-        toConsume.push(day);
+    const runAutoConsume = async () => {
+      // Verify from DB to prevent duplicate consumption
+      const { data: freshConsumedData } = await supabase.from('user_preferences')
+        .select('value').eq('key', 'planning_auto_consumed_days').maybeSingle();
+      const freshConsumed = (freshConsumedData?.value as Record<string, boolean>) ?? {};
+
+      const todayIdx = DAY_KEY_TO_INDEX[todayKey];
+      const pastDays = DAYS.filter((_, i) => i < todayIdx);
+      
+      const toConsume: string[] = [];
+      for (const day of pastDays) {
+        if (autoConsumeBreakfast[day] && breakfastSelections[day] && !freshConsumed[day]) {
+          toConsume.push(day);
+        }
       }
-    }
-    
-    if (toConsume.length > 0) {
-      const updatedConsumed = { ...autoConsumedDays };
-      for (const day of toConsume) {
-        updatedConsumed[day] = true;
-        const mealId = breakfastSelections[day];
-        const breakfast = petitDejMeals.find(m => m.id === mealId) || possibleMeals.find(pm => pm.meal_id === mealId)?.meals;
-        if (breakfast) {
-          // Deduct breakfast from stock (name match)
-          const mealGrams = breakfast.grams ? parseFloat(breakfast.grams.replace(/[^0-9.]/g, '')) : 0;
-          const nameMatch = foodItems.find(fi => fi.name.toLowerCase().trim() === breakfast.name.toLowerCase().trim() && !fi.is_infinite);
-          if (nameMatch) {
-            if (mealGrams > 0) {
-              const perUnit = parseFloat((nameMatch.grams || '0').replace(/[^0-9.]/g, ''));
-              if (perUnit > 0) {
-                const totalAvail = (nameMatch.quantity ?? 1) * perUnit;
-                const remaining = totalAvail - mealGrams;
-                if (remaining <= 0) {
-                  supabase.from("food_items").delete().eq("id", nameMatch.id).then(() => qc.invalidateQueries({ queryKey: ["food_items"] }));
+      
+      if (toConsume.length > 0) {
+        const updatedConsumed = { ...freshConsumed };
+        for (const day of toConsume) {
+          updatedConsumed[day] = true;
+          const mealId = breakfastSelections[day];
+          const breakfast = petitDejMeals.find(m => m.id === mealId) || possibleMeals.find(pm => pm.meal_id === mealId)?.meals;
+          if (breakfast) {
+            const mealGrams = breakfast.grams ? parseFloat(breakfast.grams.replace(/[^0-9.]/g, '')) : 0;
+            const nameMatch = foodItems.find(fi => fi.name.toLowerCase().trim() === breakfast.name.toLowerCase().trim() && !fi.is_infinite);
+            if (nameMatch) {
+              if (mealGrams > 0) {
+                const perUnit = parseFloat((nameMatch.grams || '0').replace(/[^0-9.]/g, ''));
+                if (perUnit > 0) {
+                  const totalAvail = (nameMatch.quantity ?? 1) * perUnit;
+                  const remaining = totalAvail - mealGrams;
+                  if (remaining <= 0) {
+                    await supabase.from("food_items").delete().eq("id", nameMatch.id);
+                  } else {
+                    const fullUnits = Math.floor(remaining / perUnit);
+                    const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
+                    await supabase.from("food_items").update({ 
+                      quantity: rem > 0 ? fullUnits + 1 : Math.max(1, fullUnits), 
+                      grams: rem > 0 ? `${perUnit}(${rem})` : String(perUnit) 
+                    } as any).eq("id", nameMatch.id);
+                  }
+                }
+              } else {
+                const currentQty = nameMatch.quantity ?? 1;
+                if (currentQty <= 1) {
+                  await supabase.from("food_items").delete().eq("id", nameMatch.id);
                 } else {
-                  const fullUnits = Math.floor(remaining / perUnit);
-                  const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
-                  supabase.from("food_items").update({ 
-                    quantity: rem > 0 ? fullUnits + 1 : Math.max(1, fullUnits), 
-                    grams: rem > 0 ? `${perUnit}(${rem})` : String(perUnit) 
-                  } as any).eq("id", nameMatch.id).then(() => qc.invalidateQueries({ queryKey: ["food_items"] }));
+                  await supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", nameMatch.id);
                 }
               }
-            } else {
-              const currentQty = nameMatch.quantity ?? 1;
-              if (currentQty <= 1) {
-                supabase.from("food_items").delete().eq("id", nameMatch.id).then(() => qc.invalidateQueries({ queryKey: ["food_items"] }));
-              } else {
-                supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", nameMatch.id).then(() => qc.invalidateQueries({ queryKey: ["food_items"] }));
-              }
+              qc.invalidateQueries({ queryKey: ["food_items"] });
             }
           }
         }
+        setPreference.mutate({ key: 'planning_auto_consumed_days', value: updatedConsumed });
       }
-      setPreference.mutate({ key: 'planning_auto_consumed_days', value: updatedConsumed });
-    }
-  }, []);
+    };
+    runAutoConsume();
+  }, [foodItems.length]);
 
   const planningMeals = possibleMeals.filter((pm) => {
     if (pm.meals?.category === "plat") return true;
