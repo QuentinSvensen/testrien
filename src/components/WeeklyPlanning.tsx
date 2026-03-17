@@ -888,36 +888,28 @@ export function WeeklyPlanning() {
                 {/* Manual calorie input when no breakfast selected */}
                 {!getBreakfastForDay(day) && (
                   <>
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="kcal"
-                      key={`breakfast-cal-${day}`}
-                      defaultValue={breakfastManualCalories[day] || ''}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value) || 0;
+                    <PlanningInput
+                      storageKey={`breakfast-cal-${day}`}
+                      currentValue={breakfastManualCalories[day] || 0}
+                      onSave={(val) => {
                         const updated = { ...breakfastManualCalories };
                         if (val > 0) updated[day] = val;
                         else delete updated[day];
                         setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: updated });
                       }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      placeholder="kcal"
                       className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40"
                     />
-                    <input
-                      type="number"
-                      inputMode="numeric"
-                      placeholder="prot"
-                      key={`breakfast-prot-${day}`}
-                      defaultValue={breakfastManualProteins[day] || ''}
-                      onBlur={(e) => {
-                        const val = parseInt(e.target.value) || 0;
+                    <PlanningInput
+                      storageKey={`breakfast-prot-${day}`}
+                      currentValue={breakfastManualProteins[day] || 0}
+                      onSave={(val) => {
                         const updated = { ...breakfastManualProteins };
                         if (val > 0) updated[day] = val;
                         else delete updated[day];
                         setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: updated });
                       }}
-                      onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                      placeholder="prot"
                       className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40"
                     />
                   </>
