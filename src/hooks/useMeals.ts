@@ -236,8 +236,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ oven_temp }).eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withMealOptimistic('oven_temp'),
   });
 
   const updateOvenMinutes = useMutation({
