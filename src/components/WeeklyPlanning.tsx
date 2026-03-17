@@ -14,6 +14,74 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useFoodItems } from "@/hooks/useFoodItems";
 import { getExpiredIngredientNames, getExpiringSoonIngredientNames } from "@/lib/stockUtils";
 
+/** Additive planning input: click "+" to enter a value that gets added to current */
+function PlanningInput({ storageKey, currentValue, onSave, placeholder, className }: {
+  storageKey: string;
+  currentValue: number;
+  onSave: (val: number) => void;
+  placeholder?: string;
+  className?: string;
+}) {
+  const [addMode, setAddMode] = useState(false);
+  const [tempVal, setTempVal] = useState("");
+  const [editVal, setEditVal] = useState(String(currentValue || ""));
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!addMode) setEditVal(String(currentValue || ""));
+  }, [currentValue, addMode]);
+
+  const commitAdd = () => {
+    const raw = parseInt(tempVal) || 0;
+    if (raw !== 0) onSave(currentValue + raw);
+    setAddMode(false);
+    setTempVal("");
+  };
+
+  const commitEdit = () => {
+    const raw = parseInt(editVal) || 0;
+    onSave(raw);
+  };
+
+  if (addMode) {
+    return (
+      <div className="relative flex items-center">
+        <input
+          ref={inputRef}
+          type="number"
+          value={tempVal}
+          onChange={(e) => setTempVal(e.target.value)}
+          onBlur={commitAdd}
+          onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitAdd(); } }}
+          placeholder={`+${placeholder || ""}`}
+          className={className}
+          autoFocus
+        />
+      </div>
+    );
+  }
+
+  return (
+    <div className="relative flex items-center">
+      <input
+        type="number"
+        value={editVal}
+        onChange={(e) => setEditVal(e.target.value)}
+        onBlur={commitEdit}
+        onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); commitEdit(); } }}
+        placeholder={placeholder}
+        className={className}
+      />
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setAddMode(true); }}
+        className="absolute right-0.5 top-1/2 -translate-y-1/2 w-4 h-4 flex items-center justify-center text-[9px] font-bold text-primary/60 hover:text-primary rounded"
+        title="Ajouter"
+      >+</button>
+    </div>
+  );
+}
+
 const DAY_LABELS: Record<string, string> = {
   lundi: "Lundi",
   mardi: "Mardi",
