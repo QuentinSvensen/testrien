@@ -366,8 +366,19 @@ export function useMeals(options?: { enabled?: boolean }) {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async ({ id, day_of_week, meal_time }) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+        old?.map(pm => pm.id === id ? { ...pm, day_of_week, meal_time } : pm) ?? []
+      );
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
   });
 
   const updateCounter = useMutation({
