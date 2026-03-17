@@ -610,7 +610,10 @@ export function AvailableList({ category, meals, foodItems, allMeals, sortMode, 
     return (
       <div key={`nm-${idx}`} className="relative">
         <MealCard meal={fakeMeal}
-          onMoveToPossible={() => onMoveNameMatchToPossible(meal, fi)}
+          onMoveToPossible={() => {
+            const cr = customRatios[nmKey];
+            onMoveNameMatchToPossible(meal, fi, cr && cr !== 1 ? cr : undefined);
+          }}
           onRename={(name) => onRename(meal.id, name)} onDelete={() => {}} onUpdateCalories={(cal) => onUpdateCalories(meal.id, cal)} onUpdateGrams={(g) => onUpdateGrams(meal.id, g)} onUpdateIngredients={(ing) => onUpdateIngredients(meal.id, ing)}
           onToggleFavorite={() => onToggleFavorite(meal.id)}
           onUpdateOvenTemp={(t) => onUpdateOvenTemp(meal.id, t)} onUpdateOvenMinutes={(m) => onUpdateOvenMinutes(meal.id, m)}

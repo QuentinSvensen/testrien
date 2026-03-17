@@ -1124,36 +1124,28 @@ export function WeeklyPlanning() {
               <div className="min-h-[44px] sm:min-h-[52px] rounded-xl border border-dashed border-orange-300/30 p-1 sm:p-1.5 w-12 sm:w-20 flex flex-col items-center">
                 <span className="text-[7px] sm:text-[8px] font-semibold text-orange-400/60 uppercase tracking-wide">Extra</span>
                 <div className="flex flex-col items-center gap-0.5 mt-1 w-full">
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="kcal"
-                    key={`extra-${day}`}
-                    defaultValue={extraCalories[day] || ''}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value) || 0;
+                  <PlanningInput
+                    storageKey={`extra-${day}`}
+                    currentValue={extraCalories[day] || 0}
+                    onSave={(val) => {
                       const updated = { ...extraCalories };
                       if (val > 0) updated[day] = val;
                       else delete updated[day];
                       setPreference.mutate({ key: 'planning_extra_calories', value: updated });
                     }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    placeholder="kcal"
                     className="w-full h-5 text-[11px] bg-transparent border border-dashed border-orange-300/20 rounded px-1 text-orange-400 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40 text-center"
                   />
-                  <input
-                    type="number"
-                    inputMode="numeric"
-                    placeholder="prot"
-                    key={`extra-prot-${day}`}
-                    defaultValue={extraProteins[day] || ''}
-                    onBlur={(e) => {
-                      const val = parseInt(e.target.value) || 0;
+                  <PlanningInput
+                    storageKey={`extra-prot-${day}`}
+                    currentValue={extraProteins[day] || 0}
+                    onSave={(val) => {
                       const updated = { ...extraProteins };
                       if (val > 0) updated[day] = val;
                       else delete updated[day];
                       setPreference.mutate({ key: 'planning_extra_proteins', value: updated });
                     }}
-                    onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                    placeholder="prot"
                     className="w-full h-5 text-[11px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center"
                   />
                   <button

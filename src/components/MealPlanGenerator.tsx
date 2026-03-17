@@ -697,7 +697,7 @@ export function MealPlanGenerator() {
                 <div key={i} className="flex items-center gap-2 py-1 px-2 rounded-xl bg-muted/40 text-sm min-w-0">
                   <span className="font-medium text-foreground flex-1 min-w-0 break-words">{item.displayName}</span>
                   {!item.matched && (
-                    <span className="text-amber-500 text-xs shrink-0" title="Pas trouvé dans Courses-Liste">❓</span>
+                    <span className="text-red-500 text-xs shrink-0" title="Pas trouvé dans Courses-Liste">❌</span>
                   )}
                   {item.matched && item.ambiguous && (
                     <span className="text-blue-500 text-xs shrink-0" title="Plusieurs articles correspondent, choix à faire dans Courses-Liste">❓</span>

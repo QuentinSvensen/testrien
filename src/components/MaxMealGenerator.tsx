@@ -1,12 +1,11 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { ChevronDown, ChevronRight, Loader2, Zap } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import type { FoodItem } from "@/components/FoodItems";
 import type { Meal } from "@/hooks/useMeals";
-import { buildStockMap, getMealMultiple, getMealFractionalRatio, buildScaledMealForRatio } from "@/lib/stockUtils";
-import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText } from "@/lib/ingredientUtils";
+import { buildStockMap, getMealMultiple, findStockKey, buildScaledMealForRatio } from "@/lib/stockUtils";
+import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, parseIngredientGroups } from "@/lib/ingredientUtils";
 
 interface Props {
   foodItems: FoodItem[];
@@ -21,51 +20,99 @@ interface GeneratedMeal {
   ratio: number;
 }
 
+const SESSION_KEY = "max_meal_generator_results";
+
+function deductMealFromVirtualStock(
+  meal: Meal,
+  ratio: number,
+  virtualStock: Map<string, any>
+) {
+  if (!meal.ingredients) return;
+  const groups = parseIngredientGroups(meal.ingredients);
+  for (const group of groups) {
+    for (const alt of group) {
+      const key = findStockKey(virtualStock, alt.name);
+      if (key) {
+        const info = virtualStock.get(key)!;
+        if (info.infinite) break;
+        if (alt.qty > 0) info.grams = Math.max(0, info.grams - alt.qty * ratio);
+        else if (alt.count > 0) info.count = Math.max(0, info.count - alt.count * ratio);
+        else info.count = Math.max(0, info.count - ratio);
+        break;
+      }
+    }
+  }
+}
+
 export function MaxMealGenerator({ foodItems, meals }: Props) {
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<GeneratedMeal[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
 
+  // Restore from sessionStorage on mount
+  useEffect(() => {
+    const cached = sessionStorage.getItem(SESSION_KEY);
+    if (cached) {
+      try {
+        const parsed = JSON.parse(cached) as GeneratedMeal[];
+        setResults(parsed);
+        setHasGenerated(true);
+      } catch { /* ignore */ }
+    }
+  }, []);
+
   const generate = () => {
     setLoading(true);
     setTimeout(() => {
       try {
-        const stockMap = buildStockMap(foodItems);
-        const generated: GeneratedMeal[] = [];
+        const originalStock = buildStockMap(foodItems);
+        // Deep clone virtual stock
+        const virtualStock = new Map<string, any>();
+        for (const [key, info] of originalStock.entries()) {
+          virtualStock.set(key, { ...info });
+        }
 
-        // Find all plat meals that can be made
         const platMeals = meals.filter(m => m.category === "plat" && m.ingredients?.trim());
+        const generated: GeneratedMeal[] = [];
+        const usedMealIds = new Set<string>();
 
-        for (const meal of platMeals) {
-          const multiple = getMealMultiple(meal, stockMap);
-          if (multiple !== null && multiple > 0 && multiple !== Infinity) {
-            // Full recipe available
-            const scaledMeal = multiple > 1 ? buildScaledMealForRatio(meal, multiple, stockMap) : meal;
+        // Greedy sequential: pick feasible meals one by one, deducting from virtual stock
+        let changed = true;
+        while (changed) {
+          changed = false;
+          // Score meals by feasibility and pick the best one
+          let bestMeal: Meal | null = null;
+          let bestRatio = 0;
+
+          for (const meal of platMeals) {
+            if (usedMealIds.has(meal.id)) continue;
+            const multiple = getMealMultiple(meal, virtualStock);
+            if (multiple !== null && multiple > 0 && multiple !== Infinity) {
+              const ratio = Math.min(multiple, 1); // Use at most x1 per meal
+              if (ratio >= 0.5 && (!bestMeal || ratio > bestRatio)) {
+                bestMeal = meal;
+                bestRatio = ratio;
+              }
+            }
+          }
+
+          if (bestMeal) {
+            const scaledMeal = bestRatio !== 1 ? buildScaledMealForRatio(bestMeal, bestRatio, virtualStock) : bestMeal;
+            // Deduct from virtual stock
+            deductMealFromVirtualStock(bestMeal, bestRatio, virtualStock);
+            usedMealIds.add(bestMeal.id);
+
             const cal = computeIngredientCalories(scaledMeal.ingredients);
             const pro = computeIngredientProtein(scaledMeal.ingredients);
             generated.push({
-              name: meal.name,
+              name: bestMeal.name,
               calories: cal,
               protein: pro,
               ingredients: cleanIngredientText(scaledMeal.ingredients || ""),
-              ratio: multiple,
+              ratio: bestRatio,
             });
-          } else if (multiple === null || multiple <= 0) {
-            // Try fractional
-            const ratio = getMealFractionalRatio(meal, stockMap);
-            if (ratio !== null && ratio >= 0.5) {
-              const scaledMeal = buildScaledMealForRatio(meal, ratio, stockMap);
-              const cal = computeIngredientCalories(scaledMeal.ingredients);
-              const pro = computeIngredientProtein(scaledMeal.ingredients);
-              generated.push({
-                name: meal.name,
-                calories: cal,
-                protein: pro,
-                ingredients: cleanIngredientText(scaledMeal.ingredients || ""),
-                ratio,
-              });
-            }
+            changed = true;
           }
         }
 
@@ -73,6 +120,7 @@ export function MaxMealGenerator({ foodItems, meals }: Props) {
         generated.sort((a, b) => (b.calories ?? 0) - (a.calories ?? 0));
         setResults(generated);
         setHasGenerated(true);
+        sessionStorage.setItem(SESSION_KEY, JSON.stringify(generated));
       } catch {
         toast({ title: "Erreur", description: "Impossible de générer les plats.", variant: "destructive" });
       } finally {
@@ -101,7 +149,7 @@ export function MaxMealGenerator({ foodItems, meals }: Props) {
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
               Générer
             </Button>
-            <span className="text-[10px] text-muted-foreground">Calcule tous les plats réalisables avec le stock actuel</span>
+            <span className="text-[10px] text-muted-foreground">Simule le max de plats réalisables en déduisant séquentiellement le stock</span>
           </div>
 
           {hasGenerated && results.length === 0 && (
