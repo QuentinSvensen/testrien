@@ -299,15 +299,17 @@ export function getEarliestIngredientCounterDate(meal: Meal, foodItems: FoodItem
   return earliest;
 }
 
-export function getMaxIngredientCounterName(meal: Meal, foodItems: FoodItem[]): string | null {
+export function getMaxIngredientCounterName(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): string | null {
   if (!meal.ingredients?.trim()) return null;
   const groups = parseIngredientGroups(meal.ingredients);
   let maxDays: number | null = null;
   let maxName: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.counter_start_date) {
-      const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
-      if (maxDays === null || days > maxDays) { maxDays = days; maxName = fi.name; }
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.counter_start_date) {
+        const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
+        if (maxDays === null || days > maxDays) { maxDays = days; maxName = fi.name; }
+      }
     }
   }
   return maxName;
