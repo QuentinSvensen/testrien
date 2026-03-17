@@ -821,18 +821,13 @@ const Index = () => {
                   }}
                   onMoveNameMatchToPossible={async (meal, fi, ratio) => {
                     if (fi.is_infinite && ratio && ratio !== 1) {
-                      // Infinite card with multiplier - create scaled possible meal
-                      const baseCal = parseFloat((meal.calories || "0").replace(/[^0-9.]/g, "")) || 0;
-                      const basePro = parseFloat((meal.protein || "0").replace(/[^0-9.]/g, "")) || 0;
+                      // Infinite card with multiplier - create with ORIGINAL values, set override for scaling
                       const baseGrams = parseQty(meal.grams);
-                      const scaledCal = baseCal > 0 ? String(Math.round(baseCal * ratio)) : meal.calories;
-                      const scaledPro = basePro > 0 ? String(Math.round(basePro * ratio)) : meal.protein;
-                      const scaledGrams = baseGrams > 0 ? String(Math.round(baseGrams * ratio)) : meal.grams;
                       const baseIng = meal.ingredients ? meal.ingredients : (baseGrams > 0 ? `${baseGrams}g ${meal.name}` : null);
                       const scaledIng = baseIng ? scaleIngredientStringExact(baseIng, ratio) : null;
                       const result = await addMealToPossibleDirectly.mutateAsync({
                         name: meal.name, category: cat.value, colorSeed: meal.id,
-                        calories: scaledCal, protein: scaledPro, grams: scaledGrams,
+                        calories: meal.calories, protein: meal.protein, grams: meal.grams,
                         ingredients: baseIng,
                       });
                       if (result?.id && scaledIng) {
