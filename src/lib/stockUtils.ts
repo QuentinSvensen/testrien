@@ -22,6 +22,38 @@ export {
   getFoodItemTotalGrams, parseIngredientLine, parseIngredientGroups,
 };
 
+// ─── Food Item Index ────────────────────────────────────────────────────────
+
+export type FoodItemIndex = Map<string, FoodItem[]>;
+
+/** Build a lookup index from foodItems for O(1) name-based access */
+export function buildFoodItemIndex(foodItems: FoodItem[]): FoodItemIndex {
+  const index = new Map<string, FoodItem[]>();
+  for (const fi of foodItems) {
+    const key = normalizeKey(fi.name);
+    const arr = index.get(key);
+    if (arr) arr.push(fi);
+    else index.set(key, [fi]);
+  }
+  return index;
+}
+
+/** O(1) lookup by normalized key, with fuzzy fallback for typo tolerance */
+function lookupFoodItems(name: string, foodItems: FoodItem[], index?: FoodItemIndex): FoodItem[] {
+  if (index) {
+    const exact = index.get(normalizeKey(name));
+    if (exact && exact.length > 0) return exact;
+    const results: FoodItem[] = [];
+    for (const [, items] of index) {
+      if (items.length > 0 && strictNameMatch(items[0].name, name)) {
+        results.push(...items);
+      }
+    }
+    return results;
+  }
+  return foodItems.filter(fi => strictNameMatch(fi.name, name));
+}
+
 // ─── Stock Map ──────────────────────────────────────────────────────────────
 
 export interface StockInfo { grams: number; count: number; infinite: boolean; indivisibleUnit: number; }
