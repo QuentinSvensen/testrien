@@ -240,9 +240,7 @@ export function getExpiredIngredientNames(meal: Meal, foodItems: FoodItem[], ind
   return expired;
 }
 
-export function getExpiringSoonIngredientNames(meal: Meal, foodItems: FoodItem[]): Set<string> {
-  // Returns only the SINGLE ingredient with the earliest future expiration date (within 7 days).
-  // This ensures only the most urgent ingredient gets the "soon" ring highlight.
+export function getExpiringSoonIngredientNames(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): Set<string> {
   const soon = new Set<string>();
   if (!meal.ingredients?.trim()) return soon;
   
@@ -254,15 +252,16 @@ export function getExpiringSoonIngredientNames(meal: Meal, foodItems: FoodItem[]
   const groups = parseIngredientGroups(meal.ingredients);
   let earliestDate: string | null = null;
   let earliestName: string | null = null;
-  for (const group of groups) for (const alt of group) for (const fi of foodItems) {
-    if (strictNameMatch(fi.name, alt.name) && fi.expiration_date) {
-      const expDateParts = fi.expiration_date.split('-');
-      const exp = new Date(parseInt(expDateParts[0]), parseInt(expDateParts[1]) - 1, parseInt(expDateParts[2]));
-      
-      if (exp > today && exp <= soonDate) {
-        if (!earliestDate || fi.expiration_date < earliestDate) {
-          earliestDate = fi.expiration_date;
-          earliestName = normalizeKey(alt.name);
+  for (const group of groups) for (const alt of group) {
+    for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+      if (fi.expiration_date) {
+        const expDateParts = fi.expiration_date.split('-');
+        const exp = new Date(parseInt(expDateParts[0]), parseInt(expDateParts[1]) - 1, parseInt(expDateParts[2]));
+        if (exp > today && exp <= soonDate) {
+          if (!earliestDate || fi.expiration_date < earliestDate) {
+            earliestDate = fi.expiration_date;
+            earliestName = normalizeKey(alt.name);
+          }
         }
       }
     }
