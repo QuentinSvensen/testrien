@@ -5,6 +5,15 @@
 
 import type { FoodItem } from "@/components/FoodItems";
 
+// ─── Counter Utility ────────────────────────────────────────────────────────
+
+/** Compute counter days from counter_start_date. Returns null if no counter or if counter is in the future (scheduled). */
+export function computeCounterDays(counterStartDate: string | null | undefined): number | null {
+  if (!counterStartDate) return null;
+  const days = Math.floor((Date.now() - new Date(counterStartDate).getTime()) / 86400000);
+  return days < 0 ? null : days;
+}
+
 // ─── Text Normalization (with LRU cache) ────────────────────────────────────
 
 const _normCache = new Map<string, string>();
