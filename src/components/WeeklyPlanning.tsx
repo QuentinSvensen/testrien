@@ -451,7 +451,7 @@ export function WeeklyPlanning() {
 
     // Auto-enable auto-consume for "Dèj choco", disable on other changes
     const selectedMeal = mealId
-      ? (allMeals.find(m => m.id === mealId) || possibleMeals.find(pm => pm.meal_id === mealId)?.meals)
+      ? (petitDejMeals.find(m => m.id === mealId) || possiblePetitDej.find(pm => pm.meal_id === mealId)?.meals)
       : null;
     const isDejeChoco = selectedMeal?.name?.toLowerCase().includes('dèj choco') || selectedMeal?.name?.toLowerCase().includes('dej choco');
     if (isDejeChoco) {
