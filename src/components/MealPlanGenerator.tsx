@@ -202,8 +202,14 @@ export function MealPlanGenerator() {
   };
 
   const initialMenuSyncDone = useRef(false);
+  const SESSION_SYNC_KEY = 'menu_initial_sync_done';
   useEffect(() => {
     if (initialMenuSyncDone.current) return;
+    // Use sessionStorage to survive tab switches (component remounts)
+    if (sessionStorage.getItem(SESSION_SYNC_KEY) === 'true') {
+      initialMenuSyncDone.current = true;
+      return;
+    }
     if (shoppingItems.length === 0) return;
 
     const entries = Object.entries(persistedNeeds);
@@ -211,6 +217,7 @@ export function MealPlanGenerator() {
       updateShoppingChecks(new Map(entries));
     }
     initialMenuSyncDone.current = true;
+    sessionStorage.setItem(SESSION_SYNC_KEY, 'true');
   }, [shoppingItems.length, persistedNeeds]);
 
   const generatePlan = () => {
