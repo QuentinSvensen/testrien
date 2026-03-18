@@ -109,7 +109,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             } else { updatesById.set(fi.id, { id: fi.id, delete: true }); }
           } else {
             const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-            updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: counterDate ?? new Date().toISOString() } : {}) });
+            updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
           }
         }
       }
