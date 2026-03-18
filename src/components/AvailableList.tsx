@@ -761,7 +761,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           onDragStart={(e) => { e.dataTransfer.setData("mealId", meal.id); e.dataTransfer.setData("source", "available"); if (unifiedIdx !== undefined) setAvDragIndex(unifiedIdx); }}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
-          hideDelete expirationLabel={expLabel} expirationDate={expDate} expirationIsToday={expIsTodayPa} expiredIngredientNames={expiredIngsPa} expiringSoonIngredientNames={soonIngsPa} counterIngredientNames={counterIngs} maxIngredientCounter={maxCounter} />
+          hideDelete expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayPa} expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames} counterIngredientNames={analysis.counterIngredientNames} maxIngredientCounter={analysis.maxIngredientCounter} />
         {editingRatioId === partialKey ? (
           <div className="absolute top-1 right-2 z-20">
             <Input autoFocus value={ratioInput}
