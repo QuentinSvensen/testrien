@@ -66,7 +66,7 @@ export function MealPlanGenerator() {
   const allPlats = getMealsByCategory("plat");
   const persistedRaw = getPreference<unknown>(MENU_PREF_KEY, null);
   const persistedIds = useMemo(() => parseStoredIds(persistedRaw), [JSON.stringify(persistedRaw)]);
-  const persistedNeeds = getPreference<Record<string, { grams: number; count: number }>>(MENU_NEEDS_KEY, {});
+  const persistedNeeds = getPreference<Record<string, { grams: number; count: number; rawName?: string }>>(MENU_NEEDS_KEY, {});
 
   const [selectedMealIds, setSelectedMealIds] = useState<string[]>([]);
   const persistedGrimpeCount = getPreference<number>(MENU_GRIMPE_COUNT_KEY, 4);
