@@ -289,8 +289,21 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["meals"] });
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prevMeals = qc.getQueryData<Meal[]>(["meals"]);
+      const prevPM = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      qc.setQueryData<Meal[]>(["meals"], old => old?.filter(m => m.id !== id) ?? []);
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old => old?.filter(pm => pm.meal_id !== id) ?? []);
+      return { prevMeals, prevPM };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prevMeals) qc.setQueryData(["meals"], ctx.prevMeals);
+      if (ctx?.prevPM) qc.setQueryData(["possible_meals"], ctx.prevPM);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll,
   });
 
   const reorderMeals = useMutation({
