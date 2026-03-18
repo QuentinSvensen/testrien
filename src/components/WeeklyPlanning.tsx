@@ -765,15 +765,14 @@ export function WeeklyPlanning() {
 
     const ingCal = computeIngredientCalories(displayIngredients);
     const isComputedCal = !overrideCal && ingCal !== null;
-    const displayCal = overrideCal || (ingCal !== null ? String(ingCal) : meal.calories);
 
     const ingPro = computeIngredientProtein(displayIngredients);
     const isComputedPro = ingPro !== null;
-    const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
 
-    // Detect scale ratio to show scaled grams in planning
+    // Detect scale ratio to show scaled grams/calories/protein in planning
     let displayMeal = meal;
-    if (pm.ingredients_override && meal.grams) {
+    let detectedRatio: number | null = null;
+    if (pm.ingredients_override) {
       const baseIngStr = meal.ingredients
         ? meal.ingredients
         : (() => {
@@ -807,13 +806,29 @@ export function WeeklyPlanning() {
         if (ratios.length > 0) {
           const first = ratios[0];
           if (Math.abs(first - 1) > 0.01 && ratios.every(r => Math.abs(r - first) / first < 0.05)) {
-            const baseG = parseFloat(meal.grams!.replace(/[^0-9.]/g, '')) || 0;
-            if (baseG > 0) {
-              displayMeal = { ...meal, grams: String(Math.round(baseG * first)) };
+            detectedRatio = first;
+            if (meal.grams) {
+              const baseG = parseFloat(meal.grams.replace(/[^0-9.]/g, '')) || 0;
+              if (baseG > 0) {
+                displayMeal = { ...meal, grams: String(Math.round(baseG * first)) };
+              }
             }
           }
         }
       }
+    }
+
+    // Scale calories/protein by ratio if not ingredient-computed (matching PossibleMealCard behavior)
+    let displayCal = overrideCal || (ingCal !== null ? String(ingCal) : meal.calories);
+    if (!overrideCal && !isComputedCal && displayCal && detectedRatio !== null) {
+      const raw = parseFloat(displayCal.replace(/[^0-9.]/g, ''));
+      if (raw > 0) displayCal = String(Math.round(raw * detectedRatio));
+    }
+
+    let displayPro = ingPro !== null ? String(ingPro) : meal.protein;
+    if (!isComputedPro && displayPro && detectedRatio !== null) {
+      const raw = parseFloat(displayPro.replace(/[^0-9.]/g, ''));
+      if (raw > 0) displayPro = String(Math.round(raw * detectedRatio));
     }
 
     return (
