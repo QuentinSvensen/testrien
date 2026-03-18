@@ -161,7 +161,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const { error } = await supabase.from("meals").update({ color: finalColor }).eq("id", inserted.id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
+    onSuccess: invalidateMeals,
     onError: onMutationError,
   });
 
