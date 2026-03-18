@@ -587,7 +587,7 @@ const Index = () => {
                         }
                       } else {
                         // Re-enable: re-apply checks from persisted needs
-                        const pNeeds = getPreference<Record<string, { grams: number; count: number }>>('menu_generator_needs_v1', {});
+                        const pNeeds = getPreference<Record<string, { grams: number; count: number; rawName?: string }>>('menu_generator_needs_v1', {});
                         const entries = Object.entries(pNeeds);
                         if (entries.length > 0) {
                           const tjKeys = new Set(foodItems.filter(fi => fi.storage_type === 'toujours').map(fi => normalizeKey(fi.name)));
@@ -600,11 +600,12 @@ const Index = () => {
                           for (const [nk, need] of entries) {
                             const exact: typeof shoppingItems = [];
                             const partial: typeof shoppingItems = [];
+                            const matchName = need.rawName || nk;
                             for (const si of shoppingItems) {
                               const k = normalizeKey(si.name);
                               if (isTJ(si, k)) continue;
                               if (normalizeKey(si.name) === normalizeKey(nk)) exact.push(si);
-                              else if (smartFoodContains(si.name, nk)) partial.push(si);
+                              else if (smartFoodContains(si.name, matchName)) partial.push(si);
                             }
                             const tgts = exact.length > 0 ? exact : (partial.length === 1 ? partial : []);
                             for (const si of tgts) {
