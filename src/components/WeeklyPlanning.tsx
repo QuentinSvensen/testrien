@@ -421,6 +421,11 @@ export function WeeklyPlanning() {
   const { getPreference, setPreference } = usePreferences();
   const { items: foodItems } = useFoodItems();
 
+  // Force refetch possible_meals on mount to ensure planning always shows latest data
+  useEffect(() => {
+    qc.invalidateQueries({ queryKey: ["possible_meals"] });
+  }, []);
+
   // Breakfast selections per day
   const breakfastSelections = getPreference<Record<string, string>>('planning_breakfast', {});
   const { getDayCalories, DAILY_GOAL, getBreakfastForDay } = useCalorieBalance();
