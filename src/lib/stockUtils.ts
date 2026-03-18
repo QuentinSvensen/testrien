@@ -9,7 +9,8 @@ import {
   normalizeForMatch, normalizeKey, strictNameMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientLine, parseIngredientLineRaw, parseIngredientGroups,
-  extractMetrics,
+  extractMetrics, computeIngredientCalories, computeIngredientProtein,
+  extractIngredientMacros, applyIngredientMacros,
   type ParsedIngredient,
 } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
