@@ -258,14 +258,16 @@ export function analyzeMealIngredients(
         // Counter analysis
         if (fi.counter_start_date) {
           const days = computeCounterDays(fi.counter_start_date);
-          if (days !== null && (result.maxIngredientCounter === null || days > result.maxIngredientCounter)) {
-            result.maxIngredientCounter = days;
-            result.maxCounterName = fi.name;
+          if (days !== null) {
+            if (result.maxIngredientCounter === null || days > result.maxIngredientCounter) {
+              result.maxIngredientCounter = days;
+              result.maxCounterName = fi.name;
+            }
+            if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
+              result.earliestCounterDate = fi.counter_start_date;
+            }
+            result.counterIngredientNames.add(normalizeKey(alt.name));
           }
-          if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
-            result.earliestCounterDate = fi.counter_start_date;
-          }
-          result.counterIngredientNames.add(normalizeKey(alt.name));
         }
       }
     }
