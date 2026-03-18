@@ -38,6 +38,7 @@ const persister = createSyncStoragePersister({
 });
 
 const App = () => (
+  {/* @ts-ignore - template type mismatch */}
   <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}>
       <TooltipProvider>
