@@ -24,7 +24,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
 import {
-  normalizeForMatch, normalizeKey, strictNameMatch,
+  normalizeForMatch, normalizeKey, strictNameMatch, accentSafeKeyMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, smartFoodContains,
 } from "@/lib/ingredientUtils";
