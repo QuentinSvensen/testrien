@@ -440,17 +440,6 @@ const Index = () => {
     setTimeout(() => setHighlightedId(null), 3000);
   };
 
-  const toggleSort = (cat: string) => {
-    setSortModes((prev) => {
-      const current = prev[cat] || "manual";
-      const next: SortMode = current === "manual" ? "expiration" : current === "expiration" ? "planning" : "manual";
-      const updated = { ...prev, [cat]: next };
-      localStorage.setItem('meal_sort_modes', JSON.stringify(updated));
-      setPreference.mutate({ key: 'meal_sort_modes', value: updated });
-      return updated;
-    });
-  };
-
   const getSortedPossible = (cat: string): PossibleMeal[] => {
     const items = getPossibleByCategory(cat);
     const mode = sortModes[cat] || "manual";
@@ -465,37 +454,13 @@ const Index = () => {
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
     reorderMeals.mutate(reordered.map((m, i) => ({ id: m.id, sort_order: i })));
-    setMasterSortModes((prev) => {
-      const updated = { ...prev, [cat]: "manual" as MasterSortMode };
-      setPreference.mutate({ key: 'meal_master_sort_modes', value: updated });
-      return updated;
-    });
-  };
-
-  const toggleMasterSort = (cat: string) => {
-    setMasterSortModes((prev) => {
-      const current = prev[cat] || "manual";
-      const next: MasterSortMode = current === "manual" ? "calories" : current === "calories" ? "protein" : current === "protein" ? "favorites" : current === "favorites" ? "ingredients" : "manual";
-      const updated = { ...prev, [cat]: next };
-      localStorage.setItem('meal_master_sort_modes', JSON.stringify(updated));
-      debouncedSetPreference(masterSortDebounce, 'meal_master_sort_modes', () => updated);
-      return updated;
-    });
-  };
-
-
-  const toggleSortDirection = (key: string) => {
-    setSortDirections(prev => {
-      const updated = { ...prev, [key]: !prev[key] };
-      debouncedSetPreference(sortDirectionDebounce, 'meal_sort_directions', () => updated);
-      return updated;
-    });
+    resetMasterSortToManual(cat);
   };
 
   const getSortedMaster = (cat: string): Meal[] => {
     const items = getMealsByCategory(cat);
     const mode = masterSortModes[cat] || "manual";
-    const asc = sortDirections[`master-${cat}`] !== false; // default asc
+    const asc = sortDirections[`master-${cat}`] !== false;
     if (mode === "calories") {
       return [...items].sort((a, b) => {
         const ca = getDisplayedMealCalories(a);
@@ -527,21 +492,7 @@ const Index = () => {
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
     reorderPossibleMeals.mutate(reordered.map((m, i) => ({ id: m.id, sort_order: i })));
-    setSortModes((prev) => {
-      const updated = { ...prev, [cat]: "manual" as SortMode };
-      setPreference.mutate({ key: 'meal_sort_modes', value: updated });
-      return updated;
-    });
-  };
-
-  const toggleAvailableSort = (cat: string) => {
-    setAvailableSortModes(prev => {
-      const current = prev[cat] || "manual";
-      const next: AvailableSortMode = current === "manual" ? "calories" : current === "calories" ? "protein" : current === "protein" ? "expiration" : "manual";
-      const updated = { ...prev, [cat]: next };
-      debouncedSetPreference(availableSortDebounce, 'meal_available_sort_modes', () => updated);
-      return updated;
-    });
+    resetSortToManual(cat);
   };
 
   return (
