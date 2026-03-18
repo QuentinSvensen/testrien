@@ -334,7 +334,14 @@ const Index = () => {
       setPreference.mutate({ key: 'planning_drink_checks', value: {} });
       setPreference.mutate({ key: 'last_weekly_reset', value: now.toISOString() });
       qc.invalidateQueries({ queryKey: ["possible_meals"] });
-      toast({ title: "🔄 Reset hebdomadaire effectué", description: "Les cartes possibles et calories manuelles ont été effacées." });
+      toast({
+        title: "🔄 Reset hebdomadaire effectué",
+        description: "Les cartes possibles ont été effacées.",
+        action: React.createElement('button', {
+          className: 'text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg px-3 py-1.5 transition-colors whitespace-nowrap',
+          onClick: () => restorePossibleMealsBackup(),
+        }, '↩ Restaurer'),
+      });
     };
     clearAll();
   }, [unlocked, possibleMeals, lastWeeklyReset]);
