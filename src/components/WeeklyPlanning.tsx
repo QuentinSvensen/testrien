@@ -3,7 +3,7 @@ import { useMeals, DAYS, TIMES, type PossibleMeal } from "@/hooks/useMeals";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useCalorieBalance } from "@/hooks/useCalorieBalance";
+import { useCalorieBalance, getOverrideScaleRatio } from "@/hooks/useCalorieBalance";
 import { Timer, Flame, Weight, Calendar, Lock, Plus } from "lucide-react";
 import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
