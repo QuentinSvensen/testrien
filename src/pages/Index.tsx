@@ -18,6 +18,7 @@ import { colorFromName } from "@/lib/foodColors";
 import { useMeals, type MealCategory, type Meal, type PossibleMeal } from "@/hooks/useMeals";
 import { useShoppingList } from "@/hooks/useShoppingList";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useSortModes } from "@/hooks/useSortModes";
 import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -93,10 +94,7 @@ function validateMealName(name: string): string | null {
   return null;
 }
 
-type SortMode = "manual" | "expiration" | "planning";
-type MasterSortMode = "manual" | "calories" | "protein" | "favorites" | "ingredients";
-type AvailableSortMode = "manual" | "calories" | "protein" | "expiration";
-type UnParUnSortMode = "manual" | "expiration";
+import type { SortMode, MasterSortMode, AvailableSortMode, UnParUnSortMode } from "@/hooks/useSortModes";
 type MainPage = "aliments" | "repas" | "planning" | "courses";
 
 
@@ -367,82 +365,12 @@ const Index = () => {
   const [masterSourcePmIds, setMasterSourcePmIds] = useState<Set<string>>(new Set());
   const [unParUnSourcePmIds, setUnParUnSourcePmIds] = useState<Set<string>>(new Set());
 
-  // Sort modes
-  const dbSortModes = getPreference<Record<string, SortMode>>('meal_sort_modes', {});
-  const dbMasterSortModes = getPreference<Record<string, MasterSortMode>>('meal_master_sort_modes', {});
-  const [sortModes, setSortModes] = useState<Record<string, SortMode>>(() => {
-    const saved = localStorage.getItem('meal_sort_modes');
-    return saved ? JSON.parse(saved) : {};
-  });
-  const [masterSortModes, setMasterSortModes] = useState<Record<string, MasterSortMode>>(() => {
-    const saved = localStorage.getItem('meal_master_sort_modes');
-    return saved ? JSON.parse(saved) : {};
-  });
-  const dbAvailableSortModes = getPreference<Record<string, AvailableSortMode>>('meal_available_sort_modes', {});
-  const [availableSortModes, setAvailableSortModes] = useState<Record<string, AvailableSortMode>>({});
-  const dbUnParUnSortModes = getPreference<Record<string, UnParUnSortMode>>('meal_unparun_sort_modes', {});
-  const [unParUnSortModes, setUnParUnSortModes] = useState<Record<string, UnParUnSortMode>>({});
-
-  // Sort direction state (asc=true / desc=false for numeric sorts)
-  const dbSortDirections = getPreference<Record<string, boolean>>('meal_sort_directions', {});
-  const [sortDirections, setSortDirections] = useState<Record<string, boolean>>({});
-
-  const dbSyncedRef = useRef(false);
-  const dbMasterSyncedRef = useRef(false);
-  const dbAvailableSyncedRef = useRef(false);
-  const dbUnParUnSyncedRef = useRef(false);
-  const dbDirectionsSyncedRef = useRef(false);
-
-  // Sync from DB exactly ONCE on first non-empty load — use refs to avoid JSON.stringify in deps
-  const dbSortModesRef = useRef(dbSortModes);
-  dbSortModesRef.current = dbSortModes;
-  const dbMasterSortModesRef = useRef(dbMasterSortModes);
-  dbMasterSortModesRef.current = dbMasterSortModes;
-  const dbAvailableSortModesRef = useRef(dbAvailableSortModes);
-  dbAvailableSortModesRef.current = dbAvailableSortModes;
-  const dbUnParUnSortModesRef = useRef(dbUnParUnSortModes);
-  dbUnParUnSortModesRef.current = dbUnParUnSortModes;
-  const dbSortDirectionsRef = useRef(dbSortDirections);
-  dbSortDirectionsRef.current = dbSortDirections;
-
-  useEffect(() => {
-    if (dbSyncedRef.current) return;
-    const val = dbSortModesRef.current;
-    if (val && Object.keys(val).length > 0) { setSortModes(val); dbSyncedRef.current = true; }
-  }, [dbSortModes]);
-  useEffect(() => {
-    if (dbMasterSyncedRef.current) return;
-    const val = dbMasterSortModesRef.current;
-    if (val && Object.keys(val).length > 0) { setMasterSortModes(val); dbMasterSyncedRef.current = true; }
-  }, [dbMasterSortModes]);
-  useEffect(() => {
-    if (dbAvailableSyncedRef.current) return;
-    const val = dbAvailableSortModesRef.current;
-    if (val && Object.keys(val).length > 0) { setAvailableSortModes(val); dbAvailableSyncedRef.current = true; }
-  }, [dbAvailableSortModes]);
-  useEffect(() => {
-    if (dbUnParUnSyncedRef.current) return;
-    const val = dbUnParUnSortModesRef.current;
-    if (val && Object.keys(val).length > 0) { setUnParUnSortModes(val); dbUnParUnSyncedRef.current = true; }
-  }, [dbUnParUnSortModes]);
-  useEffect(() => {
-    if (dbDirectionsSyncedRef.current) return;
-    const val = dbSortDirectionsRef.current;
-    if (val && Object.keys(val).length > 0) { setSortDirections(val); dbDirectionsSyncedRef.current = true; }
-  }, [dbSortDirections]);
-
-  // Debounced preference write timers - avoids stampeding DB writes from rapid clicks
-  const availableSortDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const masterSortDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sortDirectionDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const debouncedSetPreference = (timerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>, key: string, getValue: () => any, delay = 800) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setPreference.mutate({ key, value: getValue() });
-      timerRef.current = null;
-    }, delay);
-  };
+  // Sort modes — extracted to dedicated hook
+  const {
+    sortModes, masterSortModes, availableSortModes, unParUnSortModes, sortDirections,
+    toggleSort, toggleMasterSort, toggleAvailableSort, toggleSortDirection,
+    resetSortToManual, resetMasterSortToManual, setUnParUnSort,
+  } = useSortModes({ enabled: unlocked });
 
 
   const [logoClickCount, setLogoClickCount] = useState(0);
@@ -512,17 +440,6 @@ const Index = () => {
     setTimeout(() => setHighlightedId(null), 3000);
   };
 
-  const toggleSort = (cat: string) => {
-    setSortModes((prev) => {
-      const current = prev[cat] || "manual";
-      const next: SortMode = current === "manual" ? "expiration" : current === "expiration" ? "planning" : "manual";
-      const updated = { ...prev, [cat]: next };
-      localStorage.setItem('meal_sort_modes', JSON.stringify(updated));
-      setPreference.mutate({ key: 'meal_sort_modes', value: updated });
-      return updated;
-    });
-  };
-
   const getSortedPossible = (cat: string): PossibleMeal[] => {
     const items = getPossibleByCategory(cat);
     const mode = sortModes[cat] || "manual";
@@ -537,37 +454,13 @@ const Index = () => {
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
     reorderMeals.mutate(reordered.map((m, i) => ({ id: m.id, sort_order: i })));
-    setMasterSortModes((prev) => {
-      const updated = { ...prev, [cat]: "manual" as MasterSortMode };
-      setPreference.mutate({ key: 'meal_master_sort_modes', value: updated });
-      return updated;
-    });
-  };
-
-  const toggleMasterSort = (cat: string) => {
-    setMasterSortModes((prev) => {
-      const current = prev[cat] || "manual";
-      const next: MasterSortMode = current === "manual" ? "calories" : current === "calories" ? "protein" : current === "protein" ? "favorites" : current === "favorites" ? "ingredients" : "manual";
-      const updated = { ...prev, [cat]: next };
-      localStorage.setItem('meal_master_sort_modes', JSON.stringify(updated));
-      debouncedSetPreference(masterSortDebounce, 'meal_master_sort_modes', () => updated);
-      return updated;
-    });
-  };
-
-
-  const toggleSortDirection = (key: string) => {
-    setSortDirections(prev => {
-      const updated = { ...prev, [key]: !prev[key] };
-      debouncedSetPreference(sortDirectionDebounce, 'meal_sort_directions', () => updated);
-      return updated;
-    });
+    resetMasterSortToManual(cat);
   };
 
   const getSortedMaster = (cat: string): Meal[] => {
     const items = getMealsByCategory(cat);
     const mode = masterSortModes[cat] || "manual";
-    const asc = sortDirections[`master-${cat}`] !== false; // default asc
+    const asc = sortDirections[`master-${cat}`] !== false;
     if (mode === "calories") {
       return [...items].sort((a, b) => {
         const ca = getDisplayedMealCalories(a);
@@ -599,21 +492,7 @@ const Index = () => {
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
     reorderPossibleMeals.mutate(reordered.map((m, i) => ({ id: m.id, sort_order: i })));
-    setSortModes((prev) => {
-      const updated = { ...prev, [cat]: "manual" as SortMode };
-      setPreference.mutate({ key: 'meal_sort_modes', value: updated });
-      return updated;
-    });
-  };
-
-  const toggleAvailableSort = (cat: string) => {
-    setAvailableSortModes(prev => {
-      const current = prev[cat] || "manual";
-      const next: AvailableSortMode = current === "manual" ? "calories" : current === "calories" ? "protein" : current === "protein" ? "expiration" : "manual";
-      const updated = { ...prev, [cat]: next };
-      debouncedSetPreference(availableSortDebounce, 'meal_available_sort_modes', () => updated);
-      return updated;
-    });
+    resetSortToManual(cat);
   };
 
   return (
@@ -1085,13 +964,9 @@ const Index = () => {
                       onToggleCollapse={() => toggleSectionCollapse(`unparun-${cat.value}`)}
                       sortMode={unParUnSortModes[cat.value] || "expiration"}
                       onToggleSort={() => {
-                        setUnParUnSortModes(prev => {
-                          const current = prev[cat.value] || "expiration";
-                          const next: UnParUnSortMode = current === "manual" ? "expiration" : "manual";
-                          const updated = { ...prev, [cat.value]: next };
-                          setPreference.mutate({ key: 'meal_unparun_sort_modes', value: updated });
-                          return updated;
-                        });
+                        const current = unParUnSortModes[cat.value] || "expiration";
+                        const next: UnParUnSortMode = current === "manual" ? "expiration" : "manual";
+                        setUnParUnSort(cat.value, next);
                       }}
                       onMoveToPossible={async (fi, consumeQty, consumeGrams) => {
                         const snapshot = [{ ...fi }];
