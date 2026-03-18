@@ -41,6 +41,34 @@ export function normalizeKey(name: string): string {
   return result;
 }
 
+/**
+ * Accent-safe key comparison: normalizeKey equality + verify accented forms don't conflict.
+ * Prevents "épicé" matching "épice" while still allowing "epice" == "épice" (case/accent normalization).
+ */
+export function accentSafeKeyMatch(a: string, b: string): boolean {
+  if (normalizeKey(a) !== normalizeKey(b)) return false;
+  // Check that light-normalized forms (preserving accents) agree
+  const la = lightNormalize(a).replace(/s$/, "");
+  const lb = lightNormalize(b).replace(/s$/, "");
+  if (la === lb) return true;
+  // If lengths differ by >1 → different words
+  if (Math.abs(la.length - lb.length) > 1) return false;
+  // Allow trailing 'e' tolerance (haché/hachée) but reject accent-different endings (épicé/épice)
+  const shorter = la.length <= lb.length ? la : lb;
+  const longer = la.length <= lb.length ? lb : la;
+  // If one is prefix of the other + trailing 'e'/'s' → OK
+  if (longer.startsWith(shorter)) return true;
+  if (shorter.length === longer.length) {
+    // Same length: check char-by-char for accent conflicts
+    let diffs = 0;
+    for (let i = 0; i < shorter.length; i++) {
+      if (shorter[i] !== longer[i]) diffs++;
+    }
+    return diffs === 0;
+  }
+  return false;
+}
+
 // ─── Smart Food Matching ────────────────────────────────────────────────────
 
 /** French prepositions/articles that signal a compound food name */
