@@ -309,8 +309,8 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
       return compareExpirationWithCounter(aAn.earliestExpiration, bAn.earliestExpiration, aAn.maxIngredientCounter, bAn.maxIngredientCounter);
     });
     sortedNameMatches.sort((a, b) => {
-      const ac = a.fi.counter_start_date ? Math.floor((Date.now() - new Date(a.fi.counter_start_date).getTime()) / 86400000) : null;
-      const bc = b.fi.counter_start_date ? Math.floor((Date.now() - new Date(b.fi.counter_start_date).getTime()) / 86400000) : null;
+      const ac = computeCounterDays(a.fi.counter_start_date);
+      const bc = computeCounterDays(b.fi.counter_start_date);
       return compareExpirationWithCounter(a.fi.expiration_date, b.fi.expiration_date, ac, bc);
     });
     sortedIsMealItems.sort((a, b) => {
