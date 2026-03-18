@@ -26,6 +26,61 @@ function parseCalories(cal: string | null | undefined): number {
   return isNaN(n) ? 0 : n;
 }
 
+function getOverrideScaleRatio(
+  meal: { ingredients: string | null; grams: string | null; name: string } | null | undefined,
+  ingredientsOverride: string | null | undefined,
+): number | null {
+  if (!meal || !ingredientsOverride) return null;
+
+  const baseIngStr = meal.ingredients
+    ? meal.ingredients
+    : (() => {
+        const bg = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, "").replace(",", ".")) || 0;
+        return bg > 0 ? `${bg}g ${meal.name}` : `1 ${meal.name}`;
+      })();
+
+  const origGroups = baseIngStr.split(/(?:\n|,(?!\d))/).map((s) => s.trim()).filter(Boolean);
+  const overGroups = ingredientsOverride.split(/(?:\n|,(?!\d))/).map((s) => s.trim()).filter(Boolean);
+  if (origGroups.length === 0) return null;
+
+  const ratios: number[] = [];
+  for (let i = 0; i < Math.min(origGroups.length, overGroups.length); i++) {
+    const origAlt = origGroups[i].split(/\|/)[0].trim();
+    const overAlt = overGroups[i].split(/\|/)[0].trim();
+    if (origAlt.startsWith("?")) continue;
+
+    const origMatch = origAlt.match(/^(\d+(?:[.,]\d+)?)\s*(?:g|gr|grammes?|kg|ml|cl|l)\s/i);
+    const overMatch = overAlt.match(/^(\d+(?:[.,]\d+)?)\s*(?:g|gr|grammes?|kg|ml|cl|l)\s/i);
+    if (origMatch && overMatch) {
+      const oq = parseFloat(origMatch[1].replace(",", "."));
+      const nq = parseFloat(overMatch[1].replace(",", "."));
+      if (oq > 0 && nq > 0) {
+        ratios.push(nq / oq);
+        continue;
+      }
+    }
+
+    const origC = origAlt.match(/^(\d+(?:[.,]\d+)?)\s+\S/);
+    const overC = overAlt.match(/^(\d+(?:[.,]\d+)?)\s+\S/);
+    if (origC && overC && !origMatch && !overMatch) {
+      const oc = parseFloat(origC[1].replace(",", "."));
+      const nc = parseFloat(overC[1].replace(",", "."));
+      if (oc > 0 && nc > 0) {
+        ratios.push(nc / oc);
+        continue;
+      }
+    }
+
+    ratios.push(1);
+  }
+
+  if (ratios.length === 0) return null;
+  const first = ratios[0];
+  if (Math.abs(first - 1) <= 0.01) return null;
+  if (!ratios.every((r) => Math.abs(r - first) / first < 0.05)) return null;
+  return first;
+}
+
 export function useCalorieBalance() {
   const { meals: allMeals, possibleMeals, getMealsByCategory } = useMeals();
   const { getPreference } = usePreferences();
@@ -67,10 +122,15 @@ export function useCalorieBalance() {
           const qty = pm.quantity ?? 1;
           const override = calOverrides[pm.id];
           if (override) return s + parseCalories(override) * qty;
+
           const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
           const ingCal = computeIngredientCalories(displayIngredients);
           if (ingCal !== null) return s + ingCal * qty;
-          return s + parseCalories(pm.meals?.calories) * qty;
+
+          const ratio = getOverrideScaleRatio(pm.meals, pm.ingredients_override);
+          const baseCal = parseCalories(pm.meals?.calories);
+          const scaledCal = ratio !== null && baseCal > 0 ? Math.round(baseCal * ratio) : baseCal;
+          return s + scaledCal * qty;
         }, 0);
       }
       return total + (manualCalories[`${day}-${time}`] || 0);
@@ -102,7 +162,11 @@ export function useCalorieBalance() {
           const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
           const ingPro = computeIngredientProtein(displayIngredients);
           if (ingPro !== null) return s + ingPro * qty;
-          return s + parseCalories(pm.meals?.protein) * qty;
+
+          const ratio = getOverrideScaleRatio(pm.meals, pm.ingredients_override);
+          const basePro = parseCalories(pm.meals?.protein);
+          const scaledPro = ratio !== null && basePro > 0 ? Math.round(basePro * ratio) : basePro;
+          return s + scaledPro * qty;
         }, 0);
       }
       return total + (manualProteins[`${day}-${time}`] || 0);
