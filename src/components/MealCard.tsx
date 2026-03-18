@@ -56,9 +56,6 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
   const [editValue, setEditValue] = useState("");
   const [editingIngredients, setEditingIngredients] = useState(false);
   const [ingLines, setIngLines] = useState<IngLine[]>([]);
-  const qtyRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const countRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const nameRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const handleSave = () => {
     const val = editValue.trim();
