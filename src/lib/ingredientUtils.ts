@@ -117,16 +117,23 @@ export function smartFoodContains(a: string, b: string): boolean {
   const bLight = lightNormalize(b).split(/\s+/);
   const shorterLight = shorterIsA ? aLight : bLight;
   const longerLight = shorterIsA ? bLight : aLight;
+  const singularize = (s: string) => s.replace(/s$/, '');
   for (const [si, li] of matchedPairs) {
     const sWord = shorterLight[si];
     const lWord = longerLight[li];
     if (!sWord || !lWord) continue;
     // Skip accent check if either word is already fully accent-stripped (pre-normalized input)
     if (sWord === normalizeForMatch(sWord) || lWord === normalizeForMatch(lWord)) continue;
-    // Both have accent info — compare fuzzy forms
-    const sFuzzy = fuzzyWord(sWord);
-    const lFuzzy = fuzzyWord(lWord);
-    if (sFuzzy !== lFuzzy) return false;
+    // Both have accent info — compare singularized forms (less aggressive than fuzzyWord)
+    // "épice" vs "épicée" → different, "épices" vs "épice" → same after singularize
+    const sSing = singularize(sWord);
+    const lSing = singularize(lWord);
+    if (sSing !== lSing) {
+      // Also allow trailing 'e' tolerance: "haché" vs "hachée" → "haché" vs "haché" after stripTrailingE
+      const sBase = stripTrailingE(sSing);
+      const lBase = stripTrailingE(lSing);
+      if (sBase !== lBase) return false;
+    }
   }
 
   if (shorter.length === longer.length) {
