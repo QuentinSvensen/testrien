@@ -572,18 +572,9 @@ const Index = () => {
                         old?.map(p => p.key === 'shopping_show_green_checks' ? { ...p, value: newChecked } : p) ?? []
                       );
                       if (!newChecked) {
-                        // Save white quantities before clearing
-                        const savedQtys: Record<string, string> = {};
-                        for (const si of shoppingItems) {
-                          if (!si.secondary_checked && si.quantity) savedQtys[si.id] = si.quantity;
-                        }
-                        sessionStorage.setItem('shopping_saved_white_qtys', JSON.stringify(savedQtys));
+                        // Disable: just uncheck all green checks, preserve white quantities
                         for (const si of shoppingItems) {
                           if (si.secondary_checked) toggleShoppingSecondaryCheck.mutate({ id: si.id, secondary_checked: false });
-                          if (si.quantity) {
-                            const orig = savedQtys[si.id];
-                            updateShoppingItemQuantity.mutate({ id: si.id, quantity: orig || null });
-                          }
                         }
                       } else {
                         // Re-enable: re-apply checks from persisted needs
