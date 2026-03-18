@@ -328,7 +328,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       if (ctx?.prev) qc.setQueryData(["meals"], ctx.prev);
       onMutationError(_err);
     },
-    onSettled: invalidateAll,
+    onSettled: invalidateMeals,
   });
 
   // --- Possible meal mutations ---
