@@ -5,20 +5,40 @@
 
 import type { FoodItem } from "@/components/FoodItems";
 
-// ─── Text Normalization ─────────────────────────────────────────────────────
+// ─── Text Normalization (with LRU cache) ────────────────────────────────────
+
+const _normCache = new Map<string, string>();
+const _keyCache = new Map<string, string>();
+const _lightCache = new Map<string, string>();
+const NORM_CACHE_MAX = 600;
 
 export function normalizeForMatch(text: string): string {
-  return text.toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "").trim();
+  const cached = _normCache.get(text);
+  if (cached !== undefined) return cached;
+  const result = text.toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9\s]/g, "").trim();
+  if (_normCache.size > NORM_CACHE_MAX) _normCache.clear();
+  _normCache.set(text, result);
+  return result;
 }
 
 /** Lowercase but preserve accents — used to detect accent-different words (pâte vs pâté) */
 export function lightNormalize(text: string): string {
-  return text.toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").replace(/[^a-zà-ÿ0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  const cached = _lightCache.get(text);
+  if (cached !== undefined) return cached;
+  const result = text.toLowerCase().replace(/œ/g, "oe").replace(/æ/g, "ae").replace(/[^a-zà-ÿ0-9\s]/g, "").replace(/\s+/g, " ").trim();
+  if (_lightCache.size > NORM_CACHE_MAX) _lightCache.clear();
+  _lightCache.set(text, result);
+  return result;
 }
 
 /** Normalize + strip trailing 's' for ingredient key matching */
 export function normalizeKey(name: string): string {
-  return normalizeForMatch(name).replace(/s$/, "");
+  const cached = _keyCache.get(name);
+  if (cached !== undefined) return cached;
+  const result = normalizeForMatch(name).replace(/s$/, "");
+  if (_keyCache.size > NORM_CACHE_MAX) _keyCache.clear();
+  _keyCache.set(name, result);
+  return result;
 }
 
 // ─── Smart Food Matching ────────────────────────────────────────────────────
