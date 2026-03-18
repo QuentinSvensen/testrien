@@ -397,10 +397,42 @@ export function useMealTransfers(foodItems: FoodItem[]) {
     invalidateStock();
   };
 
+  /** Update food items' counter_start_date when a possible meal's planning changes */
+  const updateFoodItemCountersForPlanning = async (
+    ingredients: string | null,
+    dayOfWeek: string | null,
+    mealTime: string | null,
+  ) => {
+    if (!ingredients?.trim()) return;
+    const groups = parseIngredientGroups(ingredients);
+    const targetDate = dayOfWeek ? computePlannedCounterDate(dayOfWeek, mealTime) : null;
+
+    for (const group of groups) {
+      if (group.every(alt => (alt as any).optional)) continue;
+      const alt = group[0];
+      if (!alt) continue;
+      // Find food items matching this ingredient that have a counter
+      const matchingItems = foodItems.filter(
+        fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter
+      );
+      for (const fi of matchingItems) {
+        const newDate = targetDate ?? new Date().toISOString();
+        // Only update if the date actually changes
+        if (fi.counter_start_date !== newDate) {
+          await safeMutate("Mise à jour compteur planifié", () =>
+            supabase.from("food_items").update({ counter_start_date: newDate } as any).eq("id", fi.id)
+          );
+        }
+      }
+    }
+    invalidateStock();
+  };
+
   return {
     deductIngredientsFromStock,
     restoreIngredientsToStock,
     adjustStockForIngredientChange,
     deductNameMatchStock,
+    updateFoodItemCountersForPlanning,
   };
 }
