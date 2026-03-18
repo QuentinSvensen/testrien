@@ -328,6 +328,40 @@ export function buildIngredientMealIndex(meals: Meal[]): IngredientMealIndex {
   return idx;
 }
 
+// ─── Shared Display Helpers ──────────────────────────────────────────────────
+
+/** Parse a raw calorie/protein string like "350 kcal" → 350 */
+export function parseMacroDisplay(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const match = value.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number.parseFloat(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Get displayed calories for a Meal (ingredient-computed takes priority) */
+export function getDisplayedCalories(meal: { calories?: string | null; ingredients?: string | null }): number | null {
+  const ingCal = computeIngredientCalories(meal.ingredients ?? null);
+  if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
+  return parseMacroDisplay(meal.calories);
+}
+
+/** Get displayed protein for a Meal (ingredient-computed takes priority) */
+export function getDisplayedProtein(meal: { protein?: string | null; ingredients?: string | null }): number | null {
+  const ingPro = computeIngredientProtein(meal.ingredients ?? null);
+  if (ingPro !== null && Number.isFinite(ingPro)) return ingPro;
+  const raw = parseMacroDisplay(meal.protein);
+  return raw !== null ? Math.round(raw) : null;
+}
+
+/** Get displayed calories for a PossibleMeal (uses ingredients_override if present) */
+export function getDisplayedPMCalories(pm: { ingredients_override?: string | null; meals?: { calories?: string | null; ingredients?: string | null } | null }): number | null {
+  const ingredients = pm.ingredients_override ?? pm.meals?.ingredients;
+  const ingCal = computeIngredientCalories(ingredients ?? null);
+  if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
+  return parseMacroDisplay(pm.meals?.calories);
+}
+
 // ─── Formatting & Sorting ───────────────────────────────────────────────────
 
 export function formatExpirationLabel(dateStr: string | null): string | null {
