@@ -107,8 +107,15 @@ export function PossibleMealCard({
   // Detect scale ratio from override vs original ingredients
   // Returns ratio only if ALL non-optional ingredients have the same ratio
   const detectScaleRatio = (): number | null => {
-    if (!pm.ingredients_override || !meal.ingredients) return null;
-    const origGroups = meal.ingredients.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
+    if (!pm.ingredients_override) return null;
+    // For infinite/simple cards without ingredients, synthesize the same base used during scaling
+    const baseIngStr = meal.ingredients
+      ? meal.ingredients
+      : (() => {
+          const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+          return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
+        })();
+    const origGroups = baseIngStr.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
     const overGroups = pm.ingredients_override.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
     if (origGroups.length === 0) return null;
     let detectedRatios: number[] = [];
