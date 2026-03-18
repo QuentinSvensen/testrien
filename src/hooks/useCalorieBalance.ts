@@ -191,26 +191,18 @@ export function useCalorieBalance() {
     const mealPro = TIMES.reduce((total, time) => {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
-        return total + slotMeals.reduce((s, pm) =>
-          s + getCardDisplayProtein(pm)
-        , 0);
+        return total + slotMeals.reduce((s, pm) => {
+          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
+          const ingPro = computeIngredientProtein(displayIngredients);
+          return s + (ingPro !== null ? ingPro : parseCalories(pm.meals?.protein));
+        }, 0);
       }
       return total + (manualProteins[`${day}-${time}`] || 0);
     }, 0);
 
     const breakfast = getBreakfastForDay(day);
+    const breakfastPro = breakfast ? parseCalories(breakfast.protein) : (breakfastManualProteins[day] || 0);
     const extra = extraProteins[day] || 0;
-    let breakfastPro = 0;
-    if (breakfast) {
-      const possiblePdj = possibleMeals.find(pm => pm.meal_id === breakfastSelections[day] && pm.meals?.category === 'petit_dejeuner');
-      if (possiblePdj) {
-        breakfastPro = getCardDisplayProtein(possiblePdj);
-      } else {
-        breakfastPro = parseCalories(breakfast.protein);
-      }
-    } else {
-      breakfastPro = breakfastManualProteins[day] || 0;
-    }
 
     return mealPro + breakfastPro + extra;
   };
