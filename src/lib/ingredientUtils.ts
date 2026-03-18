@@ -91,16 +91,20 @@ export function smartFoodContains(a: string, b: string): boolean {
 
   const wordsA = aNorm.split(/\s+/);
   const wordsB = bNorm.split(/\s+/);
-  const [shorter, longer] = wordsA.length <= wordsB.length ? [wordsA, wordsB] : [wordsB, wordsA];
+  const [shorter, longer, shorterIsA] = wordsA.length <= wordsB.length
+    ? [wordsA, wordsB, true] : [wordsB, wordsA, false];
 
   // All words of shorter must appear in longer (with fuzzy e-tolerance)
+  const matchedPairs: [number, number][] = []; // [shorterIdx, longerIdx]
   const matchedIndices = new Set<number>();
-  for (const sw of shorter) {
+  for (let si = 0; si < shorter.length; si++) {
+    const sw = shorter[si];
     let found = false;
     for (let i = 0; i < longer.length; i++) {
       if (matchedIndices.has(i)) continue;
       if (longer[i] === sw || fuzzyWord(longer[i]) === fuzzyWord(sw)) {
         matchedIndices.add(i);
+        matchedPairs.push([si, i]);
         found = true;
         break;
       }
@@ -108,18 +112,21 @@ export function smartFoodContains(a: string, b: string): boolean {
     if (!found) return false;
   }
 
-  // Same word count → check accent-level differences
-  if (shorter.length === longer.length) {
-    const aLight = lightNormalize(a).split(/\s+/);
-    const bLight = lightNormalize(b).split(/\s+/);
-    for (let i = 0; i < Math.min(aLight.length, bLight.length); i++) {
-      // If normalized (no-accent) forms match but accented forms differ → different food (pâte vs pâté)
-      if (fuzzyWord(normalizeForMatch(aLight[i])) === fuzzyWord(normalizeForMatch(bLight[i]))
-          && aLight[i] !== bLight[i]
-          && fuzzyWord(aLight[i]) !== fuzzyWord(bLight[i])) {
-        return false;
-      }
+  // Accent-level check on all matched word pairs (prevents "épicée" matching "épice")
+  const aLight = lightNormalize(a).split(/\s+/);
+  const bLight = lightNormalize(b).split(/\s+/);
+  const shorterLight = shorterIsA ? aLight : bLight;
+  const longerLight = shorterIsA ? bLight : aLight;
+  for (const [si, li] of matchedPairs) {
+    const sWord = shorterLight[si];
+    const lWord = longerLight[li];
+    if (sWord && lWord && sWord !== lWord && fuzzyWord(sWord) !== fuzzyWord(lWord)) {
+      // Accented forms differ in a meaningful way → different food
+      return false;
     }
+  }
+
+  if (shorter.length === longer.length) {
     return true;
   }
 
