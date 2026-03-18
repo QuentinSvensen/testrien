@@ -639,36 +639,10 @@ const Index = () => {
                   onUpdateProtein={(id, prot) => updateProtein.mutate({ id, protein: prot })}
                   onUpdateGrams={(id, g) => updateGrams.mutate({ id, grams: g })}
                    onUpdateIngredients={(id, ing) => {
-                     // Propagate cal/prot to other meals with same ingredient names
                      if (ing) {
-                       // First collect macros from ALL meals to have a full picture
-                       const globalMacros = new Map<string, { cal: string; pro: string }>();
-                       for (const m of meals) {
-                         if (!m.ingredients) continue;
-                         const mId = m.id === id ? ing : m.ingredients;
-                         const mMacros = extractIngredientMacros(mId);
-                         for (const [key, val] of mMacros) {
-                           const existing = globalMacros.get(key);
-                           // Keep the most complete: prefer non-empty values
-                           globalMacros.set(key, {
-                             cal: val.cal || existing?.cal || "",
-                             pro: val.pro || existing?.pro || "",
-                           });
-                         }
-                       }
-                       if (globalMacros.size > 0) {
-                         // Also apply macros back to the current meal being saved (auto-fill from others)
-                         const selfApplied = applyIngredientMacros(ing, globalMacros);
-                         const finalIng = selfApplied || ing;
-                         updateIngredients.mutate({ id, ingredients: finalIng });
-                         for (const m of meals) {
-                           if (m.id === id || !m.ingredients) continue;
-                           const updated = applyIngredientMacros(m.ingredients, globalMacros);
-                           if (updated) updateIngredients.mutate({ id: m.id, ingredients: updated });
-                         }
-                       } else {
-                         updateIngredients.mutate({ id, ingredients: ing });
-                       }
+                       const { sourceIngredients, updates } = propagateIngredientMacros(id, ing, meals);
+                       updateIngredients.mutate({ id, ingredients: sourceIngredients });
+                       for (const u of updates) updateIngredients.mutate({ id: u.id, ingredients: u.ingredients });
                      } else {
                        updateIngredients.mutate({ id, ingredients: ing });
                      }
