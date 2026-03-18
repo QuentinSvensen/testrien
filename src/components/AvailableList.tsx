@@ -9,11 +9,11 @@ import { colorFromName, type FoodItem } from "@/components/FoodItems";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
   buildStockMap, findStockKey, getMealMultiple, getMealFractionalRatio,
-  getEarliestIngredientExpiration, getExpiringIngredientName, getExpiredIngredientNames, getExpiringSoonIngredientNames,
-  getMaxIngredientCounter, getCounterIngredientNames, getMissingIngredients,
+  analyzeMealIngredients,
+  getMissingIngredients,
   formatExpirationLabel, compareExpirationWithCounter, buildScaledMealForRatio,
   getIndivisibleConstrainedRatio, getValidDiscreteRatios,
-  type StockInfo,
+  type StockInfo, type FoodItemIndex,
 } from "@/lib/stockUtils";
 import {
   normalizeForMatch, strictNameMatch, parseQty, formatNumeric, getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, computeIngredientProtein
