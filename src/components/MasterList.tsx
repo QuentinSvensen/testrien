@@ -98,11 +98,9 @@ export function MasterList({ category, meals, foodItems, sortMode, sortAsc, onTo
           {filteredMeals.length === 0 && <p className="text-muted-foreground text-sm text-center py-6 italic">{searchQuery ? "Aucun résultat" : "Aucun repas"}</p>}
           {filteredMeals.map((meal, index) => {
             const missingIngs = getMissingIngredients(meal, stockMap);
-            const expDate = getEarliestIngredientExpiration(meal, foodItems);
-            const expLabel = formatExpirationLabel(expDate);
-            const expIsTodayM = isToday(expDate);
-            const expiredIngs = getExpiredIngredientNames(meal, foodItems);
-            const soonIngs = getExpiringSoonIngredientNames(meal, foodItems);
+            const analysis = analyzeMealIngredients(meal, foodItems);
+            const expLabel = formatExpirationLabel(analysis.earliestExpiration);
+            const expIsTodayM = isToday(analysis.earliestExpiration);
 
             return (
               <MealCard key={meal.id} meal={meal}
