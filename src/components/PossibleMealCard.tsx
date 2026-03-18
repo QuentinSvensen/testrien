@@ -204,7 +204,6 @@ export function PossibleMealCard({
         // NOTE: Do NOT call onUpdateGrams or onUpdateCalories here — those modify the MASTER meal.
         // The scaled values are derived from ingredients_override (for ingredient-based calories)
         // and visible via the detectedRatio badge for grams display.
-      }
     }
     setEditing(null);
   };
