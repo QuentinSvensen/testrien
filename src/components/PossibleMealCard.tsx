@@ -190,14 +190,17 @@ export function PossibleMealCard({
         const pct = parseFloat(trimmed.replace("%", ""));
         if (!isNaN(pct) && pct >= 10) ratio = pct / 100;
       }
-      if (ratio !== null) {
-        if (meal.ingredients && onUpdatePossibleIngredients) {
-          const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
-          onUpdatePossibleIngredients(scaledIngredients);
-        } else if (!meal.ingredients && onUpdatePossibleIngredients) {
-          // No ingredients — store a synthetic override to flag scaling
-          onUpdatePossibleIngredients(null);
-        }
+      if (ratio !== null && onUpdatePossibleIngredients) {
+        // Build base ingredients: use original, or synthesize from grams+name
+        const baseIng = meal.ingredients
+          ? meal.ingredients
+          : (() => {
+              const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+              return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
+            })();
+        const scaledIngredients = scaleIngredientStringExact(baseIng, ratio);
+        onUpdatePossibleIngredients(scaledIngredients);
+      }
         // NOTE: Do NOT call onUpdateGrams or onUpdateCalories here — those modify the MASTER meal.
         // The scaled values are derived from ingredients_override (for ingredient-based calories)
         // and visible via the detectedRatio badge for grams display.

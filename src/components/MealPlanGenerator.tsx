@@ -501,14 +501,14 @@ export function MealPlanGenerator() {
       });
 
       if (partialMatches.length === 1) {
-        // Single partial match → NOT reliable (e.g. "Épices" ≠ "Épices fajitas")
-        // Show as unmatched (❌) since it's likely a different product
-        item.matched = false;
+        // Single partial match → found (e.g. "Épices" matches "Épices fajitas")
+        item.matched = true;
       } else if (partialMatches.length > 1) {
         // Multiple partial matches → ambiguous (❓)
         item.matched = true;
         item.ambiguous = true;
       }
+      // 0 matches → stays unmatched (❌)
     }
 
     return Array.from(map.entries())
