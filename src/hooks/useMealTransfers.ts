@@ -13,6 +13,23 @@ import {
   sortStockDeductionPriority,
 } from "@/lib/stockUtils";
 
+const DAY_KEY_TO_INDEX: Record<string, number> = {
+  lundi: 0, mardi: 1, mercredi: 2, jeudi: 3, vendredi: 4, samedi: 5, dimanche: 6,
+};
+
+/** Compute the ISO date string for a planned meal day+time (12h for midi, 19h for soir) */
+export function computePlannedCounterDate(dayOfWeek: string, mealTime: string | null): string {
+  const today = new Date();
+  const todayDow = today.getDay(); // 0=Sun
+  const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Mon
+  const targetIdx = DAY_KEY_TO_INDEX[dayOfWeek] ?? 0;
+  const diff = targetIdx - todayIdx;
+  const d = new Date(today);
+  d.setDate(d.getDate() + diff);
+  d.setHours(mealTime === "soir" ? 19 : 12, 0, 0, 0);
+  return d.toISOString();
+}
+
 /**
  * Centralised stock-transfer logic extracted from Index.tsx.
  * Every Supabase call is wrapped in try/catch with a destructive toast on failure.
