@@ -607,7 +607,7 @@ export function WeeklyPlanning() {
     e.preventDefault();
     setDragOverSlot(null);
     const pmId = e.dataTransfer.getData("pmId");
-    if (pmId) updatePlanning.mutate({ id: pmId, day_of_week: day, meal_time: time });
+    if (pmId) updatePlanningWithCounters(pmId, day, time);
   };
 
   const handleDropOnCard = (e: React.DragEvent, targetPm: PossibleMeal) => {
