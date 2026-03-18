@@ -37,7 +37,7 @@ const persister = createSyncStoragePersister({
 });
 
 const App = () => (
-  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+  <ThemeProvider attribute="class" defaultTheme="dark" enableSystem>
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}>
       <TooltipProvider>
         <Toaster />
