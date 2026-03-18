@@ -892,9 +892,44 @@ export function WeeklyPlanning() {
 
   const weekTotal = DAYS.reduce((sum, day) => sum + getDayCalories(day), 0);
 
+  const handleRestoreBackup = async () => {
+    const { data } = await supabase.from('user_preferences').select('value').eq('key', 'possible_meals_backup').maybeSingle();
+    const backup = (data?.value as any[]) ?? [];
+    if (backup.length === 0) { alert('Aucune sauvegarde trouvée.'); return; }
+    if (!confirm(`Restaurer ${backup.length} carte(s) possible(s) ?`)) return;
+    await Promise.all(backup.map((pm: any) =>
+      (supabase as any).from("possible_meals").insert({
+        meal_id: pm.meal_id,
+        quantity: pm.quantity,
+        expiration_date: pm.expiration_date,
+        day_of_week: pm.day_of_week,
+        meal_time: pm.meal_time,
+        counter_start_date: pm.counter_start_date,
+        sort_order: pm.sort_order,
+        ingredients_override: pm.ingredients_override,
+      })
+    ));
+    qc.invalidateQueries({ queryKey: ["possible_meals"] });
+  };
+
   const handleManualReset = async () => {
     if (!confirm('Réinitialiser le planning ? Les cartes seront supprimées et les valeurs sauvegardées (💾) seront restaurées.')) return;
     const snaps = savedSnapshots;
+
+    // Backup possible_meals before deletion
+    const backup = possibleMeals.map(pm => ({
+      meal_id: pm.meal_id,
+      quantity: pm.quantity,
+      expiration_date: pm.expiration_date,
+      day_of_week: pm.day_of_week,
+      meal_time: pm.meal_time,
+      counter_start_date: pm.counter_start_date,
+      sort_order: pm.sort_order,
+      ingredients_override: pm.ingredients_override,
+    }));
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: backup, user_id: userId } as any, { onConflict: 'user_id,key' });
+
     await Promise.all(possibleMeals.map(pm =>
       (supabase as any).from("possible_meals").delete().eq("id", pm.id)
     ));
@@ -926,6 +961,7 @@ export function WeeklyPlanning() {
       {/* Global planning header */}
       <div className="rounded-2xl bg-card/80 backdrop-blur-sm p-3 flex items-center gap-3 flex-wrap">
         <button onClick={handleManualReset} className="text-xs font-semibold bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg px-3 py-1.5 transition-colors">🔄 Reset</button>
+        <button onClick={handleRestoreBackup} className="text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg px-3 py-1.5 transition-colors">↩ Restaurer</button>
         <div className="flex items-center gap-1">
           <Flame className="h-3 w-3 text-orange-500" />
           <input
