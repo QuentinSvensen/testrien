@@ -273,6 +273,19 @@ const Index = () => {
       const snapResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_saved_snapshots').maybeSingle();
       const snapshots: Record<string, { cal?: number; prot?: number }> = (snapResult.data?.value as any) ?? {};
 
+      // Backup possible_meals before deletion
+      const backup = possibleMeals.map(pm => ({
+        meal_id: pm.meal_id,
+        quantity: pm.quantity,
+        expiration_date: pm.expiration_date,
+        day_of_week: pm.day_of_week,
+        meal_time: pm.meal_time,
+        counter_start_date: pm.counter_start_date,
+        sort_order: pm.sort_order,
+        ingredients_override: pm.ingredients_override,
+      }));
+      await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: backup, user_id: (await supabase.auth.getUser()).data.user?.id } as any, { onConflict: 'user_id,key' });
+
       await Promise.all(possibleMeals.map(pm =>
         (supabase as any).from("possible_meals").delete().eq("id", pm.id)
       ));
