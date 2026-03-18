@@ -769,6 +769,7 @@ const Index = () => {
                 category={cat}
                 items={getSortedPossible(cat.value)}
                 sortMode={sortModes[cat.value] || "manual"}
+                stockMap={stockMap}
                 onToggleSort={() => toggleSort(cat.value)}
                 onRandomPick={() => handleRandomPick(cat.value)}
                 onRemove={(id) => { removeFromPossible.mutate(id); }}
