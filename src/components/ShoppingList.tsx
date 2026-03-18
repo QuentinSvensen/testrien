@@ -94,7 +94,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
         if (isToujoursPresent.has(si.id)) continue;
         const siKey = normalizeKey(si.name);
         const ingKeyNorm = normalizeKey(ingKey);
-        if (siKey === ingKeyNorm) {
+        if (siKey === ingKeyNorm && accentSafeKeyMatch(si.name, ingKey)) {
           hasExactMatch = true;
         } else if (smartFoodContains(si.name, ingKey)) {
           matchingItems.push(si.id);
