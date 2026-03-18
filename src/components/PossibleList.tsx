@@ -32,6 +32,7 @@ interface PossibleListProps {
   category: { value: string; label: string; emoji: string };
   items: PossibleMeal[];
   sortMode: SortMode;
+  stockMap: Map<string, StockInfo>;
   onToggleSort: () => void;
   onRandomPick: () => void;
   onRemove: (id: string) => void;
