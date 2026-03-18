@@ -31,4 +31,8 @@
       "vitest/globals"
     ],
     "useDefineForClassFields": true
-  }
+  },
+  "include": [
+    "src"
+  ]
+}
