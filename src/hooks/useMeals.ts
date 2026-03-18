@@ -123,6 +123,7 @@ export function useMeals(options?: { enabled?: boolean }) {
     },
     retry: 3,
     retryDelay: 500,
+    staleTime: 2 * 60 * 1000, // 2 min — avoid refetching on every mount
     enabled,
   });
 
