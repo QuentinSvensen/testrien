@@ -55,14 +55,15 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
   const isPlat = category.value === "plat";
   const { getPreference: getAvailPref, setPreference: setAvailPref } = usePreferences();
   const storedOrder = getAvailPref<string[]>(`available_order_${category.value}`, []);
-  const useRemainingCalories = getAvailPref<boolean>(`available_use_remaining_calories_${category.value}`, false);
+  const useRemainingCalories = getAvailPref<boolean>(`available_use_remaining_calories_${category.value}`, isPlat);
   const [avDragIndex, setAvDragIndex] = useState<number | null>(null);
   const [customRatios, setCustomRatios] = useState<Record<string, number>>({});
   const [editingRatioId, setEditingRatioId] = useState<string | null>(null);
   const [ratioInput, setRatioInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const { getTargetCalorieThreshold } = useCalorieBalance();
+  const { getTargetCalorieThreshold, getRemainingProtein } = useCalorieBalance();
   const baseCalorieThreshold = getTargetCalorieThreshold();
+  const remainingProtein = getRemainingProtein();
   const [tempCalorieOverride, setTempCalorieOverride] = useState<number | null>(null);
   const calorieThreshold = tempCalorieOverride ?? baseCalorieThreshold;
 
@@ -938,6 +939,9 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
                     title="Réinitialiser au seuil calculé"
                   >✕</button>
                 )}
+                <span className="text-[10px] text-muted-foreground mx-1">·</span>
+                <span className="text-sm font-bold text-blue-400">{Math.round(remainingProtein)}</span>
+                <span className="text-[10px] text-muted-foreground">g prot</span>
               </div>
             )}
           </div>

@@ -502,6 +502,7 @@ const Index = () => {
           getMealsByCategory={getMealsByCategory}
           shoppingGroups={shoppingGroups}
           shoppingItems={shoppingItems}
+          foodItems={foodItems}
           blockedCount={blockedCount}
           setBlockedCount={setBlockedCount}
         />

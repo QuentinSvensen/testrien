@@ -195,16 +195,9 @@ export function PossibleMealCard({
           const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
           onUpdatePossibleIngredients(scaledIngredients);
         }
-        // Always scale grams when applying ratio
-        if (meal.grams) {
-          const baseG = parseFloat(meal.grams.replace(/[^0-9.]/g, '')) || 0;
-          if (baseG > 0) onUpdateGrams(String(Math.round(baseG * ratio)));
-        }
-        // Scale calories directly only for cards without ingredients
-        if (!meal.ingredients && meal.calories) {
-          const baseCal = parseFloat(meal.calories.replace(/[^0-9.]/g, '')) || 0;
-          if (baseCal > 0) onUpdateCalories(String(Math.round(baseCal * ratio)));
-        }
+        // NOTE: Do NOT call onUpdateGrams or onUpdateCalories here — those modify the MASTER meal.
+        // The scaled values are derived from ingredients_override (for ingredient-based calories)
+        // and visible via the detectedRatio badge for grams display.
       }
     }
     setEditing(null);
@@ -361,11 +354,15 @@ export function PossibleMealCard({
               <Hash className="h-2.5 w-2.5" />{pm.quantity}
             </button>
           )}
-          {meal.grams && (
-            <button onClick={() => { setEditValue(meal.grams || ""); setEditing("grams"); }} className="text-[10px] text-white/90 bg-black/30 px-1 py-0.5 rounded-full flex items-center gap-0.5 hover:bg-black/40 shrink-0">
-              <Weight className="h-2.5 w-2.5" />{meal.grams}
-            </button>
-          )}
+          {meal.grams && (() => {
+            const baseG = parseFloat(meal.grams!.replace(/[^0-9.]/g, '')) || 0;
+            const displayG = detectedRatio !== null && baseG > 0 ? String(Math.round(baseG * detectedRatio)) : meal.grams;
+            return (
+              <button onClick={() => { setEditValue(meal.grams || ""); setEditing("grams"); }} className="text-[10px] text-white/90 bg-black/30 px-1 py-0.5 rounded-full flex items-center gap-0.5 hover:bg-black/40 shrink-0">
+                <Weight className="h-2.5 w-2.5" />{displayG}
+              </button>
+            );
+          })()}
           {/* ratio badge moved to absolute top-right */}
           {(() => {
             const ingCal = computeIngredientCalories(displayIngredients);

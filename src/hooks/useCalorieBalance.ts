@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useMeals, DAYS, TIMES } from '@/hooks/useMeals';
 import { usePreferences } from '@/hooks/usePreferences';
-import { computeIngredientCalories } from '@/lib/ingredientUtils';
+import { computeIngredientCalories, computeIngredientProtein } from '@/lib/ingredientUtils';
 
 const DEFAULT_DAILY_GOAL = 2750;
 const DRINK_CALORIES = 150;
@@ -38,6 +38,10 @@ export function useCalorieBalance() {
   const drinkChecks = getPreference<Record<string, boolean>>('planning_drink_checks', {});
   const calOverrides = getPreference<Record<string, string>>('planning_cal_overrides', {});
   const DAILY_GOAL = getPreference<number>('planning_daily_goal', DEFAULT_DAILY_GOAL);
+  const manualProteins = getPreference<Record<string, number>>('planning_manual_proteins', {});
+  const extraProteins = getPreference<Record<string, number>>('planning_extra_proteins', {});
+  const breakfastManualProteins = getPreference<Record<string, number>>('planning_breakfast_manual_proteins', {});
+  const DAILY_PROTEIN_GOAL = getPreference<number>('planning_daily_protein_goal', 150);
 
   const planningMeals = useMemo(() => possibleMeals.filter((pm) => {
     if (pm.meals?.category === "plat") return true;
@@ -88,21 +92,46 @@ export function useCalorieBalance() {
     return mealCals + breakfastCal + extra + drinkCal;
   };
 
+  const getDayProtein = (day: string): number => {
+    const mealPro = TIMES.reduce((total, time) => {
+      const slotMeals = getMealsForSlot(day, time);
+      if (slotMeals.length > 0) {
+        return total + slotMeals.reduce((s, pm) => {
+          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
+          const ingPro = computeIngredientProtein(displayIngredients);
+          if (ingPro !== null) return s + ingPro;
+          return s + parseCalories(pm.meals?.protein);
+        }, 0);
+      }
+      return total + (manualProteins[`${day}-${time}`] || 0);
+    }, 0);
+
+    const breakfast = getBreakfastForDay(day);
+    const extra = extraProteins[day] || 0;
+    let breakfastPro = 0;
+    if (breakfast) {
+      const possiblePdj = possibleMeals.find(pm => pm.meal_id === breakfastSelections[day] && pm.meals?.category === 'petit_dejeuner');
+      const breakfastIngredients = possiblePdj?.ingredients_override ?? breakfast.ingredients;
+      const ingPro = computeIngredientProtein(breakfastIngredients);
+      breakfastPro = ingPro !== null ? ingPro : parseCalories(breakfast.protein);
+    } else {
+      breakfastPro = breakfastManualProteins[day] || 0;
+    }
+
+    return mealPro + breakfastPro + extra;
+  };
+
   const getTargetCalorieThreshold = () => {
     const todayNum = new Date().getDay();
     const todayKey = JS_DAY_TO_KEY[todayNum];
     const todayIndex = DAY_KEY_TO_INDEX[todayKey];
 
-    // Calcul de la moyenne des différences (Lundi inclus - aujourd'hui exclu)
-    // On ne compte que les jours où il y a eu une certaine interaction (calories > 0)
     let differencesSum = 0;
     let daysCount = 0;
 
     for (let i = 0; i < todayIndex; i++) {
         const pastDayKey = DAYS[i];
         const consumed = getDayCalories(pastDayKey);
-        
-        // Si 0, on considère le jour comme non rempli, on l'ignore de la moyenne.
         if (consumed > 0) {
             differencesSum += (consumed - DAILY_GOAL);
             daysCount++;
@@ -112,12 +141,16 @@ export function useCalorieBalance() {
     const avgDifference = daysCount > 0 ? (differencesSum / daysCount) : 0;
     const todayConsumed = getDayCalories(todayKey);
     const remainingToday = DAILY_GOAL - todayConsumed;
-
-    // Seuil = Restant aujourd'hui - moyenneDesDiffs
-    // Exemple : reste 700, diffMoyenne = -50 (donc on a moins mangé). Seuil => 700 - (-50) = 750
     const threshold = remainingToday - avgDifference;
     return Math.max(0, threshold);
   };
 
-  return { getDayCalories, DAILY_GOAL, getBreakfastForDay, getTargetCalorieThreshold };
+  const getRemainingProtein = () => {
+    const todayNum = new Date().getDay();
+    const todayKey = JS_DAY_TO_KEY[todayNum];
+    const todayConsumed = getDayProtein(todayKey);
+    return Math.max(0, DAILY_PROTEIN_GOAL - todayConsumed);
+  };
+
+  return { getDayCalories, getDayProtein, DAILY_GOAL, DAILY_PROTEIN_GOAL, getBreakfastForDay, getTargetCalorieThreshold, getRemainingProtein };
 }

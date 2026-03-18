@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { colorFromName } from "@/lib/foodColors";
 import type { MealCategory, Meal } from "@/hooks/useMeals";
 import type { ShoppingGroup, ShoppingItem } from "@/hooks/useShoppingList";
+import type { FoodItem, StorageType } from "@/components/FoodItems";
 
 function validateMealName(name: string): string | null {
   const trimmed = name.trim();
@@ -17,11 +18,12 @@ interface DevMenuProps {
   getMealsByCategory: (cat: MealCategory) => Meal[];
   shoppingGroups: ShoppingGroup[];
   shoppingItems: ShoppingItem[];
+  foodItems?: FoodItem[];
   blockedCount: number | null;
   setBlockedCount: (n: number) => void;
 }
 
-export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingItems, blockedCount, setBlockedCount }: DevMenuProps) {
+export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingItems, foodItems, blockedCount, setBlockedCount }: DevMenuProps) {
   const handleExportMeals = () => {
     const allCats: MealCategory[] = ["plat", "entree", "dessert", "bonus", "petit_dejeuner"];
     const lines = allCats.flatMap((cat) => getMealsByCategory(cat)).map((m) => {
@@ -163,9 +165,87 @@ export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingI
     input.click();
   };
 
+  const handleExportFoodItems = () => {
+    if (!foodItems || foodItems.length === 0) { toast({ title: "Aucun aliment à exporter" }); return; }
+    const STORAGE_LABELS: Record<string, string> = { frigo: 'Frigo', sec: 'Placard sec', surgele: 'Surgelés', toujours: 'Toujours présent' };
+    const grouped: Record<string, FoodItem[]> = {};
+    for (const fi of foodItems) {
+      const key = fi.storage_type || 'frigo';
+      (grouped[key] ??= []).push(fi);
+    }
+    const lines: string[] = [];
+    for (const [st, label] of Object.entries(STORAGE_LABELS)) {
+      const items = grouped[st];
+      if (!items || items.length === 0) continue;
+      lines.push(`[${label}]`);
+      for (const fi of items.sort((a, b) => a.sort_order - b.sort_order)) {
+        const parts: string[] = [];
+        if (fi.grams) parts.push(`grams=${fi.grams}`);
+        if (fi.calories) parts.push(`cal=${fi.calories}`);
+        if (fi.protein) parts.push(`prot=${fi.protein}`);
+        if (fi.quantity && fi.quantity > 1) parts.push(`qty=${fi.quantity}`);
+        if (fi.is_meal) parts.push(`is_meal=1`);
+        if (fi.is_infinite) parts.push(`infinite=1`);
+        if (fi.is_dry) parts.push(`dry=1`);
+        if (fi.is_indivisible) parts.push(`indiv=1`);
+        if (fi.no_counter) parts.push(`no_counter=1`);
+        if (fi.food_type) parts.push(`type=${fi.food_type}`);
+        if (fi.expiration_date) parts.push(`exp=${fi.expiration_date}`);
+        if (fi.counter_start_date) parts.push(`counter=${fi.counter_start_date}`);
+        lines.push(parts.length > 0 ? `${fi.name} (${parts.join('; ')})` : fi.name);
+      }
+    }
+    const blob = new Blob([lines.join('\n')], { type: 'text/plain' });
+    const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'aliments.txt'; a.click();
+    toast({ title: `✅ ${foodItems.length} aliments exportés` });
+    onClose();
+  };
+
+  const handleImportFoodItems = () => {
+    const input = document.createElement('input');
+    input.type = 'file'; input.accept = '.txt';
+    input.onchange = async (ev) => {
+      const file = (ev.target as HTMLInputElement).files?.[0];
+      if (!file) return;
+      if (!file.name.toLowerCase().endsWith('.txt')) { toast({ title: '❌ Format invalide', variant: 'destructive' }); return; }
+      const text = await file.text();
+      const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+      const LABEL_TO_STORAGE: Record<string, StorageType> = { 'Frigo': 'frigo', 'Placard sec': 'sec', 'Surgelés': 'surgele', 'Toujours présent': 'toujours' };
+      let currentStorage: StorageType = 'frigo';
+      let order = 0, count = 0;
+      for (const line of lines) {
+        if (line.startsWith('[') && line.endsWith(']')) {
+          const label = line.slice(1, -1);
+          currentStorage = LABEL_TO_STORAGE[label] || 'frigo';
+          order = 0;
+          continue;
+        }
+        const match = line.match(/^(.+?)\s*\((.+)\)$/);
+        const name = match ? match[1].trim() : line;
+        if (!name || name.length > 100) continue;
+        const params: Record<string, string> = {};
+        if (match) match[2].split(';').forEach(p => { const [k, ...v] = p.split('='); if (k) params[k.trim()] = v.join('=').trim(); });
+        await supabase.from('food_items').insert({
+          name, storage_type: currentStorage, sort_order: order++,
+          grams: params.grams || null, calories: params.cal || null, protein: params.prot || null,
+          quantity: params.qty ? parseInt(params.qty) : null,
+          is_meal: params.is_meal === '1', is_infinite: params.infinite === '1',
+          is_dry: params.dry === '1', is_indivisible: params.indiv === '1',
+          no_counter: params.no_counter === '1' || currentStorage === 'surgele',
+          food_type: params.type || null,
+          expiration_date: params.exp || null, counter_start_date: params.counter || null,
+        } as any);
+        count++;
+      }
+      toast({ title: `✅ ${count} aliments importés` });
+      onClose();
+    };
+    input.click();
+  };
+
   return (
     <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center" onClick={onClose}>
-      <div className="bg-card rounded-2xl p-6 space-y-3 w-72 shadow-xl" onClick={(e) => e.stopPropagation()}>
+      <div className="bg-card rounded-2xl p-6 space-y-3 w-72 shadow-xl max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <h3 className="font-bold text-foreground">🛠 Outils cachés</h3>
         <p className="text-xs text-muted-foreground">Ces outils permettent d'exporter/importer vos données.</p>
         <div className="space-y-1">
@@ -174,11 +254,16 @@ export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingI
           <button onClick={handleImportMeals} className="w-full flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground"><Upload className="h-4 w-4" /> Importer repas (.txt)</button>
         </div>
         <div className="space-y-1">
+          <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest pt-1">Aliments</p>
+          <button onClick={handleExportFoodItems} className="w-full flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground"><Download className="h-4 w-4" /> Exporter aliments (.txt)</button>
+          <button onClick={handleImportFoodItems} className="w-full flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground"><Upload className="h-4 w-4" /> Importer aliments (.txt)</button>
+        </div>
+        <div className="space-y-1">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest pt-1">Liste de courses</p>
           <button onClick={handleExportShopping} className="w-full flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground"><Download className="h-4 w-4" /> Exporter courses (.txt)</button>
           <button onClick={handleImportShopping} className="w-full flex items-center gap-2 text-sm px-3 py-2 rounded-lg bg-muted hover:bg-muted/80 text-foreground"><Upload className="h-4 w-4" /> Importer courses (.txt)</button>
         </div>
-        <p className="text-[10px] text-muted-foreground/50">Format repas: NOM (cat=plat; cal=350kcal; ing=riz, légumes)</p>
+        <p className="text-[10px] text-muted-foreground/50">Format: NOM (param=valeur; param2=valeur2)</p>
         <div className="space-y-1">
           <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest pt-1">Sécurité</p>
           <button onClick={async () => {

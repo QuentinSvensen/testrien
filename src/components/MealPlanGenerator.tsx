@@ -202,8 +202,14 @@ export function MealPlanGenerator() {
   };
 
   const initialMenuSyncDone = useRef(false);
+  const SESSION_SYNC_KEY = 'menu_initial_sync_done';
   useEffect(() => {
     if (initialMenuSyncDone.current) return;
+    // Use sessionStorage to survive tab switches (component remounts)
+    if (sessionStorage.getItem(SESSION_SYNC_KEY) === 'true') {
+      initialMenuSyncDone.current = true;
+      return;
+    }
     if (shoppingItems.length === 0) return;
 
     const entries = Object.entries(persistedNeeds);
@@ -211,6 +217,7 @@ export function MealPlanGenerator() {
       updateShoppingChecks(new Map(entries));
     }
     initialMenuSyncDone.current = true;
+    sessionStorage.setItem(SESSION_SYNC_KEY, 'true');
   }, [shoppingItems.length, persistedNeeds]);
 
   const generatePlan = () => {
@@ -443,6 +450,8 @@ export function MealPlanGenerator() {
     setPreference.mutate({ key: MENU_PREF_KEY, value: selectedIds });
     setPreference.mutate({ key: MENU_NEEDS_KEY, value: needsObj });
 
+    // Reset session sync flag so the new menu takes effect
+    sessionStorage.removeItem(SESSION_SYNC_KEY);
     // Update shopping list checkboxes & quantities
     updateShoppingChecks(needsMap);
   };
@@ -491,12 +500,14 @@ export function MealPlanGenerator() {
         return smartFoodContains(si.name, item.displayName);
       });
 
-      if (partialMatches.length > 0) {
+      if (partialMatches.length === 1) {
+        // Single partial match → ambiguous (could be wrong product, e.g. "Épices" vs "Épices fajitas")
         item.matched = true;
-        // Multiple partial matches = ambiguous (user needs to choose)
-        if (partialMatches.length > 1) {
-          item.ambiguous = true;
-        }
+        item.ambiguous = true;
+      } else if (partialMatches.length > 1) {
+        // Multiple partial matches → ambiguous
+        item.matched = true;
+        item.ambiguous = true;
       }
     }
 
