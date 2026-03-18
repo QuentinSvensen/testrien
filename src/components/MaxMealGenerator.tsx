@@ -73,33 +73,47 @@ export function MaxMealGenerator({ foodItems, meals }: Props) {
           virtualStock.set(key, { ...info });
         }
 
-        const platMeals = meals.filter(m => m.category === "plat" && m.ingredients?.trim());
+        // Exclude "Avant grimpe" and "Pain + Fuet" cards
+        const platMeals = meals.filter(m => {
+          if (m.category !== "plat" || !m.ingredients?.trim()) return false;
+          const n = m.name.toLowerCase().replace(/\s+/g, ' ');
+          if (n.includes("avant grimpe")) return false;
+          if (n.includes("pain + fuet") || n.includes("pain+fuet")) return false;
+          return true;
+        });
         const generated: GeneratedMeal[] = [];
         const usedMealIds = new Set<string>();
+
+        // Shuffle meals for different results each time
+        const shuffled = [...platMeals].sort(() => Math.random() - 0.5);
 
         // Greedy sequential: pick feasible meals one by one, deducting from virtual stock
         let changed = true;
         while (changed) {
           changed = false;
-          // Score meals by feasibility and pick the best one
           let bestMeal: Meal | null = null;
           let bestRatio = 0;
+          let bestScore = -Infinity;
 
-          for (const meal of platMeals) {
+          for (const meal of shuffled) {
             if (usedMealIds.has(meal.id)) continue;
             const multiple = getMealMultiple(meal, virtualStock);
             if (multiple !== null && multiple > 0 && multiple !== Infinity) {
-              const ratio = Math.min(multiple, 1); // Use at most x1 per meal
-              if (ratio >= 0.5 && (!bestMeal || ratio > bestRatio)) {
-                bestMeal = meal;
-                bestRatio = ratio;
+              const ratio = Math.min(multiple, 1);
+              if (ratio >= 0.5) {
+                // Add randomness to scoring for variety
+                const score = ratio + Math.random() * 0.3;
+                if (score > bestScore) {
+                  bestMeal = meal;
+                  bestRatio = ratio;
+                  bestScore = score;
+                }
               }
             }
           }
 
           if (bestMeal) {
             const scaledMeal = bestRatio !== 1 ? buildScaledMealForRatio(bestMeal, bestRatio, virtualStock) : bestMeal;
-            // Deduct from virtual stock
             deductMealFromVirtualStock(bestMeal, bestRatio, virtualStock);
             usedMealIds.add(bestMeal.id);
 
@@ -114,6 +128,20 @@ export function MaxMealGenerator({ foodItems, meals }: Props) {
             });
             changed = true;
           }
+        }
+
+        // Also list is_meal food items (standalone food items marked as meals)
+        const isMealItems = foodItems.filter(fi => fi.is_meal);
+        for (const fi of isMealItems) {
+          const calVal = fi.calories ? parseFloat(fi.calories.replace(/[^0-9.]/g, '')) || null : null;
+          const proVal = fi.protein ? parseFloat(fi.protein.replace(/[^0-9.]/g, '')) || null : null;
+          generated.push({
+            name: `🍱 ${fi.name}`,
+            calories: calVal ? Math.round(calVal) : null,
+            protein: proVal ? Math.round(proVal) : null,
+            ingredients: '',
+            ratio: 1,
+          });
         }
 
         // Sort by calories desc
