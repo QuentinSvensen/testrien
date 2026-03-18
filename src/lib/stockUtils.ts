@@ -11,6 +11,7 @@ import {
   getFoodItemTotalGrams, parseIngredientLine, parseIngredientLineRaw, parseIngredientGroups,
   extractMetrics, computeIngredientCalories, computeIngredientProtein,
   extractIngredientMacros, applyIngredientMacros,
+  computeCounterDays,
   type ParsedIngredient,
 } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
