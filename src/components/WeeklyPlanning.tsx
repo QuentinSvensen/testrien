@@ -448,8 +448,16 @@ export function WeeklyPlanning() {
     if (mealId) updated[day] = mealId;
     else delete updated[day];
     setPreference.mutate({ key: 'planning_breakfast', value: updated });
-    // Disable auto-consume when changing breakfast selection
-    if (autoConsumeBreakfast[day]) {
+
+    // Auto-enable auto-consume for "Dèj choco", disable on other changes
+    const selectedMeal = mealId
+      ? (allMeals.find(m => m.id === mealId) || possibleMeals.find(pm => pm.meal_id === mealId)?.meals)
+      : null;
+    const isDejeChoco = selectedMeal?.name?.toLowerCase().includes('dèj choco') || selectedMeal?.name?.toLowerCase().includes('dej choco');
+    if (isDejeChoco) {
+      const updatedAC = { ...autoConsumeBreakfast, [day]: true };
+      setPreference.mutate({ key: 'planning_auto_consume_breakfast', value: updatedAC });
+    } else if (autoConsumeBreakfast[day]) {
       const updatedAC = { ...autoConsumeBreakfast };
       delete updatedAC[day];
       setPreference.mutate({ key: 'planning_auto_consume_breakfast', value: updatedAC });
