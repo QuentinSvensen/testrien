@@ -186,19 +186,11 @@ export function MealPlanGenerator() {
 
     for (const item of shoppingItems) {
       const shouldCheck = matchedItemIds.has(item.id);
-      const desiredQty = shouldCheck ? String(desiredQuantities.get(item.id) || 1) : null;
-
       if (item.secondary_checked !== shouldCheck) {
         toggleSecondaryCheck.mutate({ id: item.id, secondary_checked: shouldCheck });
       }
-
-      if (shouldCheck) {
-        if ((item.quantity || null) !== desiredQty) {
-          updateItemQuantity.mutate({ id: item.id, quantity: desiredQty });
-        }
-      } else if (item.secondary_checked && item.quantity !== null) {
-        updateItemQuantity.mutate({ id: item.id, quantity: null });
-      }
+      // Don't touch item.quantity — green qty is computed on-the-fly in ShoppingList
+      // White (user) quantities must be preserved
     }
   };
 
