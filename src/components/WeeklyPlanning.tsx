@@ -927,7 +927,7 @@ export function WeeklyPlanning() {
       sort_order: pm.sort_order,
       ingredients_override: pm.ingredients_override,
     }));
-    const userId = (await supabase.auth.getUser()).data.user?.id;
+    const userId = (await (supabase.auth as any).getUser()).data.user?.id;
     await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: backup, user_id: userId } as any, { onConflict: 'user_id,key' });
 
     await Promise.all(possibleMeals.map(pm =>
