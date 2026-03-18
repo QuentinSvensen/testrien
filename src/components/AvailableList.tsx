@@ -495,12 +495,17 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const validRatios = getValidDiscreteRatios(meal, stockMap);
 
     if (!validRatios) {
-       // Continuous
-       let tr = targetRatio;
-       while (tr >= 0.5) {
-         currentCal = getDisplayedCalories(buildScaledMealForRatio(meal, tr, stockMap));
-         if (currentCal !== null && currentCal <= calorieThreshold) return { show: true, newRatio: tr };
-         tr -= 0.01;
+       // Continuous: direct calculation instead of while loop (O(1) vs O(50))
+       // Round down to nearest 0.01 to ensure we don't exceed threshold
+       const directRatio = Math.floor(targetRatio * 100) / 100;
+       if (directRatio < 0.5) return { show: false, newRatio: null };
+       const checkCal = getDisplayedCalories(buildScaledMealForRatio(meal, directRatio, stockMap));
+       if (checkCal !== null && checkCal <= calorieThreshold) return { show: true, newRatio: directRatio };
+       // Edge case: rounding artifacts — try one step down
+       const fallback = directRatio - 0.01;
+       if (fallback >= 0.5) {
+         const fbCal = getDisplayedCalories(buildScaledMealForRatio(meal, fallback, stockMap));
+         if (fbCal !== null && fbCal <= calorieThreshold) return { show: true, newRatio: fallback };
        }
        return { show: false, newRatio: null };
     } else {
