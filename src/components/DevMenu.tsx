@@ -4,6 +4,7 @@ import { toast } from "@/hooks/use-toast";
 import { colorFromName } from "@/lib/foodColors";
 import type { MealCategory, Meal } from "@/hooks/useMeals";
 import type { ShoppingGroup, ShoppingItem } from "@/hooks/useShoppingList";
+import type { FoodItem, StorageType } from "@/components/FoodItems";
 
 function validateMealName(name: string): string | null {
   const trimmed = name.trim();
