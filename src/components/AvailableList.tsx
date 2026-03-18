@@ -743,15 +743,11 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
 
     const effectiveRatio = customRatio ?? defaultRatio;
     const pct = Math.round(effectiveRatio * 100);
-    const expDate = getEarliestIngredientExpiration(meal, foodItems);
-    const expLabel = formatExpirationLabel(expDate);
-    const expIsTodayPa = isToday(expDate);
-    const maxCounter = getMaxIngredientCounter(meal, foodItems);
-    const counterIngs = getCounterIngredientNames(meal, foodItems);
+    const analysis = analyzeMealIngredients(meal, foodItems);
+    const expLabel = formatExpirationLabel(analysis.earliestExpiration);
+    const expIsTodayPa = isToday(analysis.earliestExpiration);
     const partialMeal = buildScaledMealForRatio(meal, effectiveRatio, stockMap);
     const partialKey = `partial-${meal.id}`;
-    const expiredIngsPa = getExpiredIngredientNames(meal, foodItems);
-    const soonIngsPa = getExpiringSoonIngredientNames(meal, foodItems);
     return (
       <div key={partialKey} className="relative">
         <MealCard meal={partialMeal}
