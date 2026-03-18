@@ -94,10 +94,6 @@ function validateMealName(name: string): string | null {
   return null;
 }
 
-type SortMode = "manual" | "expiration" | "planning";
-type MasterSortMode = "manual" | "calories" | "protein" | "favorites" | "ingredients";
-type AvailableSortMode = "manual" | "calories" | "protein" | "expiration";
-type UnParUnSortMode = "manual" | "expiration";
 type MainPage = "aliments" | "repas" | "planning" | "courses";
 
 
