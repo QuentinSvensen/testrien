@@ -419,9 +419,9 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
 export function WeeklyPlanning() {
   const { possibleMeals, updatePlanning, reorderPossibleMeals, getMealsByCategory } = useMeals();
   const qc = useQueryClient();
-  const { getPreference, setPreference } = usePreferences();
+  const { getPreference, setPreference, isLoading: prefsLoading } = usePreferences();
   const { items: foodItems } = useFoodItems();
-  const { updateFoodItemCountersForPlanning } = useMealTransfers(foodItems);
+  const { updateFoodItemCountersForPlanning, deductIngredientsFromStock, deductNameMatchStock } = useMealTransfers(foodItems);
 
   const updatePlanningWithCounters = (pmId: string, day: string | null, time: string | null) => {
     updatePlanning.mutate({ id: pmId, day_of_week: day, meal_time: time });
