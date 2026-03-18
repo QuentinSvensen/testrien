@@ -5,7 +5,8 @@ import { MealList } from "@/components/MealList";
 import { PossibleMealCard } from "@/components/PossibleMealCard";
 import type { PossibleMeal } from "@/hooks/useMeals";
 import { computeIngredientCalories } from "@/lib/ingredientUtils";
-import { buildStockMap, analyzeMealIngredients } from "@/lib/stockUtils";
+import { buildStockMap, analyzeMealIngredients, getDisplayedPMCalories } from "@/lib/stockUtils";
+import type { StockInfo } from "@/lib/stockUtils";
 import type { FoodItem } from "@/components/FoodItems";
 
 const MemoizedPossibleMealCard = React.memo(
@@ -31,6 +32,7 @@ interface PossibleListProps {
   category: { value: string; label: string; emoji: string };
   items: PossibleMeal[];
   sortMode: SortMode;
+  stockMap: Map<string, StockInfo>;
   onToggleSort: () => void;
   onRandomPick: () => void;
   onRemove: (id: string) => void;
@@ -55,33 +57,15 @@ interface PossibleListProps {
   unParUnSourcePmIds: Set<string>;
 }
 
-export function PossibleList({ category, items, sortMode, onToggleSort, onRandomPick, onRemove, onReturnWithoutDeduction, onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onUpdatePossibleIngredients, onUpdateQuantity, onReorder, onExternalDrop, highlightedId, foodItems, onAddDirectly, masterSourcePmIds, unParUnSourcePmIds }: PossibleListProps) {
+export function PossibleList({ category, items, sortMode, stockMap, onToggleSort, onRandomPick, onRemove, onReturnWithoutDeduction, onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onUpdatePossibleIngredients, onUpdateQuantity, onReorder, onExternalDrop, highlightedId, foodItems, onAddDirectly, masterSourcePmIds, unParUnSourcePmIds }: PossibleListProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const sortLabel = sortMode === "manual" ? "Manuel" : sortMode === "expiration" ? "Péremption" : "Planning";
   const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "planning" ? CalendarClock : ArrowUpDown;
 
-  const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
-
   const getCounterDays = (startDate: string | null, pm?: PossibleMeal): number | null => {
     if (!startDate) return null;
-    // Freeze counter at the value it had when moved to possible (use created_at as reference)
     const refTime = pm?.created_at ? new Date(pm.created_at).getTime() : Date.now();
     return Math.floor((refTime - new Date(startDate).getTime()) / 86400000);
-  };
-
-  const getDisplayedCalories = (pm: PossibleMeal): number | null => {
-    const ingredients = pm.ingredients_override ?? pm.meals?.ingredients;
-    const ingCal = computeIngredientCalories(ingredients);
-    if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-
-    const raw = pm.meals?.calories;
-    if (!raw) return null;
-
-    const match = raw.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-    if (!match) return null;
-
-    const parsed = Number.parseFloat(match[0]);
-    return Number.isFinite(parsed) ? parsed : null;
   };
 
   const displayItems = useMemo(() => {
@@ -106,8 +90,8 @@ export function PossibleList({ category, items, sortMode, onToggleSort, onRandom
       }
 
       // Same counter + same date: sort by calories ascending
-      const aCal = getDisplayedCalories(a);
-      const bCal = getDisplayedCalories(b);
+      const aCal = getDisplayedPMCalories(a);
+      const bCal = getDisplayedPMCalories(b);
       if (aCal !== null && bCal !== null && aCal !== bCal) return aCal - bCal;
       if (aCal !== null && bCal === null) return -1;
       if (aCal === null && bCal !== null) return 1;

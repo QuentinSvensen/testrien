@@ -13,6 +13,7 @@ import {
   getMissingIngredients,
   formatExpirationLabel, compareExpirationWithCounter, buildScaledMealForRatio,
   getIndivisibleConstrainedRatio, getValidDiscreteRatios,
+  getDisplayedCalories, getDisplayedProtein, parseMacroDisplay,
   type StockInfo, type FoodItemIndex,
 } from "@/lib/stockUtils";
 import {
@@ -96,32 +97,10 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     setEditingRatioId(null);
   };
 
-  const getDisplayedCalories = (meal: Meal): number | null => {
-    const ingCal = computeIngredientCalories(meal.ingredients);
-    if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-    if (!meal.calories) return null;
-    const match = meal.calories.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-    if (!match) return null;
-    const parsed = Number.parseFloat(match[0]);
-    return Number.isFinite(parsed) ? parsed : null;
-  };
-
-  const getDisplayedProtein = (meal: Meal): number | null => {
-    const ingPro = computeIngredientProtein(meal.ingredients);
-    if (ingPro !== null && Number.isFinite(ingPro)) return ingPro;
-    if (!meal.protein) return null;
-    const match = meal.protein.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-    if (!match) return null;
-    const parsed = Number.parseFloat(match[0]);
-    return Number.isFinite(parsed) ? Math.round(parsed) : null;
-  };
+  // Use shared helpers from stockUtils instead of local duplicates
 
   const parseMacroValue = (value: string | null | undefined): number => {
-    if (!value) return 0;
-    const match = value.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-    if (!match) return 0;
-    const parsed = Number.parseFloat(match[0]);
-    return Number.isFinite(parsed) ? Math.round(parsed) : 0;
+    return parseMacroDisplay(value) ?? 0;
   };
 
   const getUnifiedItemName = (u: {

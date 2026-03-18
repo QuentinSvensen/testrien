@@ -9,7 +9,8 @@ import {
   normalizeForMatch, normalizeKey, strictNameMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientLine, parseIngredientLineRaw, parseIngredientGroups,
-  extractMetrics,
+  extractMetrics, computeIngredientCalories, computeIngredientProtein,
+  extractIngredientMacros, applyIngredientMacros,
   type ParsedIngredient,
 } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
@@ -328,6 +329,40 @@ export function buildIngredientMealIndex(meals: Meal[]): IngredientMealIndex {
   return idx;
 }
 
+// ─── Shared Display Helpers ──────────────────────────────────────────────────
+
+/** Parse a raw calorie/protein string like "350 kcal" → 350 */
+export function parseMacroDisplay(value: string | null | undefined): number | null {
+  if (!value) return null;
+  const match = value.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
+  if (!match) return null;
+  const parsed = Number.parseFloat(match[0]);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+/** Get displayed calories for a Meal (ingredient-computed takes priority) */
+export function getDisplayedCalories(meal: { calories?: string | null; ingredients?: string | null }): number | null {
+  const ingCal = computeIngredientCalories(meal.ingredients ?? null);
+  if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
+  return parseMacroDisplay(meal.calories);
+}
+
+/** Get displayed protein for a Meal (ingredient-computed takes priority) */
+export function getDisplayedProtein(meal: { protein?: string | null; ingredients?: string | null }): number | null {
+  const ingPro = computeIngredientProtein(meal.ingredients ?? null);
+  if (ingPro !== null && Number.isFinite(ingPro)) return ingPro;
+  const raw = parseMacroDisplay(meal.protein);
+  return raw !== null ? Math.round(raw) : null;
+}
+
+/** Get displayed calories for a PossibleMeal (uses ingredients_override if present) */
+export function getDisplayedPMCalories(pm: { ingredients_override?: string | null; meals?: { calories?: string | null; ingredients?: string | null } | null }): number | null {
+  const ingredients = pm.ingredients_override ?? pm.meals?.ingredients;
+  const ingCal = computeIngredientCalories(ingredients ?? null);
+  if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
+  return parseMacroDisplay(pm.meals?.calories);
+}
+
 // ─── Formatting & Sorting ───────────────────────────────────────────────────
 
 export function formatExpirationLabel(dateStr: string | null): string | null {
@@ -521,4 +556,47 @@ export function scaleIngredientStringExact(rawIngredients: string | null, ratio:
           return isOptional ? `?${token}` : token;
         }).join(" | ");
     }).join(", ");
+}
+
+// ─── Macro Propagation Helper ───────────────────────────────────────────────
+
+/**
+ * Propagate ingredient macros (cal/pro) across all meals that share the same ingredients.
+ * Returns an array of { id, ingredients } updates to apply via mutations.
+ * Also returns the final ingredients for the source meal (auto-filled from others).
+ */
+export function propagateIngredientMacros(
+  sourceMealId: string,
+  newIngredients: string | null,
+  allMeals: { id: string; ingredients: string | null }[]
+): { sourceIngredients: string | null; updates: { id: string; ingredients: string }[] } {
+  if (!newIngredients) return { sourceIngredients: newIngredients, updates: [] };
+
+  const globalMacros = new Map<string, { cal: string; pro: string }>();
+  for (const m of allMeals) {
+    const ingStr = m.id === sourceMealId ? newIngredients : m.ingredients;
+    if (!ingStr) continue;
+    const mMacros = extractIngredientMacros(ingStr);
+    for (const [key, val] of mMacros) {
+      const existing = globalMacros.get(key);
+      globalMacros.set(key, {
+        cal: val.cal || existing?.cal || "",
+        pro: val.pro || existing?.pro || "",
+      });
+    }
+  }
+
+  if (globalMacros.size === 0) return { sourceIngredients: newIngredients, updates: [] };
+
+  const selfApplied = applyIngredientMacros(newIngredients, globalMacros);
+  const sourceIngredients = selfApplied || newIngredients;
+
+  const updates: { id: string; ingredients: string }[] = [];
+  for (const m of allMeals) {
+    if (m.id === sourceMealId || !m.ingredients) continue;
+    const updated = applyIngredientMacros(m.ingredients, globalMacros);
+    if (updated) updates.push({ id: m.id, ingredients: updated });
+  }
+
+  return { sourceIngredients, updates };
 }

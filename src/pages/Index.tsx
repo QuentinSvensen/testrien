@@ -27,7 +27,6 @@ import {
   normalizeForMatch, normalizeKey, strictNameMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories,
-  extractIngredientMacros, applyIngredientMacros,
 } from "@/lib/ingredientUtils";
 import {
   buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
@@ -36,6 +35,7 @@ import {
   getMissingIngredients, isFoodUsedInMeals,
   formatExpirationLabel, compareExpirationWithCounter,
   sortStockDeductionPriority, buildScaledMealForRatio, scaleIngredientStringExact,
+  getDisplayedCalories, propagateIngredientMacros,
   type FoodItemIndex,
 } from "@/lib/stockUtils";
 import { useMealTransfers } from "@/hooks/useMealTransfers";
@@ -70,20 +70,9 @@ const CATEGORIES: {value: MealCategory;label: string;emoji: string;}[] = [
 { value: "dessert", label: "Desserts", emoji: "🍰" },
 { value: "bonus", label: "Bonus", emoji: "⭐" }];
 
-/** Get displayed calories for a meal: ingredient-computed (orange) takes priority over raw */
+/** Get displayed calories for a meal: uses shared helper */
 function getDisplayedMealCalories(meal: Meal): number {
-  return extractSortableCalories(meal) ?? 0;
-}
-
-/** Extract sortable calories from a meal (shared logic with useMeals) */
-function extractSortableCalories(meal: { calories?: string | null; ingredients?: string | null }): number | null {
-  const ingCal = computeIngredientCalories(meal.ingredients ?? null);
-  if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-  if (!meal.calories) return null;
-  const match = meal.calories.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-  if (!match) return null;
-  const parsed = Number.parseFloat(match[0]);
-  return Number.isFinite(parsed) ? parsed : null;
+  return getDisplayedCalories(meal) ?? 0;
 }
 
 function validateMealName(name: string): string | null {
@@ -649,36 +638,10 @@ const Index = () => {
                   onUpdateProtein={(id, prot) => updateProtein.mutate({ id, protein: prot })}
                   onUpdateGrams={(id, g) => updateGrams.mutate({ id, grams: g })}
                    onUpdateIngredients={(id, ing) => {
-                     // Propagate cal/prot to other meals with same ingredient names
                      if (ing) {
-                       // First collect macros from ALL meals to have a full picture
-                       const globalMacros = new Map<string, { cal: string; pro: string }>();
-                       for (const m of meals) {
-                         if (!m.ingredients) continue;
-                         const mId = m.id === id ? ing : m.ingredients;
-                         const mMacros = extractIngredientMacros(mId);
-                         for (const [key, val] of mMacros) {
-                           const existing = globalMacros.get(key);
-                           // Keep the most complete: prefer non-empty values
-                           globalMacros.set(key, {
-                             cal: val.cal || existing?.cal || "",
-                             pro: val.pro || existing?.pro || "",
-                           });
-                         }
-                       }
-                       if (globalMacros.size > 0) {
-                         // Also apply macros back to the current meal being saved (auto-fill from others)
-                         const selfApplied = applyIngredientMacros(ing, globalMacros);
-                         const finalIng = selfApplied || ing;
-                         updateIngredients.mutate({ id, ingredients: finalIng });
-                         for (const m of meals) {
-                           if (m.id === id || !m.ingredients) continue;
-                           const updated = applyIngredientMacros(m.ingredients, globalMacros);
-                           if (updated) updateIngredients.mutate({ id: m.id, ingredients: updated });
-                         }
-                       } else {
-                         updateIngredients.mutate({ id, ingredients: ing });
-                       }
+                       const { sourceIngredients, updates } = propagateIngredientMacros(id, ing, meals);
+                       updateIngredients.mutate({ id, ingredients: sourceIngredients });
+                       for (const u of updates) updateIngredients.mutate({ id: u.id, ingredients: u.ingredients });
                      } else {
                        updateIngredients.mutate({ id, ingredients: ing });
                      }
@@ -779,6 +742,7 @@ const Index = () => {
                 category={cat}
                 items={getSortedPossible(cat.value)}
                 sortMode={sortModes[cat.value] || "manual"}
+                stockMap={stockMap}
                 onToggleSort={() => toggleSort(cat.value)}
                 onRandomPick={() => handleRandomPick(cat.value)}
                 onRemove={(id) => { removeFromPossible.mutate(id); }}
@@ -877,25 +841,10 @@ const Index = () => {
                   if (!pm) return;
                   const oldIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
                   if (oldIngredients || newIngredients) await adjustStockForIngredientChange(oldIngredients, newIngredients, deductionSnapshots[pmId]);
-                  // Auto-fill macros from existing meals for renamed/new ingredients
                   let finalIngredients = newIngredients;
                   if (newIngredients) {
-                    const globalMacros = new Map<string, { cal: string; pro: string }>();
-                    for (const m of meals) {
-                      if (!m.ingredients) continue;
-                      const mMacros = extractIngredientMacros(m.ingredients);
-                      for (const [key, val] of mMacros) {
-                        const existing = globalMacros.get(key);
-                        globalMacros.set(key, {
-                          cal: val.cal || existing?.cal || "",
-                          pro: val.pro || existing?.pro || "",
-                        });
-                      }
-                    }
-                    if (globalMacros.size > 0) {
-                      const applied = applyIngredientMacros(newIngredients, globalMacros);
-                      if (applied) finalIngredients = applied;
-                    }
+                    const { sourceIngredients } = propagateIngredientMacros('__pm__', newIngredients, meals);
+                    finalIngredients = sourceIngredients;
                   }
                   updatePossibleIngredients.mutate({ id: pmId, ingredients_override: finalIngredients });
                 }}
