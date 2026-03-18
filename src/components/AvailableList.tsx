@@ -324,11 +324,9 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     }
   } else if (sortMode === "expiration") {
     sortedAvailable.sort((a, b) => {
-      const aExp = getEarliestIngredientExpiration(a.meal, foodItems);
-      const bExp = getEarliestIngredientExpiration(b.meal, foodItems);
-      const aCounter = getMaxIngredientCounter(a.meal, foodItems);
-      const bCounter = getMaxIngredientCounter(b.meal, foodItems);
-      return compareExpirationWithCounter(aExp, bExp, aCounter, bCounter);
+      const aAn = analyzeMealIngredients(a.meal, foodItems);
+      const bAn = analyzeMealIngredients(b.meal, foodItems);
+      return compareExpirationWithCounter(aAn.earliestExpiration, bAn.earliestExpiration, aAn.maxIngredientCounter, bAn.maxIngredientCounter);
     });
     sortedNameMatches.sort((a, b) => {
       const ac = a.fi.counter_start_date ? Math.floor((Date.now() - new Date(a.fi.counter_start_date).getTime()) / 86400000) : null;
