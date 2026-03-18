@@ -949,7 +949,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
               }
               for (let i = 0; i < sortedNameMatches.length; i++) {
                 const nm = sortedNameMatches[i];
-                const counter = nm.fi.counter_start_date ? Math.floor((Date.now() - new Date(nm.fi.counter_start_date).getTime()) / 86400000) : null;
+                const counter = computeCounterDays(nm.fi.counter_start_date);
                 unified.push({ type: 'nm', nm, nmIdx: i, sortDate: nm.fi.expiration_date, sortCounter: counter, sortCalories: getDisplayedCalories(nm.meal) });
               }
               for (const item of sortedAvailable) {
