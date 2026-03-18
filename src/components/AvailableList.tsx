@@ -788,8 +788,8 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
       <div className="flex flex-wrap gap-1.5">
         {[...allItems].sort((a, b) => {
           const today = new Date(new Date().toDateString());
-          const aCounter = a.counter_start_date ? Math.floor((Date.now() - new Date(a.counter_start_date).getTime()) / 86400000) : null;
-          const bCounter = b.counter_start_date ? Math.floor((Date.now() - new Date(b.counter_start_date).getTime()) / 86400000) : null;
+          const aCounter = computeCounterDays(a.counter_start_date);
+          const bCounter = computeCounterDays(b.counter_start_date);
           if (aCounter !== null && bCounter === null) return -1;
           if (aCounter === null && bCounter !== null) return 1;
           if (aCounter !== null && bCounter !== null && aCounter !== bCounter) return bCounter - aCounter;
