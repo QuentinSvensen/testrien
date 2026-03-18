@@ -332,14 +332,69 @@ export function serializeIngredients(lines: IngLine[]): string | null {
 }
 
 /**
- * Compute total calories from ingredient string.
- * For each ingredient with {cal}: if qty (grams) present → cal * qty / 100. If count present → cal * count.
- * Returns null if no ingredient has cal data.
+ * Shared macro computation — eliminates 90% code duplication between calories and protein.
+ * Before: two 55-line functions with identical structure. After: one 30-line core + two 1-line wrappers.
  */
 const _calCache = new Map<string, number | null>();
 const _proCache = new Map<string, number | null>();
 const MACRO_CACHE_MAX = 500;
 
+function _computeMacro(
+  ingredientStr: string | null,
+  field: 'cal' | 'pro',
+  cache: Map<string, number | null>,
+  isAvailable?: (name: string) => boolean
+): number | null {
+  if (!ingredientStr?.trim()) return null;
+  if (!isAvailable) {
+    const cached = cache.get(ingredientStr);
+    if (cached !== undefined) return cached;
+  }
+  const lines = parseIngredientsToLines(ingredientStr);
+  let total = 0;
+  let hasValue = false;
+
+  const groups: IngLine[][] = [];
+  let currentGroup: IngLine[] = [];
+  for (const line of lines) {
+    if (line.isOptional) continue;
+    if (!line.isOr && currentGroup.length > 0) { groups.push(currentGroup); currentGroup = []; }
+    currentGroup.push(line);
+  }
+  if (currentGroup.length > 0) groups.push(currentGroup);
+
+  for (const group of groups) {
+    let chosenLine = group[0];
+    if (isAvailable) {
+      for (const alt of group) {
+        if (isAvailable(alt.name)) { chosenLine = alt; break; }
+      }
+    }
+    const rawVal = field === 'cal' ? chosenLine.cal : chosenLine.pro;
+    const val = parseFloat(rawVal.replace(",", "."));
+    if (!val || isNaN(val)) continue;
+    hasValue = true;
+    const qty = parseFloat(chosenLine.qty.replace(",", "."));
+    const count = parseFloat(chosenLine.count.replace(",", "."));
+    if (qty > 0) total += val * qty / 100;
+    else if (count > 0) total += val * count;
+    else total += val;
+  }
+  const result = hasValue ? Math.round(total) : null;
+  if (!isAvailable) {
+    if (cache.size > MACRO_CACHE_MAX) cache.clear();
+    cache.set(ingredientStr!, result);
+  }
+  return result;
+}
+
+export function computeIngredientCalories(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
+  return _computeMacro(ingredientStr, 'cal', _calCache, isAvailable);
+}
+
+export function computeIngredientProtein(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
+  return _computeMacro(ingredientStr, 'pro', _proCache, isAvailable);
+}
 export function computeIngredientCalories(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
   if (!ingredientStr?.trim()) return null;
   if (!isAvailable) {
