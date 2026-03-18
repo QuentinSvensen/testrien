@@ -117,7 +117,9 @@ export function colorFromName(input: string) {
 
 function getCounterDays(startDate: string | null): number | null {
   if (!startDate) return null;
-  return Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
+  const days = Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
+  // Hide counter if it's negative or zero (future/today start date)
+  return days >= 1 ? days : null;
 }
 
 function formatNumeric(n: number): string {

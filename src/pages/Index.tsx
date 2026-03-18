@@ -224,50 +224,51 @@ const Index = () => {
     return () => { supabase.removeChannel(channel); };
   }, [unlocked, qc]);
 
-  // Sunday auto-clear
+  // Sunday auto-clear — runs ONCE per week on Sunday 23:59 or first login of the new week
   const lastWeeklyReset = getPreference<string>('last_weekly_reset', '');
   const sundayClearDone = useRef(false);
   useEffect(() => {
     if (!unlocked || sundayClearDone.current || isPreferencesLoading) return;
+    sundayClearDone.current = true;
 
     const now = new Date();
-    const mostRecentResetTarget = new Date(now);
-    const day = mostRecentResetTarget.getDay();
-    mostRecentResetTarget.setDate(mostRecentResetTarget.getDate() - day);
-    mostRecentResetTarget.setHours(23, 59, 0, 0);
-    if (now.getTime() < mostRecentResetTarget.getTime()) {
-      mostRecentResetTarget.setDate(mostRecentResetTarget.getDate() - 7);
+    // Find the most recent Sunday 23:59
+    const mostRecentSunday = new Date(now);
+    const day = mostRecentSunday.getDay(); // 0=Sun
+    // Go back to last Sunday (or today if Sunday)
+    mostRecentSunday.setDate(mostRecentSunday.getDate() - day);
+    mostRecentSunday.setHours(23, 59, 0, 0);
+    
+    // If we haven't reached Sunday 23:59 yet this week, use LAST week's Sunday
+    if (now.getTime() < mostRecentSunday.getTime()) {
+      mostRecentSunday.setDate(mostRecentSunday.getDate() - 7);
     }
 
     if (!lastWeeklyReset) {
       // First time initialization, just set it and don't clear
-      sundayClearDone.current = true;
-      setPreference.mutate({ key: 'last_weekly_reset', value: mostRecentResetTarget.toISOString() });
+      setPreference.mutate({ key: 'last_weekly_reset', value: mostRecentSunday.toISOString() });
       return;
     }
 
     const lastResetDate = new Date(lastWeeklyReset);
-    if (lastResetDate.getTime() >= mostRecentResetTarget.getTime()) {
+    if (lastResetDate.getTime() >= mostRecentSunday.getTime()) {
       // Already reset for this week
-      sundayClearDone.current = true;
       return;
     }
 
     if (possibleMeals.length === 0) {
       // Nothing to clear, but update the reset timestamp
-      sundayClearDone.current = true;
       setPreference.mutate({ key: 'last_weekly_reset', value: now.toISOString() });
       return;
     }
 
-    sundayClearDone.current = true;
     const clearAll = async () => {
       // Verify no duplicate reset from DB
       const { data: freshResetPref } = await supabase.from('user_preferences')
         .select('value').eq('key', 'last_weekly_reset').maybeSingle();
       if (freshResetPref?.value) {
         const freshResetDate = new Date(String(freshResetPref.value));
-        if (freshResetDate.getTime() >= mostRecentResetTarget.getTime()) return;
+        if (freshResetDate.getTime() >= mostRecentSunday.getTime()) return;
       }
       // Load saved snapshots
       const snapResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_saved_snapshots').maybeSingle();
