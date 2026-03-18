@@ -422,6 +422,9 @@ export function PossibleMealCard({
                   <Undo2 className="mr-2 h-4 w-4" /> {onReturnWithoutDeductionLabel || 'Remettre au choix (sans déduire)'}
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => { setEditValue(""); setEditing("ratio"); }}>
+                <Percent className="mr-2 h-4 w-4" /> Pourcentage / Multiple
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => { setEditValue(meal.calories || ""); setEditing("calories"); }}>
                 <Flame className="mr-2 h-4 w-4" /> Calories
               </DropdownMenuItem>
