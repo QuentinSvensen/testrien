@@ -314,8 +314,8 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
       return compareExpirationWithCounter(a.fi.expiration_date, b.fi.expiration_date, ac, bc);
     });
     sortedIsMealItems.sort((a, b) => {
-      const ac = a.counter_start_date ? Math.floor((Date.now() - new Date(a.counter_start_date).getTime()) / 86400000) : null;
-      const bc = b.counter_start_date ? Math.floor((Date.now() - new Date(b.counter_start_date).getTime()) / 86400000) : null;
+      const ac = computeCounterDays(a.counter_start_date);
+      const bc = computeCounterDays(b.counter_start_date);
       return compareExpirationWithCounter(a.expiration_date, b.expiration_date, ac, bc);
     });
     const isMealNoDate = sortedIsMealItems.filter(fi => !fi.expiration_date);
