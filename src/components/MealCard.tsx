@@ -1,7 +1,8 @@
-import React, { useState, useRef, forwardRef } from "react";
+import React, { useState, forwardRef } from "react";
 import { ArrowRight, MoreVertical, Pencil, Trash2, Flame, Weight, List, Star, Thermometer, Hash, Link2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { IngredientEditor } from "@/components/IngredientEditor";
 import {
   DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
