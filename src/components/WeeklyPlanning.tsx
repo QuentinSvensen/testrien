@@ -729,9 +729,9 @@ export function WeeklyPlanning() {
     if (slotEl) {
       const day = slotEl.getAttribute("data-day")!;
       const time = slotEl.getAttribute("data-time")!;
-      updatePlanning.mutate({ id: state.pmId, day_of_week: day, meal_time: time });
+      updatePlanningWithCounters(state.pmId, day, time);
     } else if (el?.closest("[data-unplanned]")) {
-      updatePlanning.mutate({ id: state.pmId, day_of_week: null, meal_time: null });
+      updatePlanningWithCounters(state.pmId, null, null);
     }
   };
 
