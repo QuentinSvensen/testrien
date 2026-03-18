@@ -570,7 +570,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const { meal, fi, portionsAvailable } = nm;
     const nmKey = `nm-${meal.id}-${fi.id}`;
     const expLabel = formatExpirationLabel(fi.expiration_date);
-    const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+    const counterDays = computeCounterDays(fi.counter_start_date);
     const customRatio = customRatios[nmKey];
     const effectiveRatio = customRatio ?? 1;
     const baseGrams = fi.quantity && fi.quantity > 1 && fi.grams
