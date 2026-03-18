@@ -469,7 +469,7 @@ export function MealPlanGenerator() {
     // Check which ingredients match shopping list items or "Toujours présent" food items
     const toujoursKeys = [...toujoursFoodKeys];
     for (const [key, item] of map) {
-      if (toujoursFoodKeys.has(key) || toujoursKeys.some((tjKey) => smartFoodContains(item.displayName, tjKey))) {
+      if (toujoursFoodKeys.has(key) || toujoursKeys.some((tjKey) => smartFoodContains(item.displayName, tjKey as string))) {
         item.matched = true;
         continue;
       }
