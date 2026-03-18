@@ -440,9 +440,6 @@ export function PossibleMealCard({
               <DropdownMenuItem onClick={onDelete} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" /> Supprimer
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setEditValue(""); setEditing("ratio"); }}>
-                <Percent className="mr-2 h-4 w-4" /> Pourcentage / Multiple
-              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
