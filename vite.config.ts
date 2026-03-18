@@ -1,5 +1,8 @@
 import { defineConfig } from "vite";
-import react from "@vitejs/plugin-react";
+import { fileURLToPath } from "url";
+import { createRequire } from "module";
+const require = createRequire(import.meta.url);
+const react = require("@vitejs/plugin-react");
 import path from "path";
 
 const reactPath = path.resolve(__dirname, "./node_modules/react");
