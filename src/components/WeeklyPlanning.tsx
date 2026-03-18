@@ -13,6 +13,7 @@ import { fr } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useFoodItems } from "@/hooks/useFoodItems";
 import { analyzeMealIngredients } from "@/lib/stockUtils";
+import { useMealTransfers } from "@/hooks/useMealTransfers";
 
 /** Additive planning input: click "+" to enter a value that gets added to current */
 function PlanningInput({ storageKey, currentValue, onSave, placeholder, className }: {
