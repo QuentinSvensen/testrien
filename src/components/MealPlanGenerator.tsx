@@ -431,19 +431,19 @@ export function MealPlanGenerator() {
     }
 
     // Build total needs map for shopping check persistence
-    const needsMap = new Map<string, { grams: number; count: number }>();
+    const needsMap = new Map<string, { grams: number; count: number; rawName: string }>();
     for (const id of selectedIds) {
       const recipe = allPlats.find(r => r.id === id);
       if (!recipe) continue;
       const usage = getRecipeUsage(recipe);
       for (const [key, used] of usage) {
-        const prev = needsMap.get(key) || { grams: 0, count: 0 };
-        needsMap.set(key, { grams: prev.grams + used.grams, count: prev.count + used.count });
+        const prev = needsMap.get(key) || { grams: 0, count: 0, rawName: used.rawName };
+        needsMap.set(key, { grams: prev.grams + used.grams, count: prev.count + used.count, rawName: prev.rawName });
       }
     }
 
     // Persist needs for re-check on green toggle
-    const needsObj: Record<string, { grams: number; count: number }> = {};
+    const needsObj: Record<string, { grams: number; count: number; rawName: string }> = {};
     for (const [k, v] of needsMap) needsObj[k] = v;
 
     setSelectedMealIds(selectedIds);
