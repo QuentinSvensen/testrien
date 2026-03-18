@@ -29,13 +29,14 @@ import {
   extractIngredientMacros, applyIngredientMacros,
 } from "@/lib/ingredientUtils";
 import {
-  buildStockMap, findStockKey, pickBestAlternative,
+  buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
   getMealMultiple, getMealFractionalRatio,
   getEarliestIngredientExpiration, getEarliestIngredientCounterDate, getExpiringIngredientName, getExpiredIngredientNames,
   getMaxIngredientCounter, getMaxIngredientCounterName, getCounterIngredientNames,
   getMissingIngredients, isFoodUsedInMeals,
   formatExpirationLabel, compareExpirationWithCounter,
   sortStockDeductionPriority, buildScaledMealForRatio, scaleIngredientStringExact,
+  type FoodItemIndex,
 } from "@/lib/stockUtils";
 import { useMealTransfers } from "@/hooks/useMealTransfers";
 
