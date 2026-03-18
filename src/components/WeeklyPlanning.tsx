@@ -628,7 +628,7 @@ export function WeeklyPlanning() {
     e.preventDefault();
     setDragOverUnplanned(false);
     const pmId = e.dataTransfer.getData("pmId");
-    if (pmId) updatePlanning.mutate({ id: pmId, day_of_week: null, meal_time: null });
+    if (pmId) updatePlanningWithCounters(pmId, null, null);
   };
 
   const handleTouchStart = (e: React.TouchEvent, pm: PossibleMeal) => {
