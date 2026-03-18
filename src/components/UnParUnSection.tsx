@@ -222,7 +222,7 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
     const isExpired = fi.expiration_date ? new Date(fi.expiration_date) < new Date(new Date().toDateString()) : false;
     const totalG = getFoodItemTotalGrams(fi);
     const qty = fi.quantity && fi.quantity > 1 ? fi.quantity : null;
-    const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+    const counterDays = computeCounterDays(fi.counter_start_date);
     const counterUrgent = counterDays !== null && counterDays >= 3;
     const color = colorFromName(fi.id);
 
