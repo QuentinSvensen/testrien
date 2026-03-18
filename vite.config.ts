@@ -2,6 +2,9 @@ import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react-swc";
 import path from "path";
 
+const reactPath = path.resolve(__dirname, "./node_modules/react");
+const reactDomPath = path.resolve(__dirname, "./node_modules/react-dom");
+
 // https://vitejs.dev/config/
 export default defineConfig({
   server: {
@@ -13,15 +16,17 @@ export default defineConfig({
   },
   plugins: [react()],
   optimizeDeps: {
-    force: true,
+    include: ["react", "react-dom", "react/jsx-runtime", "react-dom/client"],
   },
   resolve: {
     alias: {
       "@": path.resolve(__dirname, "./src"),
-      "react": path.resolve(__dirname, "./node_modules/react"),
-      "react-dom": path.resolve(__dirname, "./node_modules/react-dom"),
-      "react/jsx-runtime": path.resolve(__dirname, "./node_modules/react/jsx-runtime"),
+      "react": reactPath,
+      "react-dom": reactDomPath,
+      "react/jsx-runtime": path.resolve(reactPath, "jsx-runtime"),
+      "react/jsx-dev-runtime": path.resolve(reactPath, "jsx-dev-runtime"),
+      "react-dom/client": path.resolve(reactDomPath, "client"),
     },
-    dedupe: ["react", "react-dom", "react/jsx-runtime"],
+    dedupe: ["react", "react-dom", "react/jsx-runtime", "react/jsx-dev-runtime", "react-dom/client"],
   },
 });
