@@ -457,8 +457,8 @@ export function PossibleMealCard({
         </div>
       </div>
 
-      {/* Row 3: ingredients (click to edit) */}
-      {!editing && !editingIngredients && displayIngredients && (
+      {/* Row 3: ingredients (click to edit) — only show if base meal has ingredients */}
+      {!editing && !editingIngredients && displayIngredients && meal.ingredients && (
         <button onClick={openIngredients} className="mt-1 text-[10px] text-white/60 flex flex-wrap gap-x-1 text-left hover:text-white/80 transition-colors">
           {renderIngredientDisplayCompact(displayIngredients, expiredIngredientNames, expiringSoonIngredientNames)}
         </button>
