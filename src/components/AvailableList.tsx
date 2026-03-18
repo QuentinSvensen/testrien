@@ -540,7 +540,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const displayGrams = fi.quantity && fi.quantity > 1 && fi.grams
       ? `${parseQty(fi.grams) * fi.quantity}g`
       : (fi.is_infinite ? "∞" : fi.grams ?? null);
-    const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+    const counterDays = computeCounterDays(fi.counter_start_date);
     const fakeMeal: Meal = {
       id: `fi-${fi.id}`, name: fi.name, category: "plat", calories: fi.calories,
       protein: fi.protein ?? null,
