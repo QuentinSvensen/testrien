@@ -263,6 +263,12 @@ export function cleanIngredientText(text: string | null | undefined): string {
   return text.replace(/\{[^}]*\}/g, "").replace(/\[[^\]]*\]/g, "").replace(/\s+/g, " ").trim();
 }
 
+// Pre-compiled regex for parseIngredientLineDisplay (avoid recompilation per call)
+const _DISP_UNIT = "(?:g|gr|gramme?s?|kg|ml|cl|l)";
+const _RE_DISP_FULL = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_DISP_UNIT}\\s+(\\d+(?:[.,]\\d+)?)\\s+(.+)$`, "i");
+const _RE_DISP_UNIT = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_DISP_UNIT}\\s+(.+)$`, "i");
+const _RE_DISP_NUM = /^(\d+(?:[.,]\d+)?)\s+(.+)$/;
+
 export function parseIngredientLineDisplay(raw: string): IngLine {
   let trimmed = raw.trim().replace(/\s+/g, " ");
   if (!trimmed) return { qty: "", count: "", name: "", cal: "", pro: "", isOr: false, isOptional: false };
@@ -270,15 +276,14 @@ export function parseIngredientLineDisplay(raw: string): IngLine {
   if (isOptional) trimmed = trimmed.slice(1).trim();
   const { text: withoutMetrics, cal, pro } = extractMetrics(trimmed);
   trimmed = withoutMetrics;
-  const unitRegex = "(?:g|gr|gramme?s?|kg|ml|cl|l)";
 
-  const matchFull = trimmed.match(new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${unitRegex}\\s+(\\d+(?:[.,]\\d+)?)\\s+(.+)$`, "i"));
+  const matchFull = trimmed.match(_RE_DISP_FULL);
   if (matchFull) return { qty: matchFull[1], count: matchFull[2], name: matchFull[3].trim(), cal, pro, isOr: false, isOptional };
 
-  const matchUnit = trimmed.match(new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${unitRegex}\\s+(.+)$`, "i"));
+  const matchUnit = trimmed.match(_RE_DISP_UNIT);
   if (matchUnit) return { qty: matchUnit[1], count: "", name: matchUnit[2].trim(), cal, pro, isOr: false, isOptional };
 
-  const matchNum = trimmed.match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/);
+  const matchNum = trimmed.match(_RE_DISP_NUM);
   if (matchNum) return { qty: "", count: matchNum[1], name: matchNum[2].trim(), cal, pro, isOr: false, isOptional };
 
   return { qty: "", count: "", name: trimmed, cal, pro, isOr: false, isOptional };
