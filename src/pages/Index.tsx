@@ -24,7 +24,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
 import {
-  normalizeForMatch, normalizeKey, strictNameMatch,
+  normalizeForMatch, normalizeKey, strictNameMatch, accentSafeKeyMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, smartFoodContains,
 } from "@/lib/ingredientUtils";
@@ -599,7 +599,7 @@ const Index = () => {
                             for (const si of shoppingItems) {
                               const k = normalizeKey(si.name);
                               if (isTJ(si, k)) continue;
-                              if (k === nk || normalizeKey(k) === normalizeKey(nk)) exact.push(si);
+                              if (accentSafeKeyMatch(si.name, nk)) exact.push(si);
                               else if (smartFoodContains(si.name, nk)) partial.push(si);
                             }
                             const tgts = exact.length > 0 ? exact : (partial.length === 1 ? partial : []);
