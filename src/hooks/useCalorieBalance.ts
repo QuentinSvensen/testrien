@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import { useMeals, DAYS, TIMES } from '@/hooks/useMeals';
 import { usePreferences } from '@/hooks/usePreferences';
-import { computeIngredientCalories } from '@/lib/ingredientUtils';
+import { computeIngredientCalories, computeIngredientProtein } from '@/lib/ingredientUtils';
 
 const DEFAULT_DAILY_GOAL = 2750;
 const DRINK_CALORIES = 150;
