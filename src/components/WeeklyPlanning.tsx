@@ -12,7 +12,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useFoodItems } from "@/hooks/useFoodItems";
-import { getExpiredIngredientNames, getExpiringSoonIngredientNames } from "@/lib/stockUtils";
+import { analyzeMealIngredients } from "@/lib/stockUtils";
 
 /** Additive planning input: click "+" to enter a value that gets added to current */
 function PlanningInput({ storageKey, currentValue, onSave, placeholder, className }: {
