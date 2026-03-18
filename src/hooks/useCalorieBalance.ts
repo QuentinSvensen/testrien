@@ -64,12 +64,13 @@ export function useCalorieBalance() {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) => {
+          const qty = pm.quantity ?? 1;
           const override = calOverrides[pm.id];
-          if (override) return s + parseCalories(override);
+          if (override) return s + parseCalories(override) * qty;
           const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
           const ingCal = computeIngredientCalories(displayIngredients);
-          if (ingCal !== null) return s + ingCal;
-          return s + parseCalories(pm.meals?.calories);
+          if (ingCal !== null) return s + ingCal * qty;
+          return s + parseCalories(pm.meals?.calories) * qty;
         }, 0);
       }
       return total + (manualCalories[`${day}-${time}`] || 0);
