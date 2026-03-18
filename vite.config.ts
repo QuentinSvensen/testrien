@@ -7,6 +7,9 @@ const reactDomPath = path.resolve(__dirname, "./node_modules/react-dom");
 
 // https://vitejs.dev/config/
 export default defineConfig({
+  build: {
+    sourcemap: true,
+  },
   server: {
     host: "::",
     port: 8080,
