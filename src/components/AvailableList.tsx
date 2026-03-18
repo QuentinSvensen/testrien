@@ -12,7 +12,8 @@ import {
   getEarliestIngredientExpiration, getExpiringIngredientName, getExpiredIngredientNames, getExpiringSoonIngredientNames,
   getMaxIngredientCounter, getCounterIngredientNames, getMissingIngredients,
   formatExpirationLabel, compareExpirationWithCounter, buildScaledMealForRatio,
-  getIndivisibleConstrainedRatio, getValidDiscreteRatios
+  getIndivisibleConstrainedRatio, getValidDiscreteRatios,
+  type StockInfo,
 } from "@/lib/stockUtils";
 import {
   normalizeForMatch, strictNameMatch, parseQty, formatNumeric, getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, computeIngredientProtein
@@ -29,6 +30,7 @@ interface AvailableListProps {
   meals: Meal[];
   foodItems: FoodItem[];
   allMeals: Meal[];
+  stockMap: Map<string, StockInfo>;
   sortMode: AvailableSortMode;
   sortAsc: boolean;
   onToggleSort: () => void;
@@ -49,9 +51,8 @@ interface AvailableListProps {
   onUpdateOvenMinutes: (id: string, m: string | null) => void;
 }
 
-export function AvailableList({ category, meals, foodItems, allMeals, sortMode, sortAsc, onToggleSort, onToggleSortDirection, collapsed, onToggleCollapse, onMoveToPossible, onMovePartialToPossible, onMoveFoodItemToPossible, onDeleteFoodItem, onMoveNameMatchToPossible, onRename, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onToggleFavorite, onUpdateOvenTemp, onUpdateOvenMinutes }: AvailableListProps) {
+export function AvailableList({ category, meals, foodItems, allMeals, stockMap, sortMode, sortAsc, onToggleSort, onToggleSortDirection, collapsed, onToggleCollapse, onMoveToPossible, onMovePartialToPossible, onMoveFoodItemToPossible, onDeleteFoodItem, onMoveNameMatchToPossible, onRename, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onToggleFavorite, onUpdateOvenTemp, onUpdateOvenMinutes }: AvailableListProps) {
   const isPlat = category.value === "plat";
-  const stockMap = buildStockMap(foodItems);
   const { getPreference: getAvailPref, setPreference: setAvailPref } = usePreferences();
   const storedOrder = getAvailPref<string[]>(`available_order_${category.value}`, []);
   const useRemainingCalories = getAvailPref<boolean>(`available_use_remaining_calories_${category.value}`, false);

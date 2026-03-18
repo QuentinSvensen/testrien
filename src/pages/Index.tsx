@@ -696,6 +696,7 @@ const Index = () => {
                   meals={getMealsByCategory(cat.value)}
                   foodItems={foodItems}
                   allMeals={meals}
+                  stockMap={stockMap}
                   sortMode={availableSortModes[cat.value] || "manual"}
                   sortAsc={sortDirections[`available-${cat.value}`] !== false}
                   onToggleSort={() => toggleAvailableSort(cat.value)}

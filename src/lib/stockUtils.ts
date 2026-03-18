@@ -187,7 +187,93 @@ export function getMealFractionalRatio(meal: Meal, stockMap: Map<string, StockIn
   return minRatio;
 }
 
-// ─── Ingredient Analysis ────────────────────────────────────────────────────
+// ─── Consolidated Meal Analysis (single pass over ingredients) ───────────────
+
+export interface MealAnalysis {
+  earliestExpiration: string | null;
+  expiringIngredientName: string | null;
+  expiredIngredientNames: Set<string>;
+  expiringSoonIngredientNames: Set<string>;
+  maxIngredientCounter: number | null;
+  maxCounterName: string | null;
+  earliestCounterDate: string | null;
+  counterIngredientNames: Set<string>;
+}
+
+/**
+ * Perform ALL ingredient analyses in a single traversal of groups × foodItems.
+ * Replaces 6+ separate function calls that each re-parsed and re-iterated.
+ */
+export function analyzeMealIngredients(
+  meal: Meal,
+  foodItems: FoodItem[],
+  index?: FoodItemIndex
+): MealAnalysis {
+  const result: MealAnalysis = {
+    earliestExpiration: null,
+    expiringIngredientName: null,
+    expiredIngredientNames: new Set(),
+    expiringSoonIngredientNames: new Set(),
+    maxIngredientCounter: null,
+    maxCounterName: null,
+    earliestCounterDate: null,
+    counterIngredientNames: new Set(),
+  };
+
+  if (!meal.ingredients?.trim()) return result;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const todayMs = today.getTime();
+  const soonDate = new Date(today);
+  soonDate.setDate(soonDate.getDate() + 7);
+  const soonMs = soonDate.getTime();
+
+  const groups = parseIngredientGroups(meal.ingredients);
+  let earliestSoonDate: string | null = null;
+  let earliestSoonName: string | null = null;
+
+  for (const group of groups) {
+    for (const alt of group) {
+      for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+        // Expiration analysis
+        if (fi.expiration_date) {
+          if (!result.earliestExpiration || fi.expiration_date < result.earliestExpiration) {
+            result.earliestExpiration = fi.expiration_date;
+            result.expiringIngredientName = alt.name;
+          }
+          const parts = fi.expiration_date.split('-');
+          const expMs = new Date(parseInt(parts[0]), parseInt(parts[1]) - 1, parseInt(parts[2])).getTime();
+          if (expMs <= todayMs) {
+            result.expiredIngredientNames.add(normalizeKey(alt.name));
+          } else if (expMs <= soonMs) {
+            if (!earliestSoonDate || fi.expiration_date < earliestSoonDate) {
+              earliestSoonDate = fi.expiration_date;
+              earliestSoonName = normalizeKey(alt.name);
+            }
+          }
+        }
+        // Counter analysis
+        if (fi.counter_start_date) {
+          const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
+          if (result.maxIngredientCounter === null || days > result.maxIngredientCounter) {
+            result.maxIngredientCounter = days;
+            result.maxCounterName = fi.name;
+          }
+          if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
+            result.earliestCounterDate = fi.counter_start_date;
+          }
+          result.counterIngredientNames.add(normalizeKey(alt.name));
+        }
+      }
+    }
+  }
+
+  if (earliestSoonName) result.expiringSoonIngredientNames.add(earliestSoonName);
+  return result;
+}
+
+// ─── Ingredient Analysis (legacy single-purpose — kept for targeted use) ────
 
 export function getEarliestIngredientExpiration(meal: Meal, foodItems: FoodItem[], index?: FoodItemIndex): string | null {
   if (!meal.ingredients?.trim()) return null;
@@ -355,6 +441,28 @@ export function isFoodUsedInMeals(fi: FoodItem, mealsToCheck: Meal[]): boolean {
     if (!meal.ingredients) return false;
     return parseIngredientGroups(meal.ingredients).some(group => group.some(alt => strictNameMatch(fiKey, alt.name)));
   });
+}
+
+// ─── Inverted Index: ingredient key → meal IDs ──────────────────────────────
+
+export type IngredientMealIndex = Map<string, Set<string>>;
+
+/** Build a reverse lookup: normalized ingredient key → set of meal IDs that use it */
+export function buildIngredientMealIndex(meals: Meal[]): IngredientMealIndex {
+  const idx = new Map<string, Set<string>>();
+  for (const meal of meals) {
+    if (!meal.ingredients?.trim()) continue;
+    const groups = parseIngredientGroups(meal.ingredients);
+    for (const group of groups) {
+      for (const alt of group) {
+        const key = normalizeKey(alt.name);
+        let set = idx.get(key);
+        if (!set) { set = new Set(); idx.set(key, set); }
+        set.add(meal.id);
+      }
+    }
+  }
+  return idx;
 }
 
 // ─── Formatting & Sorting ───────────────────────────────────────────────────
