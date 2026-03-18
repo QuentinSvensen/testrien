@@ -708,9 +708,8 @@ const Index = () => {
                       const snapshots = await deductIngredientsFromStock(meal);
                       const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
                       if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
-                      const expDate = getEarliestIngredientExpiration(meal, foodItems);
-                      const counterDate = getEarliestIngredientCounterDate(meal, foodItems);
-                      const result = await moveToPossible.mutateAsync({ mealId, expiration_date: expDate, counter_start_date: counterDate });
+                      const an = analyzeMealIngredients(meal, foodItems, foodItemIndex);
+                      const result = await moveToPossible.mutateAsync({ mealId, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate });
                       if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
                     }
                   }}
