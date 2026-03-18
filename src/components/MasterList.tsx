@@ -6,7 +6,7 @@ import { MealList } from "@/components/MealList";
 import { MealCard } from "@/components/MealCard";
 import type { Meal } from "@/hooks/useMeals";
 import type { FoodItem } from "@/components/FoodItems";
-import { buildStockMap, getMissingIngredients, getEarliestIngredientExpiration, formatExpirationLabel, getExpiredIngredientNames, getExpiringSoonIngredientNames } from "@/lib/stockUtils";
+import { buildStockMap, getMissingIngredients, analyzeMealIngredients, formatExpirationLabel } from "@/lib/stockUtils";
 import { normalizeForMatch } from "@/lib/ingredientUtils";
 import { isToday } from "date-fns";
 
