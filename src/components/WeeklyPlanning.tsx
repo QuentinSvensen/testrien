@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from "react";
-import { useMeals, DAYS, TIMES, type PossibleMeal } from "@/hooks/useMeals";
+import { useMeals, DAYS, TIMES, type PossibleMeal, type Meal } from "@/hooks/useMeals";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -419,9 +419,9 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
 export function WeeklyPlanning() {
   const { possibleMeals, updatePlanning, reorderPossibleMeals, getMealsByCategory } = useMeals();
   const qc = useQueryClient();
-  const { getPreference, setPreference } = usePreferences();
+  const { getPreference, setPreference, isLoading: prefsLoading } = usePreferences();
   const { items: foodItems } = useFoodItems();
-  const { updateFoodItemCountersForPlanning } = useMealTransfers(foodItems);
+  const { updateFoodItemCountersForPlanning, deductIngredientsFromStock, deductNameMatchStock } = useMealTransfers(foodItems);
 
   const updatePlanningWithCounters = (pmId: string, day: string | null, time: string | null) => {
     updatePlanning.mutate({ id: pmId, day_of_week: day, meal_time: time });
@@ -490,7 +490,9 @@ export function WeeklyPlanning() {
   const autoConsumeChecked = useRef(false);
   useEffect(() => {
     if (autoConsumeChecked.current) return;
-    if (foodItems.length === 0) return; // Wait for data to load
+    if (prefsLoading) return; // Wait for preferences to load
+    if (foodItems.length === 0) return; // Wait for food items to load
+    if (possibleMeals === undefined) return; // Wait for possible meals
     autoConsumeChecked.current = true;
     
     const runAutoConsume = async () => {
@@ -514,44 +516,44 @@ export function WeeklyPlanning() {
         for (const day of toConsume) {
           updatedConsumed[day] = true;
           const mealId = breakfastSelections[day];
-          const breakfast = petitDejMeals.find(m => m.id === mealId) || possibleMeals.find(pm => pm.meal_id === mealId)?.meals;
+          // Look in catalog first, then in possible meals
+          const catalogMeal = petitDejMeals.find(m => m.id === mealId);
+          const possiblePm = possibleMeals.find(pm => pm.meal_id === mealId);
+          const breakfast = catalogMeal || possiblePm?.meals;
           if (breakfast) {
-            const mealGrams = breakfast.grams ? parseFloat(breakfast.grams.replace(/[^0-9.]/g, '')) : 0;
-            const nameMatch = foodItems.find(fi => fi.name.toLowerCase().trim() === breakfast.name.toLowerCase().trim() && !fi.is_infinite);
-            if (nameMatch) {
-              if (mealGrams > 0) {
-                const perUnit = parseFloat((nameMatch.grams || '0').replace(/[^0-9.]/g, ''));
-                if (perUnit > 0) {
-                  const totalAvail = (nameMatch.quantity ?? 1) * perUnit;
-                  const remaining = totalAvail - mealGrams;
-                  if (remaining <= 0) {
-                    await supabase.from("food_items").delete().eq("id", nameMatch.id);
-                  } else {
-                    const fullUnits = Math.floor(remaining / perUnit);
-                    const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
-                    await supabase.from("food_items").update({ 
-                      quantity: rem > 0 ? fullUnits + 1 : Math.max(1, fullUnits), 
-                      grams: rem > 0 ? `${perUnit}(${rem})` : String(perUnit) 
-                    } as any).eq("id", nameMatch.id);
-                  }
-                }
-              } else {
-                const currentQty = nameMatch.quantity ?? 1;
-                if (currentQty <= 1) {
-                  await supabase.from("food_items").delete().eq("id", nameMatch.id);
-                } else {
-                  await supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", nameMatch.id);
-                }
-              }
-              qc.invalidateQueries({ queryKey: ["food_items"] });
+            // Build a Meal-like object for the transfer functions
+            const mealObj = {
+              id: breakfast.id,
+              name: breakfast.name,
+              category: breakfast.category || 'petit_dejeuner',
+              calories: breakfast.calories,
+              protein: breakfast.protein,
+              grams: breakfast.grams,
+              ingredients: breakfast.ingredients,
+              color: breakfast.color,
+              sort_order: breakfast.sort_order,
+              created_at: breakfast.created_at,
+              is_available: (breakfast as any).is_available ?? false,
+              is_favorite: (breakfast as any).is_favorite ?? false,
+              oven_temp: breakfast.oven_temp ?? null,
+              oven_minutes: breakfast.oven_minutes ?? null,
+            } as Meal;
+
+            if (mealObj.ingredients?.trim()) {
+              // Use ingredient-based deduction
+              await deductIngredientsFromStock(mealObj);
+            } else {
+              // Use name-match deduction
+              await deductNameMatchStock(mealObj);
             }
+            qc.invalidateQueries({ queryKey: ["food_items"] });
           }
         }
         setPreference.mutate({ key: 'planning_auto_consumed_days', value: updatedConsumed });
       }
     };
     runAutoConsume();
-  }, [foodItems.length]);
+  }, [foodItems.length, prefsLoading, possibleMeals]);
 
   const planningMeals = possibleMeals.filter((pm) => {
     if (pm.meals?.category === "plat") return true;
