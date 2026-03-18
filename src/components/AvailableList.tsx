@@ -17,7 +17,7 @@ import {
   type StockInfo, type FoodItemIndex,
 } from "@/lib/stockUtils";
 import {
-  normalizeForMatch, strictNameMatch, parseQty, formatNumeric, getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, computeIngredientProtein
+  normalizeForMatch, strictNameMatch, parseQty, formatNumeric, getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, computeIngredientProtein, computeCounterDays
 } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
@@ -309,13 +309,13 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
       return compareExpirationWithCounter(aAn.earliestExpiration, bAn.earliestExpiration, aAn.maxIngredientCounter, bAn.maxIngredientCounter);
     });
     sortedNameMatches.sort((a, b) => {
-      const ac = a.fi.counter_start_date ? Math.floor((Date.now() - new Date(a.fi.counter_start_date).getTime()) / 86400000) : null;
-      const bc = b.fi.counter_start_date ? Math.floor((Date.now() - new Date(b.fi.counter_start_date).getTime()) / 86400000) : null;
+      const ac = computeCounterDays(a.fi.counter_start_date);
+      const bc = computeCounterDays(b.fi.counter_start_date);
       return compareExpirationWithCounter(a.fi.expiration_date, b.fi.expiration_date, ac, bc);
     });
     sortedIsMealItems.sort((a, b) => {
-      const ac = a.counter_start_date ? Math.floor((Date.now() - new Date(a.counter_start_date).getTime()) / 86400000) : null;
-      const bc = b.counter_start_date ? Math.floor((Date.now() - new Date(b.counter_start_date).getTime()) / 86400000) : null;
+      const ac = computeCounterDays(a.counter_start_date);
+      const bc = computeCounterDays(b.counter_start_date);
       return compareExpirationWithCounter(a.expiration_date, b.expiration_date, ac, bc);
     });
     const isMealNoDate = sortedIsMealItems.filter(fi => !fi.expiration_date);
@@ -540,7 +540,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const displayGrams = fi.quantity && fi.quantity > 1 && fi.grams
       ? `${parseQty(fi.grams) * fi.quantity}g`
       : (fi.is_infinite ? "∞" : fi.grams ?? null);
-    const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+    const counterDays = computeCounterDays(fi.counter_start_date);
     const fakeMeal: Meal = {
       id: `fi-${fi.id}`, name: fi.name, category: "plat", calories: fi.calories,
       protein: fi.protein ?? null,
@@ -570,7 +570,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const { meal, fi, portionsAvailable } = nm;
     const nmKey = `nm-${meal.id}-${fi.id}`;
     const expLabel = formatExpirationLabel(fi.expiration_date);
-    const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+    const counterDays = computeCounterDays(fi.counter_start_date);
     const customRatio = customRatios[nmKey];
     const effectiveRatio = customRatio ?? 1;
     const baseGrams = fi.quantity && fi.quantity > 1 && fi.grams
@@ -788,8 +788,8 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
       <div className="flex flex-wrap gap-1.5">
         {[...allItems].sort((a, b) => {
           const today = new Date(new Date().toDateString());
-          const aCounter = a.counter_start_date ? Math.floor((Date.now() - new Date(a.counter_start_date).getTime()) / 86400000) : null;
-          const bCounter = b.counter_start_date ? Math.floor((Date.now() - new Date(b.counter_start_date).getTime()) / 86400000) : null;
+          const aCounter = computeCounterDays(a.counter_start_date);
+          const bCounter = computeCounterDays(b.counter_start_date);
           if (aCounter !== null && bCounter === null) return -1;
           if (aCounter === null && bCounter !== null) return 1;
           if (aCounter !== null && bCounter !== null && aCounter !== bCounter) return bCounter - aCounter;
@@ -809,7 +809,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           const daysUntilExp = fi.expiration_date ? Math.ceil((new Date(fi.expiration_date).getTime() - new Date(todayStr).getTime()) / 86400000) : null;
           const isSoonExpiring = daysUntilExp !== null && daysUntilExp >= 0 && daysUntilExp <= 7;
           const expLabel = fi.expiration_date ? format(parseISO(fi.expiration_date), 'd MMM', { locale: fr }) : null;
-          const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+          const counterDays = computeCounterDays(fi.counter_start_date);
           const counterUrgent = counterDays !== null && counterDays >= 3;
           const isCrossCat = crossCatIds.has(fi.id);
           return (
@@ -943,13 +943,13 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
 
               const unified: UnifiedItem[] = [];
               for (const fi of [...sortedIsMealItems, ...isMealWithDate]) {
-                const counter = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+                const counter = computeCounterDays(fi.counter_start_date);
                 const fakeMeal: Meal = { ...fi as unknown as Meal, calories: fi.calories, ingredients: null };
                 unified.push({ type: 'isMeal', fi, sortDate: fi.expiration_date, sortCounter: counter, sortCalories: getDisplayedCalories(fakeMeal) });
               }
               for (let i = 0; i < sortedNameMatches.length; i++) {
                 const nm = sortedNameMatches[i];
-                const counter = nm.fi.counter_start_date ? Math.floor((Date.now() - new Date(nm.fi.counter_start_date).getTime()) / 86400000) : null;
+                const counter = computeCounterDays(nm.fi.counter_start_date);
                 unified.push({ type: 'nm', nm, nmIdx: i, sortDate: nm.fi.expiration_date, sortCounter: counter, sortCalories: getDisplayedCalories(nm.meal) });
               }
               for (const item of sortedAvailable) {

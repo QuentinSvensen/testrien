@@ -11,6 +11,7 @@ import {
   getFoodItemTotalGrams, parseIngredientLine, parseIngredientLineRaw, parseIngredientGroups,
   extractMetrics, computeIngredientCalories, computeIngredientProtein,
   extractIngredientMacros, applyIngredientMacros,
+  computeCounterDays,
   type ParsedIngredient,
 } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
@@ -256,15 +257,17 @@ export function analyzeMealIngredients(
         }
         // Counter analysis
         if (fi.counter_start_date) {
-          const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
-          if (result.maxIngredientCounter === null || days > result.maxIngredientCounter) {
-            result.maxIngredientCounter = days;
-            result.maxCounterName = fi.name;
+          const days = computeCounterDays(fi.counter_start_date);
+          if (days !== null) {
+            if (result.maxIngredientCounter === null || days > result.maxIngredientCounter) {
+              result.maxIngredientCounter = days;
+              result.maxCounterName = fi.name;
+            }
+            if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
+              result.earliestCounterDate = fi.counter_start_date;
+            }
+            result.counterIngredientNames.add(normalizeKey(alt.name));
           }
-          if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
-            result.earliestCounterDate = fi.counter_start_date;
-          }
-          result.counterIngredientNames.add(normalizeKey(alt.name));
         }
       }
     }
@@ -399,8 +402,8 @@ export function sortStockDeductionPriority(a: FoodItem, b: FoodItem): number {
   if (aHas && !bHas) return -1;
   if (!aHas && bHas) return 1;
   if (aHas && bHas) {
-    const aD = Math.floor((Date.now() - new Date(a.counter_start_date!).getTime()) / 86400000);
-    const bD = Math.floor((Date.now() - new Date(b.counter_start_date!).getTime()) / 86400000);
+    const aD = computeCounterDays(a.counter_start_date!) ?? 0;
+    const bD = computeCounterDays(b.counter_start_date!) ?? 0;
     if (aD !== bD) return bD - aD;
   }
   if (a.expiration_date && b.expiration_date) return a.expiration_date.localeCompare(b.expiration_date);

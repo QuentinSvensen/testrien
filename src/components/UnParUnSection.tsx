@@ -6,7 +6,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import type { Meal } from "@/hooks/useMeals";
 import { colorFromName, type FoodItem } from "@/components/FoodItems";
 import { buildStockMap, findStockKey, getMealMultiple } from "@/lib/stockUtils";
-import { normalizeForMatch, strictNameMatch, parseIngredientGroups, formatNumeric, getFoodItemTotalGrams, extractIngredientMacros, normalizeKey } from "@/lib/ingredientUtils";
+import { normalizeForMatch, strictNameMatch, parseIngredientGroups, formatNumeric, getFoodItemTotalGrams, extractIngredientMacros, normalizeKey, computeCounterDays } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
@@ -222,7 +222,7 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
     const isExpired = fi.expiration_date ? new Date(fi.expiration_date) < new Date(new Date().toDateString()) : false;
     const totalG = getFoodItemTotalGrams(fi);
     const qty = fi.quantity && fi.quantity > 1 ? fi.quantity : null;
-    const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+    const counterDays = computeCounterDays(fi.counter_start_date);
     const counterUrgent = counterDays !== null && counterDays >= 3;
     const color = colorFromName(fi.id);
 
