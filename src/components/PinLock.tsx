@@ -35,7 +35,7 @@ export const PinLock = forwardRef<HTMLDivElement, { onUnlock: () => void }>(func
       try { data = await res.json(); } catch { /* ignore */ }
 
       if (data.success && data.access_token && data.refresh_token) {
-        await supabase.auth.setSession({
+        await (supabase.auth as any).setSession({
           access_token: data.access_token as string,
           refresh_token: data.refresh_token as string,
         });

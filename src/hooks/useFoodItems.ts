@@ -38,7 +38,7 @@ export function useFoodItems(options?: { enabled?: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
+    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((event: string) => {
       if (event === "SIGNED_IN") {
         qc.invalidateQueries({ queryKey: ["food_items"] });
       }

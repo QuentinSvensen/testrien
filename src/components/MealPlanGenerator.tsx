@@ -146,7 +146,7 @@ export function MealPlanGenerator() {
     const isToujoursItem = (item: { name: string; group_id: string | null }, itemKey: string) => {
       if (item.group_id && toujoursPresentGroupIds.has(item.group_id)) return true;
       if (toujoursFoodKeys.has(itemKey)) return true;
-      return toujoursKeys.some((tjKey) => smartFoodContains(item.name, tjKey));
+      return toujoursKeys.some((tjKey) => smartFoodContains(item.name, tjKey as string));
     };
 
     const computeQtyNeeded = (item: { content_quantity: string | null; content_quantity_type: string | null }, need: { grams: number; count: number }) => {
@@ -469,7 +469,7 @@ export function MealPlanGenerator() {
     // Check which ingredients match shopping list items or "Toujours présent" food items
     const toujoursKeys = [...toujoursFoodKeys];
     for (const [key, item] of map) {
-      if (toujoursFoodKeys.has(key) || toujoursKeys.some((tjKey) => smartFoodContains(item.displayName, tjKey))) {
+      if (toujoursFoodKeys.has(key) || toujoursKeys.some((tjKey) => smartFoodContains(item.displayName, tjKey as string))) {
         item.matched = true;
         continue;
       }
@@ -477,7 +477,7 @@ export function MealPlanGenerator() {
       const exactMatches = shoppingItems.filter((si) => {
         if (si.group_id && toujoursPresentGroupIds.has(si.group_id)) return false;
         const siKey = normalizeKey(si.name);
-        if (toujoursFoodKeys.has(siKey) || toujoursKeys.some((tjKey) => smartFoodContains(si.name, tjKey))) return false;
+        if (toujoursFoodKeys.has(siKey) || toujoursKeys.some((tjKey) => smartFoodContains(si.name, tjKey as string))) return false;
         return siKey === key || keyMatch(siKey, key);
       });
 
@@ -489,7 +489,7 @@ export function MealPlanGenerator() {
       const partialMatches = shoppingItems.filter((si) => {
         if (si.group_id && toujoursPresentGroupIds.has(si.group_id)) return false;
         const siKey = normalizeKey(si.name);
-        if (toujoursFoodKeys.has(siKey) || toujoursKeys.some((tjKey) => smartFoodContains(si.name, tjKey))) return false;
+        if (toujoursFoodKeys.has(siKey) || toujoursKeys.some((tjKey) => smartFoodContains(si.name, tjKey as string))) return false;
         return smartFoodContains(si.name, item.displayName);
       });
 
