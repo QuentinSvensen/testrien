@@ -129,9 +129,10 @@ export function smartFoodContains(a: string, b: string): boolean {
     const sSing = singularize(sWord);
     const lSing = singularize(lWord);
     if (sSing !== lSing) {
-      // Also allow trailing 'e' tolerance: "haché" vs "hachée" → "haché" vs "haché" after stripTrailingE
-      const sBase = stripTrailingE(sSing);
-      const lBase = stripTrailingE(lSing);
+      // Allow trailing 'e' tolerance: "haché" vs "hachée" → same after removing single trailing 'e'
+      // But "épice" vs "épicée" → "épic" vs "épicé" → different → reject
+      const sBase = sSing.replace(/e$/, '');
+      const lBase = lSing.replace(/e$/, '');
       if (sBase !== lBase) return false;
     }
   }
