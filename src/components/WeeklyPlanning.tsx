@@ -766,11 +766,56 @@ export function WeeklyPlanning() {
     const isComputedPro = ingPro !== null;
     const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
 
+    // Detect scale ratio to show scaled grams in planning
+    let displayMeal = meal;
+    if (pm.ingredients_override && meal.grams) {
+      const baseIngStr = meal.ingredients
+        ? meal.ingredients
+        : (() => {
+            const bg = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+            return bg > 0 ? `${bg}g ${meal.name}` : `1 ${meal.name}`;
+          })();
+      const origGroups = baseIngStr.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
+      const overGroups = pm.ingredients_override.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
+      if (origGroups.length > 0) {
+        const ratios: number[] = [];
+        for (let i = 0; i < Math.min(origGroups.length, overGroups.length); i++) {
+          const origAlt = origGroups[i].split(/\|/)[0].trim();
+          const overAlt = overGroups[i].split(/\|/)[0].trim();
+          if (origAlt.startsWith("?")) continue;
+          const origMatch = origAlt.match(/^(\d+(?:[.,]\d+)?)\s*(?:g|gr|grammes?|kg|ml|cl|l)\s/i);
+          const overMatch = overAlt.match(/^(\d+(?:[.,]\d+)?)\s*(?:g|gr|grammes?|kg|ml|cl|l)\s/i);
+          if (origMatch && overMatch) {
+            const oq = parseFloat(origMatch[1].replace(",", "."));
+            const nq = parseFloat(overMatch[1].replace(",", "."));
+            if (oq > 0 && nq > 0) { ratios.push(nq / oq); continue; }
+          }
+          const origC = origAlt.match(/^(\d+(?:[.,]\d+)?)\s+\S/);
+          const overC = overAlt.match(/^(\d+(?:[.,]\d+)?)\s+\S/);
+          if (origC && overC && !origMatch && !overMatch) {
+            const oc = parseFloat(origC[1].replace(",", "."));
+            const nc = parseFloat(overC[1].replace(",", "."));
+            if (oc > 0 && nc > 0) { ratios.push(nc / oc); continue; }
+          }
+          ratios.push(1);
+        }
+        if (ratios.length > 0) {
+          const first = ratios[0];
+          if (Math.abs(first - 1) > 0.01 && ratios.every(r => Math.abs(r - first) / first < 0.05)) {
+            const baseG = parseFloat(meal.grams!.replace(/[^0-9.]/g, '')) || 0;
+            if (baseG > 0) {
+              displayMeal = { ...meal, grams: String(Math.round(baseG * first)) };
+            }
+          }
+        }
+      }
+    }
+
     return (
       <PlanningMiniCard
         key={pm.id}
         pm={pm}
-        meal={meal}
+        meal={displayMeal}
         expired={expired}
         expiredIngredientNames={expiredIngs}
         expiringSoonIngredientNames={soonIngs}
