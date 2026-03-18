@@ -5,7 +5,7 @@ import { MealList } from "@/components/MealList";
 import { PossibleMealCard } from "@/components/PossibleMealCard";
 import type { PossibleMeal } from "@/hooks/useMeals";
 import { computeIngredientCalories } from "@/lib/ingredientUtils";
-import { buildStockMap, getExpiredIngredientNames, getExpiringSoonIngredientNames } from "@/lib/stockUtils";
+import { buildStockMap, analyzeMealIngredients } from "@/lib/stockUtils";
 import type { FoodItem } from "@/components/FoodItems";
 
 const MemoizedPossibleMealCard = React.memo(
@@ -128,8 +128,9 @@ export function PossibleList({ category, items, sortMode, onToggleSort, onRandom
         if (!meal) return null;
         const currentIngredients = pm.ingredients_override ?? meal.ingredients;
         const mealForAnalysis = { ...meal, ingredients: currentIngredients };
-        const expiredIngs = getExpiredIngredientNames(mealForAnalysis, foodItems);
-        const soonIngs = getExpiringSoonIngredientNames(mealForAnalysis, foodItems);
+        const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
+        const expiredIngs = analysis.expiredIngredientNames;
+        const soonIngs = analysis.expiringSoonIngredientNames;
 
         return (
           <MemoizedPossibleMealCard key={pm.id} pm={pm} stockMap={stockMap}

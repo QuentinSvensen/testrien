@@ -32,8 +32,7 @@ import {
 import {
   buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
   getMealMultiple, getMealFractionalRatio,
-  getEarliestIngredientExpiration, getEarliestIngredientCounterDate, getExpiringIngredientName, getExpiredIngredientNames,
-  getMaxIngredientCounter, getMaxIngredientCounterName, getCounterIngredientNames,
+  analyzeMealIngredients,
   getMissingIngredients, isFoodUsedInMeals,
   formatExpirationLabel, compareExpirationWithCounter,
   sortStockDeductionPriority, buildScaledMealForRatio, scaleIngredientStringExact,
@@ -709,20 +708,18 @@ const Index = () => {
                       const snapshots = await deductIngredientsFromStock(meal);
                       const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
                       if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
-                      const expDate = getEarliestIngredientExpiration(meal, foodItems);
-                      const counterDate = getEarliestIngredientCounterDate(meal, foodItems);
-                      const result = await moveToPossible.mutateAsync({ mealId, expiration_date: expDate, counter_start_date: counterDate });
+                      const an = analyzeMealIngredients(meal, foodItems, foodItemIndex);
+                      const result = await moveToPossible.mutateAsync({ mealId, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate });
                       if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
                     }
                   }}
                   onMovePartialToPossible={async (meal, ratio) => {
                     const partialMeal = buildScaledMealForRatio(meal, ratio, stockMap);
                     const snapshots = await deductIngredientsFromStock(partialMeal);
-                    const expDate = getEarliestIngredientExpiration(meal, foodItems);
-                    const counterDate = getEarliestIngredientCounterDate(meal, foodItems);
+                    const an = analyzeMealIngredients(meal, foodItems, foodItemIndex);
                     const result = await addMealToPossibleDirectly.mutateAsync({
                       name: meal.name, category: cat.value, colorSeed: meal.id,
-                      calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: expDate, counter_start_date: counterDate,
+                      calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate,
                     });
                     if (result?.id) {
                       updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));

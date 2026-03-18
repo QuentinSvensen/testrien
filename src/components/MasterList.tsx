@@ -6,7 +6,7 @@ import { MealList } from "@/components/MealList";
 import { MealCard } from "@/components/MealCard";
 import type { Meal } from "@/hooks/useMeals";
 import type { FoodItem } from "@/components/FoodItems";
-import { buildStockMap, getMissingIngredients, getEarliestIngredientExpiration, formatExpirationLabel, getExpiredIngredientNames, getExpiringSoonIngredientNames } from "@/lib/stockUtils";
+import { buildStockMap, getMissingIngredients, analyzeMealIngredients, formatExpirationLabel } from "@/lib/stockUtils";
 import { normalizeForMatch } from "@/lib/ingredientUtils";
 import { isToday } from "date-fns";
 
@@ -98,11 +98,9 @@ export function MasterList({ category, meals, foodItems, sortMode, sortAsc, onTo
           {filteredMeals.length === 0 && <p className="text-muted-foreground text-sm text-center py-6 italic">{searchQuery ? "Aucun résultat" : "Aucun repas"}</p>}
           {filteredMeals.map((meal, index) => {
             const missingIngs = getMissingIngredients(meal, stockMap);
-            const expDate = getEarliestIngredientExpiration(meal, foodItems);
-            const expLabel = formatExpirationLabel(expDate);
-            const expIsTodayM = isToday(expDate);
-            const expiredIngs = getExpiredIngredientNames(meal, foodItems);
-            const soonIngs = getExpiringSoonIngredientNames(meal, foodItems);
+            const analysis = analyzeMealIngredients(meal, foodItems);
+            const expLabel = formatExpirationLabel(analysis.earliestExpiration);
+            const expIsTodayM = isToday(analysis.earliestExpiration);
 
             return (
               <MealCard key={meal.id} meal={meal}
@@ -117,8 +115,8 @@ export function MasterList({ category, meals, foodItems, sortMode, sortAsc, onTo
                 onUpdateOvenTemp={(t) => onUpdateOvenTemp(meal.id, t)}
                 onUpdateOvenMinutes={(m) => onUpdateOvenMinutes(meal.id, m)}
                 missingIngredientNames={missingIngs.size > 0 ? missingIngs : undefined}
-                expirationLabel={expLabel} expirationDate={expDate} expirationIsToday={expIsTodayM}
-                expiredIngredientNames={expiredIngs} expiringSoonIngredientNames={soonIngs}
+                expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayM}
+                expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames}
                 onDragStart={(e) => { e.dataTransfer.setData("mealId", meal.id); e.dataTransfer.setData("source", "master"); setDragIndex(index); }}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (dragIndex !== null && dragIndex !== index) onReorder(dragIndex, index); setDragIndex(null); }} />

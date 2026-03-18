@@ -9,11 +9,11 @@ import { colorFromName, type FoodItem } from "@/components/FoodItems";
 import { usePreferences } from "@/hooks/usePreferences";
 import {
   buildStockMap, findStockKey, getMealMultiple, getMealFractionalRatio,
-  getEarliestIngredientExpiration, getExpiringIngredientName, getExpiredIngredientNames, getExpiringSoonIngredientNames,
-  getMaxIngredientCounter, getCounterIngredientNames, getMissingIngredients,
+  analyzeMealIngredients,
+  getMissingIngredients,
   formatExpirationLabel, compareExpirationWithCounter, buildScaledMealForRatio,
   getIndivisibleConstrainedRatio, getValidDiscreteRatios,
-  type StockInfo,
+  type StockInfo, type FoodItemIndex,
 } from "@/lib/stockUtils";
 import {
   normalizeForMatch, strictNameMatch, parseQty, formatNumeric, getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, computeIngredientProtein
@@ -324,11 +324,9 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     }
   } else if (sortMode === "expiration") {
     sortedAvailable.sort((a, b) => {
-      const aExp = getEarliestIngredientExpiration(a.meal, foodItems);
-      const bExp = getEarliestIngredientExpiration(b.meal, foodItems);
-      const aCounter = getMaxIngredientCounter(a.meal, foodItems);
-      const bCounter = getMaxIngredientCounter(b.meal, foodItems);
-      return compareExpirationWithCounter(aExp, bExp, aCounter, bCounter);
+      const aAn = analyzeMealIngredients(a.meal, foodItems);
+      const bAn = analyzeMealIngredients(b.meal, foodItems);
+      return compareExpirationWithCounter(aAn.earliestExpiration, bAn.earliestExpiration, aAn.maxIngredientCounter, bAn.maxIngredientCounter);
     });
     sortedNameMatches.sort((a, b) => {
       const ac = a.fi.counter_start_date ? Math.floor((Date.now() - new Date(a.fi.counter_start_date).getTime()) / 86400000) : null;
@@ -497,12 +495,17 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const validRatios = getValidDiscreteRatios(meal, stockMap);
 
     if (!validRatios) {
-       // Continuous
-       let tr = targetRatio;
-       while (tr >= 0.5) {
-         currentCal = getDisplayedCalories(buildScaledMealForRatio(meal, tr, stockMap));
-         if (currentCal !== null && currentCal <= calorieThreshold) return { show: true, newRatio: tr };
-         tr -= 0.01;
+       // Continuous: direct calculation instead of while loop (O(1) vs O(50))
+       // Round down to nearest 0.01 to ensure we don't exceed threshold
+       const directRatio = Math.floor(targetRatio * 100) / 100;
+       if (directRatio < 0.5) return { show: false, newRatio: null };
+       const checkCal = getDisplayedCalories(buildScaledMealForRatio(meal, directRatio, stockMap));
+       if (checkCal !== null && checkCal <= calorieThreshold) return { show: true, newRatio: directRatio };
+       // Edge case: rounding artifacts — try one step down
+       const fallback = directRatio - 0.01;
+       if (fallback >= 0.5) {
+         const fbCal = getDisplayedCalories(buildScaledMealForRatio(meal, fallback, stockMap));
+         if (fbCal !== null && fbCal <= calorieThreshold) return { show: true, newRatio: fallback };
        }
        return { show: false, newRatio: null };
     } else {
@@ -670,14 +673,11 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
 
     const effectiveRatio = customRatio ?? 1;
     const displayMeal = effectiveRatio !== 1 ? buildScaledMealForRatio(meal, effectiveRatio, stockMap) : meal;
-    const expDate = getEarliestIngredientExpiration(meal, foodItems);
-    const expLabel = formatExpirationLabel(expDate);
-    const expiringIng = getExpiringIngredientName(meal, foodItems);
-    const expIsTodayAv = isToday(expDate);
-    const expiredIngs = getExpiredIngredientNames(meal, foodItems);
-    const soonIngs = getExpiringSoonIngredientNames(meal, foodItems);
-    const maxCounter = getMaxIngredientCounter(meal, foodItems);
-    const counterIngs = getCounterIngredientNames(meal, foodItems);
+    // Single-pass analysis replaces 6 separate function calls
+    const analysis = analyzeMealIngredients(meal, foodItems);
+    const expLabel = formatExpirationLabel(analysis.earliestExpiration);
+    const expIsTodayAv = isToday(analysis.earliestExpiration);
+    const expiringIng = analysis.expiringIngredientName;
     return (
       <div key={meal.id} className="relative">
         <MealCard meal={displayMeal}
@@ -696,9 +696,9 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           onDragStart={(e) => { e.dataTransfer.setData("mealId", meal.id); e.dataTransfer.setData("source", "available"); if (unifiedIdx !== undefined) setAvDragIndex(unifiedIdx); }}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
-          hideDelete expirationLabel={expLabel} expirationDate={expDate} expirationIsToday={expIsTodayAv}
-          expiringIngredientName={expiringIng} expiredIngredientNames={expiredIngs} expiringSoonIngredientNames={soonIngs}
-          counterIngredientNames={counterIngs} maxIngredientCounter={maxCounter} />
+          hideDelete expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayAv}
+          expiringIngredientName={expiringIng} expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames}
+          counterIngredientNames={analysis.counterIngredientNames} maxIngredientCounter={analysis.maxIngredientCounter} />
         {multiple !== null && (
           editingRatioId === meal.id ? (
             <div className="absolute top-1 right-2 z-20">
@@ -748,15 +748,11 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
 
     const effectiveRatio = customRatio ?? defaultRatio;
     const pct = Math.round(effectiveRatio * 100);
-    const expDate = getEarliestIngredientExpiration(meal, foodItems);
-    const expLabel = formatExpirationLabel(expDate);
-    const expIsTodayPa = isToday(expDate);
-    const maxCounter = getMaxIngredientCounter(meal, foodItems);
-    const counterIngs = getCounterIngredientNames(meal, foodItems);
+    const analysis = analyzeMealIngredients(meal, foodItems);
+    const expLabel = formatExpirationLabel(analysis.earliestExpiration);
+    const expIsTodayPa = isToday(analysis.earliestExpiration);
     const partialMeal = buildScaledMealForRatio(meal, effectiveRatio, stockMap);
     const partialKey = `partial-${meal.id}`;
-    const expiredIngsPa = getExpiredIngredientNames(meal, foodItems);
-    const soonIngsPa = getExpiringSoonIngredientNames(meal, foodItems);
     return (
       <div key={partialKey} className="relative">
         <MealCard meal={partialMeal}
@@ -770,7 +766,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           onDragStart={(e) => { e.dataTransfer.setData("mealId", meal.id); e.dataTransfer.setData("source", "available"); if (unifiedIdx !== undefined) setAvDragIndex(unifiedIdx); }}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
-          hideDelete expirationLabel={expLabel} expirationDate={expDate} expirationIsToday={expIsTodayPa} expiredIngredientNames={expiredIngsPa} expiringSoonIngredientNames={soonIngsPa} counterIngredientNames={counterIngs} maxIngredientCounter={maxCounter} />
+          hideDelete expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayPa} expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames} counterIngredientNames={analysis.counterIngredientNames} maxIngredientCounter={analysis.maxIngredientCounter} />
         {editingRatioId === partialKey ? (
           <div className="absolute top-1 right-2 z-20">
             <Input autoFocus value={ratioInput}
@@ -974,18 +970,16 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
                 unified.push({ type: 'nm', nm, nmIdx: i, sortDate: nm.fi.expiration_date, sortCounter: counter, sortCalories: getDisplayedCalories(nm.meal) });
               }
               for (const item of sortedAvailable) {
-                const expDate = getEarliestIngredientExpiration(item.meal, foodItems);
-                const maxCounter = getMaxIngredientCounter(item.meal, foodItems);
+                const an = analyzeMealIngredients(item.meal, foodItems);
                 const ratio = customRatios[item.meal.id] ?? 1;
                 const displayMeal = ratio !== 1 ? buildScaledMealForRatio(item.meal, ratio, stockMap) : item.meal;
-                unified.push({ type: 'av', item, sortDate: expDate, sortCounter: maxCounter, sortCalories: getDisplayedCalories(displayMeal) });
+                unified.push({ type: 'av', item, sortDate: an.earliestExpiration, sortCounter: an.maxIngredientCounter, sortCalories: getDisplayedCalories(displayMeal) });
               }
               for (const item of partialAvailable) {
-                const expDate = getEarliestIngredientExpiration(item.meal, foodItems);
-                const maxCounter = getMaxIngredientCounter(item.meal, foodItems);
+                const an = analyzeMealIngredients(item.meal, foodItems);
                 const ratio = customRatios[`partial-${item.meal.id}`] ?? item.ratio;
                 const displayMeal = buildScaledMealForRatio(item.meal, ratio, stockMap);
-                unified.push({ type: 'partial', item, sortDate: expDate, sortCounter: maxCounter, sortCalories: getDisplayedCalories(displayMeal) });
+                unified.push({ type: 'partial', item, sortDate: an.earliestExpiration, sortCounter: an.maxIngredientCounter, sortCalories: getDisplayedCalories(displayMeal) });
               }
               
               // Apply search filter
