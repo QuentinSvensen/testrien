@@ -57,33 +57,15 @@ interface PossibleListProps {
   unParUnSourcePmIds: Set<string>;
 }
 
-export function PossibleList({ category, items, sortMode, onToggleSort, onRandomPick, onRemove, onReturnWithoutDeduction, onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onUpdatePossibleIngredients, onUpdateQuantity, onReorder, onExternalDrop, highlightedId, foodItems, onAddDirectly, masterSourcePmIds, unParUnSourcePmIds }: PossibleListProps) {
+export function PossibleList({ category, items, sortMode, stockMap, onToggleSort, onRandomPick, onRemove, onReturnWithoutDeduction, onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onUpdatePossibleIngredients, onUpdateQuantity, onReorder, onExternalDrop, highlightedId, foodItems, onAddDirectly, masterSourcePmIds, unParUnSourcePmIds }: PossibleListProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const sortLabel = sortMode === "manual" ? "Manuel" : sortMode === "expiration" ? "Péremption" : "Planning";
   const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "planning" ? CalendarClock : ArrowUpDown;
 
-  const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
-
   const getCounterDays = (startDate: string | null, pm?: PossibleMeal): number | null => {
     if (!startDate) return null;
-    // Freeze counter at the value it had when moved to possible (use created_at as reference)
     const refTime = pm?.created_at ? new Date(pm.created_at).getTime() : Date.now();
     return Math.floor((refTime - new Date(startDate).getTime()) / 86400000);
-  };
-
-  const getDisplayedCalories = (pm: PossibleMeal): number | null => {
-    const ingredients = pm.ingredients_override ?? pm.meals?.ingredients;
-    const ingCal = computeIngredientCalories(ingredients);
-    if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-
-    const raw = pm.meals?.calories;
-    if (!raw) return null;
-
-    const match = raw.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-    if (!match) return null;
-
-    const parsed = Number.parseFloat(match[0]);
-    return Number.isFinite(parsed) ? parsed : null;
   };
 
   const displayItems = useMemo(() => {
