@@ -92,21 +92,46 @@ export function useCalorieBalance() {
     return mealCals + breakfastCal + extra + drinkCal;
   };
 
+  const getDayProtein = (day: string): number => {
+    const mealPro = TIMES.reduce((total, time) => {
+      const slotMeals = getMealsForSlot(day, time);
+      if (slotMeals.length > 0) {
+        return total + slotMeals.reduce((s, pm) => {
+          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
+          const ingPro = computeIngredientProtein(displayIngredients);
+          if (ingPro !== null) return s + ingPro;
+          return s + parseCalories(pm.meals?.protein);
+        }, 0);
+      }
+      return total + (manualProteins[`${day}-${time}`] || 0);
+    }, 0);
+
+    const breakfast = getBreakfastForDay(day);
+    const extra = extraProteins[day] || 0;
+    let breakfastPro = 0;
+    if (breakfast) {
+      const possiblePdj = possibleMeals.find(pm => pm.meal_id === breakfastSelections[day] && pm.meals?.category === 'petit_dejeuner');
+      const breakfastIngredients = possiblePdj?.ingredients_override ?? breakfast.ingredients;
+      const ingPro = computeIngredientProtein(breakfastIngredients);
+      breakfastPro = ingPro !== null ? ingPro : parseCalories(breakfast.protein);
+    } else {
+      breakfastPro = breakfastManualProteins[day] || 0;
+    }
+
+    return mealPro + breakfastPro + extra;
+  };
+
   const getTargetCalorieThreshold = () => {
     const todayNum = new Date().getDay();
     const todayKey = JS_DAY_TO_KEY[todayNum];
     const todayIndex = DAY_KEY_TO_INDEX[todayKey];
 
-    // Calcul de la moyenne des différences (Lundi inclus - aujourd'hui exclu)
-    // On ne compte que les jours où il y a eu une certaine interaction (calories > 0)
     let differencesSum = 0;
     let daysCount = 0;
 
     for (let i = 0; i < todayIndex; i++) {
         const pastDayKey = DAYS[i];
         const consumed = getDayCalories(pastDayKey);
-        
-        // Si 0, on considère le jour comme non rempli, on l'ignore de la moyenne.
         if (consumed > 0) {
             differencesSum += (consumed - DAILY_GOAL);
             daysCount++;
@@ -116,12 +141,16 @@ export function useCalorieBalance() {
     const avgDifference = daysCount > 0 ? (differencesSum / daysCount) : 0;
     const todayConsumed = getDayCalories(todayKey);
     const remainingToday = DAILY_GOAL - todayConsumed;
-
-    // Seuil = Restant aujourd'hui - moyenneDesDiffs
-    // Exemple : reste 700, diffMoyenne = -50 (donc on a moins mangé). Seuil => 700 - (-50) = 750
     const threshold = remainingToday - avgDifference;
     return Math.max(0, threshold);
   };
 
-  return { getDayCalories, DAILY_GOAL, getBreakfastForDay, getTargetCalorieThreshold };
+  const getRemainingProtein = () => {
+    const todayNum = new Date().getDay();
+    const todayKey = JS_DAY_TO_KEY[todayNum];
+    const todayConsumed = getDayProtein(todayKey);
+    return Math.max(0, DAILY_PROTEIN_GOAL - todayConsumed);
+  };
+
+  return { getDayCalories, getDayProtein, DAILY_GOAL, DAILY_PROTEIN_GOAL, getBreakfastForDay, getTargetCalorieThreshold, getRemainingProtein };
 }
