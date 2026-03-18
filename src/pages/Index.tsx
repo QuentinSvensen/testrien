@@ -613,8 +613,6 @@ const Index = () => {
                           for (const si of shoppingItems) {
                             if (matched.has(si.id)) {
                               toggleShoppingSecondaryCheck.mutate({ id: si.id, secondary_checked: true });
-                              const dq = String(dqMap.get(si.id) || 1);
-                              if ((si.quantity || null) !== dq) updateShoppingItemQuantity.mutate({ id: si.id, quantity: dq });
                             }
                           }
                         }
