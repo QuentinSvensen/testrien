@@ -598,7 +598,7 @@ const Index = () => {
                           const tjArr = [...tjKeys];
                           const tjGrpIds = new Set(shoppingGroups.filter(g => { const n = normalizeKey(g.name); return n.includes('toujours present') || n.includes('toujours la'); }).map(g => g.id));
                           const isTJ = (si: { name: string; group_id: string | null }, k: string) =>
-                            !!(si.group_id && tjGrpIds.has(si.group_id)) || tjKeys.has(k) || tjArr.some(t => smartFoodContains(si.name, t));
+                            !!(si.group_id && tjGrpIds.has(si.group_id)) || tjKeys.has(k) || tjArr.some(t => smartFoodContains(si.name, t as string));
                           const matched = new Set<string>();
                           const dqMap = new Map<string, number>();
                           for (const [nk, need] of entries) {

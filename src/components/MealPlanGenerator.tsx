@@ -489,7 +489,7 @@ export function MealPlanGenerator() {
       const partialMatches = shoppingItems.filter((si) => {
         if (si.group_id && toujoursPresentGroupIds.has(si.group_id)) return false;
         const siKey = normalizeKey(si.name);
-        if (toujoursFoodKeys.has(siKey) || toujoursKeys.some((tjKey) => smartFoodContains(si.name, tjKey))) return false;
+        if (toujoursFoodKeys.has(siKey) || toujoursKeys.some((tjKey) => smartFoodContains(si.name, tjKey as string))) return false;
         return smartFoodContains(si.name, item.displayName);
       });
 
