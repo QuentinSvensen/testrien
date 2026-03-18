@@ -6,7 +6,7 @@ import { Dice5, Flame, Weight, HelpCircle, ArrowUpDown, CalendarDays } from "luc
 import { Button } from "@/components/ui/button";
 import { usePreferences } from "@/hooks/usePreferences";
 import { Separator } from "@/components/ui/separator";
-import { normalizeKey, parseIngredientLineRaw, smartFoodContains, computeIngredientCalories, computeIngredientProtein, cleanIngredientText } from "@/lib/ingredientUtils";
+import { normalizeKey, parseIngredientLineRaw, smartFoodContains, computeIngredientCalories, computeIngredientProtein, cleanIngredientText, accentSafeKeyMatch } from "@/lib/ingredientUtils";
 
 const MENU_PREF_KEY = "menu_generator_selected_ids_v1";
 const MENU_NEEDS_KEY = "menu_generator_needs_v1";
@@ -16,7 +16,7 @@ const MENU_GRIMPE_COUNT_KEY = "menu_generator_grimpe_count_v1";
 type MenuSortMode = "manual" | "calories" | "alphabetical";
 
 function keyMatch(a: string, b: string): boolean {
-  return normalizeKey(a) === normalizeKey(b);
+  return accentSafeKeyMatch(a, b);
 }
 
 
@@ -501,14 +501,14 @@ export function MealPlanGenerator() {
       });
 
       if (partialMatches.length === 1) {
-        // Single partial match → NOT reliable (e.g. "Épices" ≠ "Épices fajitas")
-        // Show as unmatched (❌) since it's likely a different product
-        item.matched = false;
+        // Single partial match → found (e.g. "Épices" matches "Épices fajitas")
+        item.matched = true;
       } else if (partialMatches.length > 1) {
         // Multiple partial matches → ambiguous (❓)
         item.matched = true;
         item.ambiguous = true;
       }
+      // 0 matches → stays unmatched (❌)
     }
 
     return Array.from(map.entries())
