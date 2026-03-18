@@ -809,7 +809,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           const daysUntilExp = fi.expiration_date ? Math.ceil((new Date(fi.expiration_date).getTime() - new Date(todayStr).getTime()) / 86400000) : null;
           const isSoonExpiring = daysUntilExp !== null && daysUntilExp >= 0 && daysUntilExp <= 7;
           const expLabel = fi.expiration_date ? format(parseISO(fi.expiration_date), 'd MMM', { locale: fr }) : null;
-          const counterDays = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+          const counterDays = computeCounterDays(fi.counter_start_date);
           const counterUrgent = counterDays !== null && counterDays >= 3;
           const isCrossCat = crossCatIds.has(fi.id);
           return (
