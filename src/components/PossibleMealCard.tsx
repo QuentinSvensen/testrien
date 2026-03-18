@@ -98,9 +98,6 @@ export function PossibleMealCard({
   const [calOpen, setCalOpen] = useState(false);
   const [editingIngredients, setEditingIngredients] = useState(false);
   const [ingLines, setIngLines] = useState<IngLine[]>([]);
-  const qtyRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const countRefs = useRef<(HTMLInputElement | null)[]>([]);
-  const nameRefs = useRef<(HTMLInputElement | null)[]>([]);
 
   const meal = pm.meals;
   if (!meal) return null;
