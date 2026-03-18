@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useMeals, DAYS, TIMES } from '@/hooks/useMeals';
+import { useMeals, DAYS, TIMES, type PossibleMeal } from '@/hooks/useMeals';
 import { usePreferences } from '@/hooks/usePreferences';
 import { computeIngredientCalories, computeIngredientProtein } from '@/lib/ingredientUtils';
 
@@ -26,7 +26,11 @@ function parseCalories(cal: string | null | undefined): number {
   return isNaN(n) ? 0 : n;
 }
 
-function getOverrideScaleRatio(
+/**
+ * Detect the scale ratio between a meal's base ingredients/grams and its override.
+ * Returns null if no meaningful ratio detected.
+ */
+export function getOverrideScaleRatio(
   meal: { ingredients: string | null; grams: string | null; name: string } | null | undefined,
   ingredientsOverride: string | null | undefined,
 ): number | null {
@@ -54,10 +58,7 @@ function getOverrideScaleRatio(
     if (origMatch && overMatch) {
       const oq = parseFloat(origMatch[1].replace(",", "."));
       const nq = parseFloat(overMatch[1].replace(",", "."));
-      if (oq > 0 && nq > 0) {
-        ratios.push(nq / oq);
-        continue;
-      }
+      if (oq > 0 && nq > 0) { ratios.push(nq / oq); continue; }
     }
 
     const origC = origAlt.match(/^(\d+(?:[.,]\d+)?)\s+\S/);
@@ -65,10 +66,7 @@ function getOverrideScaleRatio(
     if (origC && overC && !origMatch && !overMatch) {
       const oc = parseFloat(origC[1].replace(",", "."));
       const nc = parseFloat(overC[1].replace(",", "."));
-      if (oc > 0 && nc > 0) {
-        ratios.push(nc / oc);
-        continue;
-      }
+      if (oc > 0 && nc > 0) { ratios.push(nc / oc); continue; }
     }
 
     ratios.push(1);
@@ -79,6 +77,51 @@ function getOverrideScaleRatio(
   if (Math.abs(first - 1) <= 0.01) return null;
   if (!ratios.every((r) => Math.abs(r - first) / first < 0.05)) return null;
   return first;
+}
+
+/**
+ * Compute the displayed calories for a single planning card.
+ * This is the single source of truth — used by both WeeklyPlanning display and calorie totals.
+ */
+export function getCardDisplayCalories(
+  pm: PossibleMeal,
+  calOverride?: string | null,
+): number {
+  const meal = pm.meals;
+  if (!meal) return 0;
+  const qty = pm.quantity ?? 1;
+
+  // 1. Manual override on the planning card
+  if (calOverride) return parseCalories(calOverride) * qty;
+
+  // 2. Ingredient-computed calories (from ingredients_override or base ingredients)
+  const displayIngredients = pm.ingredients_override ?? meal.ingredients;
+  const ingCal = computeIngredientCalories(displayIngredients);
+  if (ingCal !== null) return ingCal * qty;
+
+  // 3. Base calories scaled by ratio
+  const ratio = getOverrideScaleRatio(meal, pm.ingredients_override);
+  const baseCal = parseCalories(meal.calories);
+  const scaledCal = ratio !== null && baseCal > 0 ? Math.round(baseCal * ratio) : baseCal;
+  return scaledCal * qty;
+}
+
+/**
+ * Compute the displayed protein for a single planning card.
+ */
+export function getCardDisplayProtein(pm: PossibleMeal): number {
+  const meal = pm.meals;
+  if (!meal) return 0;
+  const qty = pm.quantity ?? 1;
+
+  const displayIngredients = pm.ingredients_override ?? meal.ingredients;
+  const ingPro = computeIngredientProtein(displayIngredients);
+  if (ingPro !== null) return ingPro * qty;
+
+  const ratio = getOverrideScaleRatio(meal, pm.ingredients_override);
+  const basePro = parseCalories(meal.protein);
+  const scaledPro = ratio !== null && basePro > 0 ? Math.round(basePro * ratio) : basePro;
+  return scaledPro * qty;
 }
 
 export function useCalorieBalance() {
@@ -115,36 +158,27 @@ export function useCalorieBalance() {
   };
 
   const getDayCalories = (day: string): number => {
+    // Sum displayed card calories for each slot
     const mealCals = TIMES.reduce((total, time) => {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
-        return total + slotMeals.reduce((s, pm) => {
-          const qty = pm.quantity ?? 1;
-          const override = calOverrides[pm.id];
-          if (override) return s + parseCalories(override) * qty;
-
-          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-          const ingCal = computeIngredientCalories(displayIngredients);
-          if (ingCal !== null) return s + ingCal * qty;
-
-          const ratio = getOverrideScaleRatio(pm.meals, pm.ingredients_override);
-          const baseCal = parseCalories(pm.meals?.calories);
-          const scaledCal = ratio !== null && baseCal > 0 ? Math.round(baseCal * ratio) : baseCal;
-          return s + scaledCal * qty;
-        }, 0);
+        return total + slotMeals.reduce((s, pm) =>
+          s + getCardDisplayCalories(pm, calOverrides[pm.id])
+        , 0);
       }
       return total + (manualCalories[`${day}-${time}`] || 0);
     }, 0);
 
     const breakfast = getBreakfastForDay(day);
     const extra = extraCalories[day] || 0;
-    // For breakfast calories, check possible meals for ingredient overrides first
     let breakfastCal = 0;
     if (breakfast) {
       const possiblePdj = possibleMeals.find(pm => pm.meal_id === breakfastSelections[day] && pm.meals?.category === 'petit_dejeuner');
-      const breakfastIngredients = possiblePdj?.ingredients_override ?? breakfast.ingredients;
-      const ingCal = computeIngredientCalories(breakfastIngredients);
-      breakfastCal = ingCal !== null ? ingCal : parseCalories(breakfast.calories);
+      if (possiblePdj) {
+        breakfastCal = getCardDisplayCalories(possiblePdj);
+      } else {
+        breakfastCal = parseCalories(breakfast.calories);
+      }
     } else {
       breakfastCal = breakfastManualCalories[day] || 0;
     }
@@ -157,17 +191,9 @@ export function useCalorieBalance() {
     const mealPro = TIMES.reduce((total, time) => {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
-        return total + slotMeals.reduce((s, pm) => {
-          const qty = pm.quantity ?? 1;
-          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-          const ingPro = computeIngredientProtein(displayIngredients);
-          if (ingPro !== null) return s + ingPro * qty;
-
-          const ratio = getOverrideScaleRatio(pm.meals, pm.ingredients_override);
-          const basePro = parseCalories(pm.meals?.protein);
-          const scaledPro = ratio !== null && basePro > 0 ? Math.round(basePro * ratio) : basePro;
-          return s + scaledPro * qty;
-        }, 0);
+        return total + slotMeals.reduce((s, pm) =>
+          s + getCardDisplayProtein(pm)
+        , 0);
       }
       return total + (manualProteins[`${day}-${time}`] || 0);
     }, 0);
@@ -177,9 +203,11 @@ export function useCalorieBalance() {
     let breakfastPro = 0;
     if (breakfast) {
       const possiblePdj = possibleMeals.find(pm => pm.meal_id === breakfastSelections[day] && pm.meals?.category === 'petit_dejeuner');
-      const breakfastIngredients = possiblePdj?.ingredients_override ?? breakfast.ingredients;
-      const ingPro = computeIngredientProtein(breakfastIngredients);
-      breakfastPro = ingPro !== null ? ingPro : parseCalories(breakfast.protein);
+      if (possiblePdj) {
+        breakfastPro = getCardDisplayProtein(possiblePdj);
+      } else {
+        breakfastPro = parseCalories(breakfast.protein);
+      }
     } else {
       breakfastPro = breakfastManualProteins[day] || 0;
     }
