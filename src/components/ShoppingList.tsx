@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useShoppingList, type ShoppingItem } from "@/hooks/useShoppingList";
 import { usePreferences } from "@/hooks/usePreferences";
 import { toast } from "@/hooks/use-toast";
-import { normalizeForMatch, normalizeKey, smartFoodContains, accentSafeKeyMatch } from "@/lib/ingredientUtils";
+import { normalizeForMatch, normalizeKey, smartFoodContains } from "@/lib/ingredientUtils";
 import { useFoodItems } from "@/hooks/useFoodItems";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
