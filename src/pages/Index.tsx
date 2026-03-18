@@ -161,8 +161,8 @@ const Index = () => {
   }, [unlocked]);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session: s } }) => setSession(s));
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
+    (supabase.auth as any).getSession().then(({ data: { session: s } }: any) => setSession(s));
+    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: string, s: any) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
 
