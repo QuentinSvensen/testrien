@@ -98,10 +98,11 @@ export function useCalorieBalance() {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) => {
+          const qty = pm.quantity ?? 1;
           const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
           const ingPro = computeIngredientProtein(displayIngredients);
-          if (ingPro !== null) return s + ingPro;
-          return s + parseCalories(pm.meals?.protein);
+          if (ingPro !== null) return s + ingPro * qty;
+          return s + parseCalories(pm.meals?.protein) * qty;
         }, 0);
       }
       return total + (manualProteins[`${day}-${time}`] || 0);
