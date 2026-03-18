@@ -347,7 +347,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       if (error) throw error;
       return data as unknown as { id: string };
     },
-    onSuccess: invalidateAll,
+    onSuccess: invalidatePM,
     onError: onMutationError,
   });
 
@@ -366,7 +366,7 @@ export function useMeals(options?: { enabled?: boolean }) {
         });
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
+    onSuccess: invalidatePM,
     onError: onMutationError,
   });
 
@@ -385,8 +385,17 @@ export function useMeals(options?: { enabled?: boolean }) {
         }
       }
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async (possibleMealId) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old => old?.filter(pm => pm.id !== possibleMealId) ?? []);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll, // May also delete orphan meal
   });
 
   const updateExpiration = useMutation({
@@ -399,8 +408,22 @@ export function useMeals(options?: { enabled?: boolean }) {
         .eq("meal_id", pm.meal_id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async ({ id, expiration_date }) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      const pm = prev?.find(p => p.id === id);
+      if (pm) {
+        qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
+          old?.map(p => p.meal_id === pm.meal_id ? { ...p, expiration_date } : p) ?? []
+        );
+      }
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidatePM,
   });
 
   const updatePlanning = useMutation({
@@ -423,7 +446,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
       onMutationError(_err);
     },
-    onSettled: invalidateAll,
+    onSettled: invalidatePM,
   });
 
   const updateCounter = useMutation({
@@ -434,8 +457,7 @@ export function useMeals(options?: { enabled?: boolean }) {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withPMOptimistic('counter_start_date'),
   });
 
   const deletePossibleMeal = useMutation({
@@ -450,8 +472,17 @@ export function useMeals(options?: { enabled?: boolean }) {
         }
       }
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    onMutate: async (id) => {
+      await qc.cancelQueries({ queryKey: ["possible_meals"] });
+      const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      qc.setQueryData<PossibleMeal[]>(["possible_meals"], old => old?.filter(pm => pm.id !== id) ?? []);
+      return { prev };
+    },
+    onError: (_err, _vars, ctx) => {
+      if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
+      onMutationError(_err);
+    },
+    onSettled: invalidateAll, // May also delete orphan meal
   });
 
   const reorderPossibleMeals = useMutation({
@@ -476,7 +507,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
       onMutationError(_err);
     },
-    onSettled: invalidateAll,
+    onSettled: invalidatePM,
   });
 
   const updatePossibleIngredients = useMutation({
@@ -499,7 +530,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       if (ctx?.prev) qc.setQueryData(["possible_meals"], ctx.prev);
       onMutationError(_err);
     },
-    onSettled: invalidateAll,
+    onSettled: invalidatePM,
   });
 
   const updatePossibleQuantity = useMutation({
@@ -510,8 +541,7 @@ export function useMeals(options?: { enabled?: boolean }) {
         .eq("id", id);
       if (error) throw error;
     },
-    onSuccess: invalidateAll,
-    onError: onMutationError,
+    ...withPMOptimistic('quantity'),
   });
 
   const getMealsByCategory = (cat: string) =>
