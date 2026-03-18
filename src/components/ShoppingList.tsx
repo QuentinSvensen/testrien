@@ -64,7 +64,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
     for (const si of items) {
       const siKey = normalizeKey(si.name);
       for (const tjKey of toujoursFoodKeys) {
-        if (siKey === tjKey || smartFoodContains(si.name, tjKey as string)) {
+        if (siKey === tjKey || smartFoodContains(si.name, tjKey)) {
           result.add(si.id);
           break;
         }

@@ -162,7 +162,7 @@ export function useFoodItems() {
   const invalidate = () => qc.invalidateQueries({ queryKey: ["food_items"] });
 
   useEffect(() => {
-    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((event: string) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
         qc.invalidateQueries({ queryKey: ["food_items"] });
       }

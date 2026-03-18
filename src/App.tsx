@@ -1,7 +1,6 @@
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
-// @ts-ignore - template type mismatch
 import { QueryClient } from "@tanstack/react-query";
 import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client";
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
@@ -14,9 +13,10 @@ import { ErrorBoundary } from "./components/ErrorBoundary";
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      gcTime: 1000 * 60 * 60 * 24,
-      staleTime: 1000 * 30,
+      gcTime: 1000 * 60 * 60 * 24, // 24h — keep cache for offline
+      staleTime: 1000 * 30, // 30s — refetch in background when stale
       retry: (failureCount, error) => {
+        // Don't retry on auth errors (expired session)
         if (error && typeof error === 'object' && 'code' in error) {
           const code = (error as { code?: string }).code;
           if (code === 'PGRST301' || code === '401' || code === 'refresh_token_not_found') return false;
@@ -36,15 +36,13 @@ const persister = createSyncStoragePersister({
   key: "mealcards-cache",
 });
 
-const ThemedProvider = ThemeProvider as any;
-
 const App = () => (
-  <ThemedProvider attribute="class" defaultTheme="system" enableSystem>
+  <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
     <PersistQueryClientProvider client={queryClient} persistOptions={{ persister, maxAge: 1000 * 60 * 60 * 24 }}>
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
+  <BrowserRouter>
           <ErrorBoundary section="Application">
             <Routes>
               <Route path="/" element={<Navigate to="/repas" replace />} />
@@ -52,13 +50,14 @@ const App = () => (
               <Route path="/repas" element={<Index />} />
               <Route path="/planning" element={<Index />} />
               <Route path="/courses" element={<Index />} />
+              {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
               <Route path="*" element={<NotFound />} />
             </Routes>
           </ErrorBoundary>
         </BrowserRouter>
       </TooltipProvider>
     </PersistQueryClientProvider>
-  </ThemedProvider>
+  </ThemeProvider>
 );
 
 export default App;

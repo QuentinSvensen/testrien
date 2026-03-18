@@ -10,7 +10,7 @@ export function usePreferences(options?: { enabled?: boolean }) {
 
   useEffect(() => {
     if (!enabled) return;
-    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((event: string) => {
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'SIGNED_IN') {
         qc.invalidateQueries({ queryKey: ["user_preferences"] });
       }

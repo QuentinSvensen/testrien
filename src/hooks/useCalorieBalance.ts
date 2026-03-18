@@ -64,13 +64,12 @@ export function useCalorieBalance() {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) => {
-          const qty = pm.quantity ?? 1;
           const override = calOverrides[pm.id];
-          if (override) return s + parseCalories(override) * qty;
+          if (override) return s + parseCalories(override);
           const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
           const ingCal = computeIngredientCalories(displayIngredients);
-          if (ingCal !== null) return s + ingCal * qty;
-          return s + parseCalories(pm.meals?.calories) * qty;
+          if (ingCal !== null) return s + ingCal;
+          return s + parseCalories(pm.meals?.calories);
         }, 0);
       }
       return total + (manualCalories[`${day}-${time}`] || 0);
@@ -98,11 +97,10 @@ export function useCalorieBalance() {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) => {
-          const qty = pm.quantity ?? 1;
           const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
           const ingPro = computeIngredientProtein(displayIngredients);
-          if (ingPro !== null) return s + ingPro * qty;
-          return s + parseCalories(pm.meals?.protein) * qty;
+          if (ingPro !== null) return s + ingPro;
+          return s + parseCalories(pm.meals?.protein);
         }, 0);
       }
       return total + (manualProteins[`${day}-${time}`] || 0);

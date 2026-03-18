@@ -102,7 +102,7 @@ const PAGE_TO_ROUTE: Record<MainPage, string> = {
 
 const Index = () => {
   const qc = useQueryClient();
-  const [session, setSession] = useState<any>(undefined);
+  const [session, setSession] = useState<import("@supabase/supabase-js").Session | null | undefined>(undefined);
   const [blockedCount, setBlockedCount] = useState<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -161,8 +161,8 @@ const Index = () => {
   }, [unlocked]);
 
   useEffect(() => {
-    (supabase.auth as any).getSession().then(({ data: { session: s } }: any) => setSession(s));
-    const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: string, s: any) => setSession(s));
+    supabase.auth.getSession().then(({ data: { session: s } }) => setSession(s));
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, s) => setSession(s));
     return () => subscription.unsubscribe();
   }, []);
 
@@ -173,7 +173,7 @@ const Index = () => {
     const handleUnload = () => {
       const current = parseInt(localStorage.getItem(TAB_KEY) || '1');
       if (current <= 1) {
-        (supabase.auth as any).signOut();
+        supabase.auth.signOut();
         localStorage.setItem(TAB_KEY, '0');
       } else {
         localStorage.setItem(TAB_KEY, String(current - 1));
@@ -284,7 +284,7 @@ const Index = () => {
         sort_order: pm.sort_order,
         ingredients_override: pm.ingredients_override,
       }));
-      await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: backup, user_id: (await (supabase.auth as any).getUser()).data.user?.id } as any, { onConflict: 'user_id,key' });
+      await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: backup, user_id: (await supabase.auth.getUser()).data.user?.id } as any, { onConflict: 'user_id,key' });
 
       await Promise.all(possibleMeals.map(pm =>
         (supabase as any).from("possible_meals").delete().eq("id", pm.id)
@@ -598,7 +598,7 @@ const Index = () => {
                           const tjArr = [...tjKeys];
                           const tjGrpIds = new Set(shoppingGroups.filter(g => { const n = normalizeKey(g.name); return n.includes('toujours present') || n.includes('toujours la'); }).map(g => g.id));
                           const isTJ = (si: { name: string; group_id: string | null }, k: string) =>
-                            !!(si.group_id && tjGrpIds.has(si.group_id)) || tjKeys.has(k) || tjArr.some(t => smartFoodContains(si.name, t as string));
+                            !!(si.group_id && tjGrpIds.has(si.group_id)) || tjKeys.has(k) || tjArr.some(t => smartFoodContains(si.name, t));
                           const matched = new Set<string>();
                           const dqMap = new Map<string, number>();
                           for (const [nk, need] of entries) {

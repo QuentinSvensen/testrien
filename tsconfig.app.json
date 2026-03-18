@@ -17,12 +17,9 @@
     "noUnusedLocals": false,
     "noUnusedParameters": false,
     "paths": {
-      "@/*": ["./src/*"],
-      "@supabase/supabase-js": ["./node_modules/@supabase/supabase-js"],
-      "@tanstack/react-query": ["./node_modules/@tanstack/react-query"],
-      "@tanstack/react-query-persist-client": ["./node_modules/@tanstack/react-query-persist-client"],
-      "@tanstack/query-sync-storage-persister": ["./node_modules/@tanstack/query-sync-storage-persister"],
-      "next-themes": ["./node_modules/next-themes"]
+      "@/*": [
+        "./src/*"
+      ]
     },
     "skipLibCheck": true,
     "strict": false,
