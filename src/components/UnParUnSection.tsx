@@ -6,7 +6,7 @@ import { usePreferences } from "@/hooks/usePreferences";
 import type { Meal } from "@/hooks/useMeals";
 import { colorFromName, type FoodItem } from "@/components/FoodItems";
 import { buildStockMap, findStockKey, getMealMultiple } from "@/lib/stockUtils";
-import { normalizeForMatch, strictNameMatch, parseIngredientGroups, formatNumeric, getFoodItemTotalGrams, extractIngredientMacros, normalizeKey } from "@/lib/ingredientUtils";
+import { normalizeForMatch, strictNameMatch, parseIngredientGroups, formatNumeric, getFoodItemTotalGrams, extractIngredientMacros, normalizeKey, computeCounterDays } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 
