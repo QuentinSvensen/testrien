@@ -754,8 +754,9 @@ export function WeeklyPlanning() {
     const overrideCal = calOverrides[pm.id];
     const displayIngredients = pm.ingredients_override ?? meal.ingredients;
     const mealForAnalysis = { ...meal, ingredients: displayIngredients };
-    const expiredIngs = getExpiredIngredientNames(mealForAnalysis, foodItems);
-    const soonIngs = getExpiringSoonIngredientNames(mealForAnalysis, foodItems);
+    const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
+    const expiredIngs = analysis.expiredIngredientNames;
+    const soonIngs = analysis.expiringSoonIngredientNames;
 
     const ingCal = computeIngredientCalories(displayIngredients);
     const isComputedCal = !overrideCal && ingCal !== null;

@@ -716,11 +716,10 @@ const Index = () => {
                   onMovePartialToPossible={async (meal, ratio) => {
                     const partialMeal = buildScaledMealForRatio(meal, ratio, stockMap);
                     const snapshots = await deductIngredientsFromStock(partialMeal);
-                    const expDate = getEarliestIngredientExpiration(meal, foodItems);
-                    const counterDate = getEarliestIngredientCounterDate(meal, foodItems);
+                    const an = analyzeMealIngredients(meal, foodItems, foodItemIndex);
                     const result = await addMealToPossibleDirectly.mutateAsync({
                       name: meal.name, category: cat.value, colorSeed: meal.id,
-                      calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: expDate, counter_start_date: counterDate,
+                      calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate,
                     });
                     if (result?.id) {
                       updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
