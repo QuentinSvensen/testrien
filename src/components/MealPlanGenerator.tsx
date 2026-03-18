@@ -500,12 +500,14 @@ export function MealPlanGenerator() {
         return smartFoodContains(si.name, item.displayName);
       });
 
-      if (partialMatches.length > 0) {
+      if (partialMatches.length === 1) {
+        // Single partial match → ambiguous (could be wrong product, e.g. "Épices" vs "Épices fajitas")
         item.matched = true;
-        // Multiple partial matches = ambiguous (user needs to choose)
-        if (partialMatches.length > 1) {
-          item.ambiguous = true;
-        }
+        item.ambiguous = true;
+      } else if (partialMatches.length > 1) {
+        // Multiple partial matches → ambiguous
+        item.matched = true;
+        item.ambiguous = true;
       }
     }
 

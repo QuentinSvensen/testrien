@@ -55,7 +55,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
   const isPlat = category.value === "plat";
   const { getPreference: getAvailPref, setPreference: setAvailPref } = usePreferences();
   const storedOrder = getAvailPref<string[]>(`available_order_${category.value}`, []);
-  const useRemainingCalories = getAvailPref<boolean>(`available_use_remaining_calories_${category.value}`, false);
+  const useRemainingCalories = getAvailPref<boolean>(`available_use_remaining_calories_${category.value}`, isPlat);
   const [avDragIndex, setAvDragIndex] = useState<number | null>(null);
   const [customRatios, setCustomRatios] = useState<Record<string, number>>({});
   const [editingRatioId, setEditingRatioId] = useState<string | null>(null);
