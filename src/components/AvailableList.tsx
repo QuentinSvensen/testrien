@@ -965,18 +965,16 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
                 unified.push({ type: 'nm', nm, nmIdx: i, sortDate: nm.fi.expiration_date, sortCounter: counter, sortCalories: getDisplayedCalories(nm.meal) });
               }
               for (const item of sortedAvailable) {
-                const expDate = getEarliestIngredientExpiration(item.meal, foodItems);
-                const maxCounter = getMaxIngredientCounter(item.meal, foodItems);
+                const an = analyzeMealIngredients(item.meal, foodItems);
                 const ratio = customRatios[item.meal.id] ?? 1;
                 const displayMeal = ratio !== 1 ? buildScaledMealForRatio(item.meal, ratio, stockMap) : item.meal;
-                unified.push({ type: 'av', item, sortDate: expDate, sortCounter: maxCounter, sortCalories: getDisplayedCalories(displayMeal) });
+                unified.push({ type: 'av', item, sortDate: an.earliestExpiration, sortCounter: an.maxIngredientCounter, sortCalories: getDisplayedCalories(displayMeal) });
               }
               for (const item of partialAvailable) {
-                const expDate = getEarliestIngredientExpiration(item.meal, foodItems);
-                const maxCounter = getMaxIngredientCounter(item.meal, foodItems);
+                const an = analyzeMealIngredients(item.meal, foodItems);
                 const ratio = customRatios[`partial-${item.meal.id}`] ?? item.ratio;
                 const displayMeal = buildScaledMealForRatio(item.meal, ratio, stockMap);
-                unified.push({ type: 'partial', item, sortDate: expDate, sortCounter: maxCounter, sortCalories: getDisplayedCalories(displayMeal) });
+                unified.push({ type: 'partial', item, sortDate: an.earliestExpiration, sortCounter: an.maxIngredientCounter, sortCalories: getDisplayedCalories(displayMeal) });
               }
               
               // Apply search filter
