@@ -943,7 +943,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
 
               const unified: UnifiedItem[] = [];
               for (const fi of [...sortedIsMealItems, ...isMealWithDate]) {
-                const counter = fi.counter_start_date ? Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000) : null;
+                const counter = computeCounterDays(fi.counter_start_date);
                 const fakeMeal: Meal = { ...fi as unknown as Meal, calories: fi.calories, ingredients: null };
                 unified.push({ type: 'isMeal', fi, sortDate: fi.expiration_date, sortCounter: counter, sortCalories: getDisplayedCalories(fakeMeal) });
               }
