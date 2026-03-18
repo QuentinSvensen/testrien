@@ -206,17 +206,15 @@ export function parseIngredientLineRaw(ing: string): ParsedIngredientRaw {
   let trimmed = ing.trim().replace(/\s+/g, " ");
   const optional = trimmed.startsWith("?");
   if (optional) trimmed = trimmed.slice(1).trim();
-  // Strip {cal} and [pro] suffixes
-  trimmed = trimmed.replace(/(?:\{\d+(?:[.,]\d+)?\})?(?:\s*\[\d+(?:[.,]\d+)?\])?\s*$/, "").trim();
-  const unitRegex = "(?:g|gr|grammes?|kg|ml|cl|l)";
+  trimmed = trimmed.replace(_RE_METRIC_STRIP, "").trim();
 
-  const matchFull = trimmed.match(new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${unitRegex}\\s+(\\d+(?:[.,]\\d+)?)\\s+(.+)$`, "i"));
+  const matchFull = trimmed.match(_RE_FULL);
   if (matchFull) return { qty: parseFloat(matchFull[1].replace(",", ".")), count: parseFloat(matchFull[2].replace(",", ".")), name: normalizeForMatch(matchFull[3]), rawName: matchFull[3].trim(), optional };
 
-  const matchUnit = trimmed.match(new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${unitRegex}\\s+(.+)$`, "i"));
+  const matchUnit = trimmed.match(_RE_UNIT);
   if (matchUnit) return { qty: parseFloat(matchUnit[1].replace(",", ".")), count: 0, name: normalizeForMatch(matchUnit[2]), rawName: matchUnit[2].trim(), optional };
 
-  const matchNum = trimmed.match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/);
+  const matchNum = trimmed.match(_RE_NUM);
   if (matchNum) return { qty: 0, count: parseFloat(matchNum[1].replace(",", ".")), name: normalizeForMatch(matchNum[2]), rawName: matchNum[2].trim(), optional };
 
   return { qty: 0, count: 0, name: normalizeForMatch(trimmed), rawName: trimmed, optional };
