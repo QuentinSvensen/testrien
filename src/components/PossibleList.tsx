@@ -90,8 +90,8 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
       }
 
       // Same counter + same date: sort by calories ascending
-      const aCal = getDisplayedCalories(a);
-      const bCal = getDisplayedCalories(b);
+      const aCal = getDisplayedPMCalories(a);
+      const bCal = getDisplayedPMCalories(b);
       if (aCal !== null && bCal !== null && aCal !== bCal) return aCal - bCal;
       if (aCal !== null && bCal === null) return -1;
       if (aCal === null && bCal !== null) return 1;

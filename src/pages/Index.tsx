@@ -36,6 +36,7 @@ import {
   getMissingIngredients, isFoodUsedInMeals,
   formatExpirationLabel, compareExpirationWithCounter,
   sortStockDeductionPriority, buildScaledMealForRatio, scaleIngredientStringExact,
+  getDisplayedCalories, propagateIngredientMacros,
   type FoodItemIndex,
 } from "@/lib/stockUtils";
 import { useMealTransfers } from "@/hooks/useMealTransfers";
