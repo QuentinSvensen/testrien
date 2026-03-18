@@ -176,21 +176,26 @@ export function getFoodItemTotalGrams(fi: FoodItem): number {
 export interface ParsedIngredient { qty: number; count: number; name: string; optional: boolean; }
 export interface ParsedIngredientRaw { qty: number; count: number; name: string; rawName: string; optional: boolean; }
 
+// Precompiled regex patterns (avoid recompilation per call)
+const _RE_METRIC_STRIP = /(?:\{\d+(?:[.,]\d+)?\})?(?:\s*\[\d+(?:[.,]\d+)?\])?\s*$/;
+const _UNIT = "(?:g|gr|grammes?|kg|ml|cl|l)";
+const _RE_FULL = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_UNIT}\\s+(\\d+(?:[.,]\\d+)?)\\s+(.+)$`, "i");
+const _RE_UNIT = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_UNIT}\\s+(.+)$`, "i");
+const _RE_NUM = /^(\d+(?:[.,]\d+)?)\s+(.+)$/;
+
 export function parseIngredientLine(ing: string): ParsedIngredient {
   let trimmed = ing.trim().replace(/\s+/g, " ");
   const optional = trimmed.startsWith("?");
   if (optional) trimmed = trimmed.slice(1).trim();
-  // Strip {cal} and [pro] suffixes
-  trimmed = trimmed.replace(/(?:\{\d+(?:[.,]\d+)?\})?(?:\s*\[\d+(?:[.,]\d+)?\])?\s*$/, "").trim();
-  const unitRegex = "(?:g|gr|grammes?|kg|ml|cl|l)";
+  trimmed = trimmed.replace(_RE_METRIC_STRIP, "").trim();
 
-  const matchFull = trimmed.match(new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${unitRegex}\\s+(\\d+(?:[.,]\\d+)?)\\s+(.+)$`, "i"));
+  const matchFull = trimmed.match(_RE_FULL);
   if (matchFull) return { qty: parseFloat(matchFull[1].replace(",", ".")), count: parseFloat(matchFull[2].replace(",", ".")), name: normalizeForMatch(matchFull[3]), optional };
 
-  const matchUnit = trimmed.match(new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${unitRegex}\\s+(.+)$`, "i"));
+  const matchUnit = trimmed.match(_RE_UNIT);
   if (matchUnit) return { qty: parseFloat(matchUnit[1].replace(",", ".")), count: 0, name: normalizeForMatch(matchUnit[2]), optional };
 
-  const matchNum = trimmed.match(/^(\d+(?:[.,]\d+)?)\s+(.+)$/);
+  const matchNum = trimmed.match(_RE_NUM);
   if (matchNum) return { qty: 0, count: parseFloat(matchNum[1].replace(",", ".")), name: normalizeForMatch(matchNum[2]), optional };
 
   return { qty: 0, count: 0, name: normalizeForMatch(trimmed), optional };
