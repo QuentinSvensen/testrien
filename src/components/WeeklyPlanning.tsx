@@ -751,7 +751,7 @@ export function WeeklyPlanning() {
   };
 
   const handleRemoveFromSlot = (pm: PossibleMeal) => {
-    updatePlanning.mutate({ id: pm.id, day_of_week: null, meal_time: null });
+    updatePlanningWithCounters(pm.id, null, null);
   };
 
   const renderMiniCard = (pm: PossibleMeal, compact = false) => {
