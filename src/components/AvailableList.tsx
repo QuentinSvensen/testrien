@@ -670,14 +670,11 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
 
     const effectiveRatio = customRatio ?? 1;
     const displayMeal = effectiveRatio !== 1 ? buildScaledMealForRatio(meal, effectiveRatio, stockMap) : meal;
-    const expDate = getEarliestIngredientExpiration(meal, foodItems);
-    const expLabel = formatExpirationLabel(expDate);
-    const expiringIng = getExpiringIngredientName(meal, foodItems);
-    const expIsTodayAv = isToday(expDate);
-    const expiredIngs = getExpiredIngredientNames(meal, foodItems);
-    const soonIngs = getExpiringSoonIngredientNames(meal, foodItems);
-    const maxCounter = getMaxIngredientCounter(meal, foodItems);
-    const counterIngs = getCounterIngredientNames(meal, foodItems);
+    // Single-pass analysis replaces 6 separate function calls
+    const analysis = analyzeMealIngredients(meal, foodItems);
+    const expLabel = formatExpirationLabel(analysis.earliestExpiration);
+    const expIsTodayAv = isToday(analysis.earliestExpiration);
+    const expiringIng = analysis.expiringIngredientName;
     return (
       <div key={meal.id} className="relative">
         <MealCard meal={displayMeal}
