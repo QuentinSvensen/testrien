@@ -138,7 +138,7 @@ export function MealPlanGenerator() {
     return inv;
   }, [shoppingItems, frozenGroupIds]);
 
-  const updateShoppingChecks = (needsMap: Map<string, { grams: number; count: number }>) => {
+  const updateShoppingChecks = (needsMap: Map<string, { grams: number; count: number; rawName?: string }>) => {
     const toujoursKeys = [...toujoursFoodKeys];
     const matchedItemIds = new Set<string>();
     const desiredQuantities = new Map<string, number>();
@@ -160,6 +160,7 @@ export function MealPlanGenerator() {
     for (const [needKey, need] of needsMap) {
       const exactMatches: typeof shoppingItems = [];
       const partialMatches: typeof shoppingItems = [];
+      const matchName = need.rawName || needKey; // Use raw name for accent-safe matching
 
       for (const item of shoppingItems) {
         const itemKey = normalizeKey(item.name);
@@ -167,7 +168,7 @@ export function MealPlanGenerator() {
 
         if (itemKey === needKey || keyMatch(itemKey, needKey)) {
           exactMatches.push(item);
-        } else if (smartFoodContains(item.name, needKey)) {
+        } else if (smartFoodContains(item.name, matchName)) {
           partialMatches.push(item);
         }
       }
