@@ -202,7 +202,17 @@ const Index = () => {
     return () => clearInterval(interval);
   }, [unlocked]);
 
-  // Realtime sync
+  // Force "calories restantes" filter ON at each session for "plat"
+  const calorieFilterForced = useRef(false);
+  useEffect(() => {
+    if (!unlocked || isPreferencesLoading || calorieFilterForced.current) return;
+    calorieFilterForced.current = true;
+    const currentVal = getPreference<boolean>('available_use_remaining_calories_plat', true);
+    if (!currentVal) {
+      setPreference.mutate({ key: 'available_use_remaining_calories_plat', value: true });
+    }
+  }, [unlocked, isPreferencesLoading]);
+
   useEffect(() => {
     if (!unlocked) return;
     const channel = supabase
