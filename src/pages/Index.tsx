@@ -94,6 +94,7 @@ function validateMealName(name: string): string | null {
   return null;
 }
 
+import type { SortMode, MasterSortMode, AvailableSortMode, UnParUnSortMode } from "@/hooks/useSortModes";
 type MainPage = "aliments" | "repas" | "planning" | "courses";
 
 
