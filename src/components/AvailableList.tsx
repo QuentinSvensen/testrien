@@ -30,6 +30,7 @@ interface AvailableListProps {
   meals: Meal[];
   foodItems: FoodItem[];
   allMeals: Meal[];
+  stockMap: Map<string, StockInfo>;
   sortMode: AvailableSortMode;
   sortAsc: boolean;
   onToggleSort: () => void;
