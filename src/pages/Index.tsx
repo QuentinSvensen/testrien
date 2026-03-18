@@ -385,38 +385,44 @@ const Index = () => {
   const dbAvailableSyncedRef = useRef(false);
   const dbUnParUnSyncedRef = useRef(false);
   const dbDirectionsSyncedRef = useRef(false);
-  // Serialize to stable strings so useEffect deps don't change every render
-  const dbSortModesStr = JSON.stringify(dbSortModes);
-  const dbMasterSortModesStr = JSON.stringify(dbMasterSortModes);
-  const dbAvailableSortModesStr = JSON.stringify(dbAvailableSortModes);
-  const dbUnParUnSortModesStr = JSON.stringify(dbUnParUnSortModes);
-  const dbSortDirectionsStr = JSON.stringify(dbSortDirections);
-  // Each syncs from DB exactly ONCE on first non-empty load — after that local state is source of truth
+
+  // Sync from DB exactly ONCE on first non-empty load — use refs to avoid JSON.stringify in deps
+  const dbSortModesRef = useRef(dbSortModes);
+  dbSortModesRef.current = dbSortModes;
+  const dbMasterSortModesRef = useRef(dbMasterSortModes);
+  dbMasterSortModesRef.current = dbMasterSortModes;
+  const dbAvailableSortModesRef = useRef(dbAvailableSortModes);
+  dbAvailableSortModesRef.current = dbAvailableSortModes;
+  const dbUnParUnSortModesRef = useRef(dbUnParUnSortModes);
+  dbUnParUnSortModesRef.current = dbUnParUnSortModes;
+  const dbSortDirectionsRef = useRef(dbSortDirections);
+  dbSortDirectionsRef.current = dbSortDirections;
+
   useEffect(() => {
     if (dbSyncedRef.current) return;
-    const parsed = JSON.parse(dbSortModesStr);
-    if (Object.keys(parsed).length > 0) { setSortModes(parsed); dbSyncedRef.current = true; }
-  }, [dbSortModesStr]);
+    const val = dbSortModesRef.current;
+    if (val && Object.keys(val).length > 0) { setSortModes(val); dbSyncedRef.current = true; }
+  }, [dbSortModes]);
   useEffect(() => {
     if (dbMasterSyncedRef.current) return;
-    const parsed = JSON.parse(dbMasterSortModesStr);
-    if (Object.keys(parsed).length > 0) { setMasterSortModes(parsed); dbMasterSyncedRef.current = true; }
-  }, [dbMasterSortModesStr]);
+    const val = dbMasterSortModesRef.current;
+    if (val && Object.keys(val).length > 0) { setMasterSortModes(val); dbMasterSyncedRef.current = true; }
+  }, [dbMasterSortModes]);
   useEffect(() => {
     if (dbAvailableSyncedRef.current) return;
-    const parsed = JSON.parse(dbAvailableSortModesStr);
-    if (Object.keys(parsed).length > 0) { setAvailableSortModes(parsed); dbAvailableSyncedRef.current = true; }
-  }, [dbAvailableSortModesStr]);
+    const val = dbAvailableSortModesRef.current;
+    if (val && Object.keys(val).length > 0) { setAvailableSortModes(val); dbAvailableSyncedRef.current = true; }
+  }, [dbAvailableSortModes]);
   useEffect(() => {
     if (dbUnParUnSyncedRef.current) return;
-    const parsed = JSON.parse(dbUnParUnSortModesStr);
-    if (Object.keys(parsed).length > 0) { setUnParUnSortModes(parsed); dbUnParUnSyncedRef.current = true; }
-  }, [dbUnParUnSortModesStr]);
+    const val = dbUnParUnSortModesRef.current;
+    if (val && Object.keys(val).length > 0) { setUnParUnSortModes(val); dbUnParUnSyncedRef.current = true; }
+  }, [dbUnParUnSortModes]);
   useEffect(() => {
     if (dbDirectionsSyncedRef.current) return;
-    const parsed = JSON.parse(dbSortDirectionsStr);
-    if (Object.keys(parsed).length > 0) { setSortDirections(parsed); dbDirectionsSyncedRef.current = true; }
-  }, [dbSortDirectionsStr]);
+    const val = dbSortDirectionsRef.current;
+    if (val && Object.keys(val).length > 0) { setSortDirections(val); dbDirectionsSyncedRef.current = true; }
+  }, [dbSortDirections]);
 
   // Debounced preference write timers - avoids stampeding DB writes from rapid clicks
   const availableSortDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
