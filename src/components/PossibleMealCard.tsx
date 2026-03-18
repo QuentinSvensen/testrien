@@ -194,6 +194,9 @@ export function PossibleMealCard({
         if (meal.ingredients && onUpdatePossibleIngredients) {
           const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
           onUpdatePossibleIngredients(scaledIngredients);
+        } else if (!meal.ingredients && onUpdatePossibleIngredients) {
+          // No ingredients — store a synthetic override to flag scaling
+          onUpdatePossibleIngredients(null);
         }
         // NOTE: Do NOT call onUpdateGrams or onUpdateCalories here — those modify the MASTER meal.
         // The scaled values are derived from ingredients_override (for ingredient-based calories)
@@ -422,6 +425,9 @@ export function PossibleMealCard({
                   <Undo2 className="mr-2 h-4 w-4" /> {onReturnWithoutDeductionLabel || 'Remettre au choix (sans déduire)'}
                 </DropdownMenuItem>
               )}
+              <DropdownMenuItem onClick={() => { setEditValue(""); setEditing("ratio"); }}>
+                <Percent className="mr-2 h-4 w-4" /> Pourcentage / Multiple
+              </DropdownMenuItem>
               <DropdownMenuItem onClick={() => { setEditValue(meal.calories || ""); setEditing("calories"); }}>
                 <Flame className="mr-2 h-4 w-4" /> Calories
               </DropdownMenuItem>
@@ -436,9 +442,6 @@ export function PossibleMealCard({
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onDelete} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" /> Supprimer
-              </DropdownMenuItem>
-              <DropdownMenuItem onClick={() => { setEditValue(""); setEditing("ratio"); }}>
-                <Percent className="mr-2 h-4 w-4" /> Pourcentage / Multiple
               </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>

@@ -26,7 +26,7 @@ import { fr } from "date-fns/locale";
 import {
   normalizeForMatch, normalizeKey, strictNameMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
-  getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories,
+  getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, smartFoodContains,
 } from "@/lib/ingredientUtils";
 import {
   buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
@@ -202,7 +202,17 @@ const Index = () => {
     return () => clearInterval(interval);
   }, [unlocked]);
 
-  // Realtime sync
+  // Force "calories restantes" filter ON at each session for "plat"
+  const calorieFilterForced = useRef(false);
+  useEffect(() => {
+    if (!unlocked || isPreferencesLoading || calorieFilterForced.current) return;
+    calorieFilterForced.current = true;
+    const currentVal = getPreference<boolean>('available_use_remaining_calories_plat', true);
+    if (!currentVal) {
+      setPreference.mutate({ key: 'available_use_remaining_calories_plat', value: true });
+    }
+  }, [unlocked, isPreferencesLoading]);
+
   useEffect(() => {
     if (!unlocked) return;
     const channel = supabase
@@ -556,20 +566,65 @@ const Index = () => {
                     type="checkbox"
                     checked={getPreference<boolean>('shopping_show_green_checks', true)}
                     onChange={(e) => {
-                      const checked = e.target.checked;
-                      setPreference.mutate({ key: 'shopping_show_green_checks', value: checked });
-                      if (!checked) {
-                        // Clear all secondary checks and menu-derived quantities
-                        for (const item of shoppingItems) {
-                          if (item.secondary_checked) {
-                            toggleShoppingSecondaryCheck.mutate({ id: item.id, secondary_checked: false });
-                          }
-                          // Clear quantities on items without yellow check
-                          if (!item.checked && item.quantity) {
-                            updateShoppingItemQuantity.mutate({ id: item.id, quantity: null });
+                      const newChecked = e.target.checked;
+                      if (!newChecked) {
+                        // Save white quantities before clearing
+                        const savedQtys: Record<string, string> = {};
+                        for (const si of shoppingItems) {
+                          if (!si.secondary_checked && si.quantity) savedQtys[si.id] = si.quantity;
+                        }
+                        sessionStorage.setItem('shopping_saved_white_qtys', JSON.stringify(savedQtys));
+                        for (const si of shoppingItems) {
+                          if (si.secondary_checked) toggleShoppingSecondaryCheck.mutate({ id: si.id, secondary_checked: false });
+                          if (si.quantity) {
+                            const orig = savedQtys[si.id];
+                            updateShoppingItemQuantity.mutate({ id: si.id, quantity: orig || null });
                           }
                         }
+                      } else {
+                        // Re-enable: re-apply checks from persisted needs
+                        const pNeeds = getPreference<Record<string, { grams: number; count: number }>>('menu_generator_needs_v1', {});
+                        const entries = Object.entries(pNeeds);
+                        if (entries.length > 0) {
+                          const tjKeys = new Set(foodItems.filter(fi => fi.storage_type === 'toujours').map(fi => normalizeKey(fi.name)));
+                          const tjArr = [...tjKeys];
+                          const tjGrpIds = new Set(shoppingGroups.filter(g => { const n = normalizeKey(g.name); return n.includes('toujours present') || n.includes('toujours la'); }).map(g => g.id));
+                          const isTJ = (si: { name: string; group_id: string | null }, k: string) =>
+                            !!(si.group_id && tjGrpIds.has(si.group_id)) || tjKeys.has(k) || tjArr.some(t => smartFoodContains(si.name, t));
+                          const matched = new Set<string>();
+                          const dqMap = new Map<string, number>();
+                          for (const [nk, need] of entries) {
+                            const exact: typeof shoppingItems = [];
+                            const partial: typeof shoppingItems = [];
+                            for (const si of shoppingItems) {
+                              const k = normalizeKey(si.name);
+                              if (isTJ(si, k)) continue;
+                              if (k === nk || normalizeKey(k) === normalizeKey(nk)) exact.push(si);
+                              else if (smartFoodContains(si.name, nk)) partial.push(si);
+                            }
+                            const tgts = exact.length > 0 ? exact : (partial.length === 1 ? partial : []);
+                            for (const si of tgts) {
+                              matched.add(si.id);
+                              const nbV = si.content_quantity ? parseFloat(si.content_quantity.replace(/[^0-9.,]/g, '').replace(',', '.')) : 0;
+                              const isG = si.content_quantity_type === 'g' || (!si.content_quantity_type && /g/i.test(si.content_quantity || ''));
+                              let qN = 1;
+                              if (isG && nbV > 0 && need.grams > 0) qN = Math.ceil(need.grams / nbV);
+                              else if (!isG && nbV > 0 && need.count > 0) qN = Math.ceil(need.count / nbV);
+                              else if (need.count > 0) qN = Math.ceil(need.count);
+                              dqMap.set(si.id, Math.max(dqMap.get(si.id) || 0, qN));
+                            }
+                          }
+                          for (const si of shoppingItems) {
+                            if (matched.has(si.id)) {
+                              toggleShoppingSecondaryCheck.mutate({ id: si.id, secondary_checked: true });
+                              const dq = String(dqMap.get(si.id) || 1);
+                              if ((si.quantity || null) !== dq) updateShoppingItemQuantity.mutate({ id: si.id, quantity: dq });
+                            }
+                          }
+                        }
+                        sessionStorage.setItem('menu_initial_sync_done', 'true');
                       }
+                      setPreference.mutate({ key: 'shopping_show_green_checks', value: newChecked });
                     }}
                     className="h-3 w-3 rounded accent-green-500"
                   />
