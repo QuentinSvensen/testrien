@@ -400,8 +400,8 @@ export function sortStockDeductionPriority(a: FoodItem, b: FoodItem): number {
   if (aHas && !bHas) return -1;
   if (!aHas && bHas) return 1;
   if (aHas && bHas) {
-    const aD = Math.floor((Date.now() - new Date(a.counter_start_date!).getTime()) / 86400000);
-    const bD = Math.floor((Date.now() - new Date(b.counter_start_date!).getTime()) / 86400000);
+    const aD = computeCounterDays(a.counter_start_date!) ?? 0;
+    const bD = computeCounterDays(b.counter_start_date!) ?? 0;
     if (aD !== bD) return bD - aD;
   }
   if (a.expiration_date && b.expiration_date) return a.expiration_date.localeCompare(b.expiration_date);
