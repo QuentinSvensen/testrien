@@ -55,6 +55,7 @@ export function useShoppingList(options?: { enabled?: boolean }) {
       if (error) throw error;
       return data as ShoppingItem[];
     },
+    staleTime: 2 * 60 * 1000,
     enabled,
   });
 
