@@ -365,82 +365,12 @@ const Index = () => {
   const [masterSourcePmIds, setMasterSourcePmIds] = useState<Set<string>>(new Set());
   const [unParUnSourcePmIds, setUnParUnSourcePmIds] = useState<Set<string>>(new Set());
 
-  // Sort modes
-  const dbSortModes = getPreference<Record<string, SortMode>>('meal_sort_modes', {});
-  const dbMasterSortModes = getPreference<Record<string, MasterSortMode>>('meal_master_sort_modes', {});
-  const [sortModes, setSortModes] = useState<Record<string, SortMode>>(() => {
-    const saved = localStorage.getItem('meal_sort_modes');
-    return saved ? JSON.parse(saved) : {};
-  });
-  const [masterSortModes, setMasterSortModes] = useState<Record<string, MasterSortMode>>(() => {
-    const saved = localStorage.getItem('meal_master_sort_modes');
-    return saved ? JSON.parse(saved) : {};
-  });
-  const dbAvailableSortModes = getPreference<Record<string, AvailableSortMode>>('meal_available_sort_modes', {});
-  const [availableSortModes, setAvailableSortModes] = useState<Record<string, AvailableSortMode>>({});
-  const dbUnParUnSortModes = getPreference<Record<string, UnParUnSortMode>>('meal_unparun_sort_modes', {});
-  const [unParUnSortModes, setUnParUnSortModes] = useState<Record<string, UnParUnSortMode>>({});
-
-  // Sort direction state (asc=true / desc=false for numeric sorts)
-  const dbSortDirections = getPreference<Record<string, boolean>>('meal_sort_directions', {});
-  const [sortDirections, setSortDirections] = useState<Record<string, boolean>>({});
-
-  const dbSyncedRef = useRef(false);
-  const dbMasterSyncedRef = useRef(false);
-  const dbAvailableSyncedRef = useRef(false);
-  const dbUnParUnSyncedRef = useRef(false);
-  const dbDirectionsSyncedRef = useRef(false);
-
-  // Sync from DB exactly ONCE on first non-empty load — use refs to avoid JSON.stringify in deps
-  const dbSortModesRef = useRef(dbSortModes);
-  dbSortModesRef.current = dbSortModes;
-  const dbMasterSortModesRef = useRef(dbMasterSortModes);
-  dbMasterSortModesRef.current = dbMasterSortModes;
-  const dbAvailableSortModesRef = useRef(dbAvailableSortModes);
-  dbAvailableSortModesRef.current = dbAvailableSortModes;
-  const dbUnParUnSortModesRef = useRef(dbUnParUnSortModes);
-  dbUnParUnSortModesRef.current = dbUnParUnSortModes;
-  const dbSortDirectionsRef = useRef(dbSortDirections);
-  dbSortDirectionsRef.current = dbSortDirections;
-
-  useEffect(() => {
-    if (dbSyncedRef.current) return;
-    const val = dbSortModesRef.current;
-    if (val && Object.keys(val).length > 0) { setSortModes(val); dbSyncedRef.current = true; }
-  }, [dbSortModes]);
-  useEffect(() => {
-    if (dbMasterSyncedRef.current) return;
-    const val = dbMasterSortModesRef.current;
-    if (val && Object.keys(val).length > 0) { setMasterSortModes(val); dbMasterSyncedRef.current = true; }
-  }, [dbMasterSortModes]);
-  useEffect(() => {
-    if (dbAvailableSyncedRef.current) return;
-    const val = dbAvailableSortModesRef.current;
-    if (val && Object.keys(val).length > 0) { setAvailableSortModes(val); dbAvailableSyncedRef.current = true; }
-  }, [dbAvailableSortModes]);
-  useEffect(() => {
-    if (dbUnParUnSyncedRef.current) return;
-    const val = dbUnParUnSortModesRef.current;
-    if (val && Object.keys(val).length > 0) { setUnParUnSortModes(val); dbUnParUnSyncedRef.current = true; }
-  }, [dbUnParUnSortModes]);
-  useEffect(() => {
-    if (dbDirectionsSyncedRef.current) return;
-    const val = dbSortDirectionsRef.current;
-    if (val && Object.keys(val).length > 0) { setSortDirections(val); dbDirectionsSyncedRef.current = true; }
-  }, [dbSortDirections]);
-
-  // Debounced preference write timers - avoids stampeding DB writes from rapid clicks
-  const availableSortDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const masterSortDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const sortDirectionDebounce = useRef<ReturnType<typeof setTimeout> | null>(null);
-
-  const debouncedSetPreference = (timerRef: React.MutableRefObject<ReturnType<typeof setTimeout> | null>, key: string, getValue: () => any, delay = 800) => {
-    if (timerRef.current) clearTimeout(timerRef.current);
-    timerRef.current = setTimeout(() => {
-      setPreference.mutate({ key, value: getValue() });
-      timerRef.current = null;
-    }, delay);
-  };
+  // Sort modes — extracted to dedicated hook
+  const {
+    sortModes, masterSortModes, availableSortModes, unParUnSortModes, sortDirections,
+    toggleSort, toggleMasterSort, toggleAvailableSort, toggleSortDirection,
+    resetSortToManual, resetMasterSortToManual, setUnParUnSort,
+  } = useSortModes({ enabled: unlocked });
 
 
   const [logoClickCount, setLogoClickCount] = useState(0);
