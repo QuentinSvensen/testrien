@@ -420,6 +420,16 @@ export function WeeklyPlanning() {
   const qc = useQueryClient();
   const { getPreference, setPreference } = usePreferences();
   const { items: foodItems } = useFoodItems();
+  const { updateFoodItemCountersForPlanning } = useMealTransfers(foodItems);
+
+  const updatePlanningWithCounters = (pmId: string, day: string | null, time: string | null) => {
+    updatePlanning.mutate({ id: pmId, day_of_week: day, meal_time: time });
+    const pm = possibleMeals.find(p => p.id === pmId);
+    if (pm) {
+      const ing = pm.ingredients_override ?? pm.meals?.ingredients;
+      updateFoodItemCountersForPlanning(ing, day, time);
+    }
+  };
 
   // Force refetch possible_meals on mount to ensure planning always shows latest data
   useEffect(() => {
