@@ -1,4 +1,4 @@
-const CACHE_NAME = 'mealscards-v1';
+const CACHE_NAME = 'mealscards-v2';
 const STATIC_ASSETS = [
   '/',
   '/repas',
@@ -27,18 +27,27 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch: network-first for API, cache-first for assets
+// Fetch: do not cache Vite dev module requests (prevents stale React chunks)
 self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
-  // Skip non-GET and cross-origin
   if (request.method !== 'GET') return;
 
-  // Supabase API calls: network-only (data is cached by react-query)
+  const isViteDevRequest =
+    url.pathname.startsWith('/@vite') ||
+    url.pathname.startsWith('/@id/') ||
+    url.pathname.startsWith('/node_modules/.vite/') ||
+    url.pathname.startsWith('/src/') ||
+    url.pathname.includes('hot-update');
+
+  // Let network handle Vite dev/runtime chunks directly
+  if (isViteDevRequest) return;
+
+  // Backend API calls: network-only
   if (url.hostname.includes('supabase')) return;
 
-  // JS/CSS/HTML assets: stale-while-revalidate
+  // Assets/app shell: stale-while-revalidate
   event.respondWith(
     caches.match(request).then((cached) => {
       const networkFetch = fetch(request)
@@ -49,7 +58,7 @@ self.addEventListener('fetch', (event) => {
           }
           return response;
         })
-        .catch(() => cached); // Offline fallback
+        .catch(() => cached);
 
       return cached || networkFetch;
     })
