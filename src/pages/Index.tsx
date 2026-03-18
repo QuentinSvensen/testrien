@@ -567,6 +567,10 @@ const Index = () => {
                     checked={getPreference<boolean>('shopping_show_green_checks', true)}
                     onChange={(e) => {
                       const newChecked = e.target.checked;
+                      // Optimistically update the preference cache FIRST to prevent stale reads on tab switch
+                      qc.setQueryData<{ id: string; key: string; value: any }[]>(["user_preferences"], old =>
+                        old?.map(p => p.key === 'shopping_show_green_checks' ? { ...p, value: newChecked } : p) ?? []
+                      );
                       if (!newChecked) {
                         // Save white quantities before clearing
                         const savedQtys: Record<string, string> = {};
