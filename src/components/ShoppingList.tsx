@@ -76,10 +76,9 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
   // Compute which items have ambiguous partial matches with menu ingredients (ONLY multi-match)
   // Returns ALL items in ambiguous groups, plus tracks which needKey has a confirmed item
   const needsRaw = getPreference<Record<string, { grams: number; count: number }>>('menu_generator_needs_v1', {});
-  const needsJson = JSON.stringify(needsRaw);
 
   const { ambiguousItemData, confirmedAmbiguous } = useMemo(() => {
-    const needs: Record<string, { grams: number; count: number }> = JSON.parse(needsJson);
+    const needs = needsRaw;
     const ingredientKeys = Object.keys(needs);
     const itemToGroup = new Map<string, { colorIndex: number; needKey: string }>();
     const confirmed = new Map<string, string>(); // needKey → confirmed itemId
