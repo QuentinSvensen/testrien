@@ -18,6 +18,7 @@ import { colorFromName } from "@/lib/foodColors";
 import { useMeals, type MealCategory, type Meal, type PossibleMeal } from "@/hooks/useMeals";
 import { useShoppingList } from "@/hooks/useShoppingList";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useSortModes } from "@/hooks/useSortModes";
 import { toast } from "@/hooks/use-toast";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
