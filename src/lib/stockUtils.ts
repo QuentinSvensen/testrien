@@ -557,3 +557,46 @@ export function scaleIngredientStringExact(rawIngredients: string | null, ratio:
         }).join(" | ");
     }).join(", ");
 }
+
+// ─── Macro Propagation Helper ───────────────────────────────────────────────
+
+/**
+ * Propagate ingredient macros (cal/pro) across all meals that share the same ingredients.
+ * Returns an array of { id, ingredients } updates to apply via mutations.
+ * Also returns the final ingredients for the source meal (auto-filled from others).
+ */
+export function propagateIngredientMacros(
+  sourceMealId: string,
+  newIngredients: string | null,
+  allMeals: { id: string; ingredients: string | null }[]
+): { sourceIngredients: string | null; updates: { id: string; ingredients: string }[] } {
+  if (!newIngredients) return { sourceIngredients: newIngredients, updates: [] };
+
+  const globalMacros = new Map<string, { cal: string; pro: string }>();
+  for (const m of allMeals) {
+    const ingStr = m.id === sourceMealId ? newIngredients : m.ingredients;
+    if (!ingStr) continue;
+    const mMacros = extractIngredientMacros(ingStr);
+    for (const [key, val] of mMacros) {
+      const existing = globalMacros.get(key);
+      globalMacros.set(key, {
+        cal: val.cal || existing?.cal || "",
+        pro: val.pro || existing?.pro || "",
+      });
+    }
+  }
+
+  if (globalMacros.size === 0) return { sourceIngredients: newIngredients, updates: [] };
+
+  const selfApplied = applyIngredientMacros(newIngredients, globalMacros);
+  const sourceIngredients = selfApplied || newIngredients;
+
+  const updates: { id: string; ingredients: string }[] = [];
+  for (const m of allMeals) {
+    if (m.id === sourceMealId || !m.ingredients) continue;
+    const updated = applyIngredientMacros(m.ingredients, globalMacros);
+    if (updated) updates.push({ id: m.id, ingredients: updated });
+  }
+
+  return { sourceIngredients, updates };
+}
