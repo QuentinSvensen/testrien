@@ -8,7 +8,7 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { useShoppingList, type ShoppingItem } from "@/hooks/useShoppingList";
 import { usePreferences } from "@/hooks/usePreferences";
 import { toast } from "@/hooks/use-toast";
-import { normalizeForMatch, normalizeKey, smartFoodContains } from "@/lib/ingredientUtils";
+import { normalizeForMatch, normalizeKey, smartFoodContains, accentSafeKeyMatch } from "@/lib/ingredientUtils";
 import { useFoodItems } from "@/hooks/useFoodItems";
 
 // ─── Validation schemas ───────────────────────────────────────────────────────
@@ -94,7 +94,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
         if (isToujoursPresent.has(si.id)) continue;
         const siKey = normalizeKey(si.name);
         const ingKeyNorm = normalizeKey(ingKey);
-        if (siKey === ingKeyNorm) {
+        if (siKey === ingKeyNorm && accentSafeKeyMatch(si.name, ingKey)) {
           hasExactMatch = true;
         } else if (smartFoodContains(si.name, ingKey)) {
           matchingItems.push(si.id);
@@ -595,7 +595,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
               const checkKey = ambData?.needKey;
               
               for (const [nk, need] of Object.entries(needsRaw)) {
-                if (checkKey ? nk === checkKey : (itemKey === nk || normalizeKey(nk) === itemKey)) {
+                if (checkKey ? nk === checkKey : (accentSafeKeyMatch(item.name, nk))) {
                   const nb = item.content_quantity ? parseFloat(item.content_quantity.replace(/[^0-9.,]/g, '').replace(',', '.')) : 0;
                   const nbType = (item as any).content_quantity_type;
                   let qtyNeeded = 1;
