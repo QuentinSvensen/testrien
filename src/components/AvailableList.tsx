@@ -939,6 +939,9 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
                     title="Réinitialiser au seuil calculé"
                   >✕</button>
                 )}
+                <span className="text-[10px] text-muted-foreground mx-1">·</span>
+                <span className="text-sm font-bold text-blue-400">{Math.round(remainingProtein)}</span>
+                <span className="text-[10px] text-muted-foreground">g prot</span>
               </div>
             )}
           </div>
