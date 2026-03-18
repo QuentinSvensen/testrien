@@ -819,7 +819,14 @@ const Index = () => {
                 onDelete={(id) => { deletePossibleMeal.mutate(id); }}
                 onDuplicate={(id) => duplicatePossibleMeal.mutate(id)}
                 onUpdateExpiration={(id, d) => updateExpiration.mutate({ id, expiration_date: d })}
-                onUpdatePlanning={(id, day, time) => updatePlanning.mutate({ id, day_of_week: day, meal_time: time })}
+                onUpdatePlanning={(id, day, time) => {
+                  updatePlanning.mutate({ id, day_of_week: day, meal_time: time });
+                  const pm = possibleMeals.find(p => p.id === id);
+                  if (pm) {
+                    const ing = pm.ingredients_override ?? pm.meals?.ingredients;
+                    updateFoodItemCountersForPlanning(ing, day, time);
+                  }
+                }}
                 onUpdateCounter={(id, d) => updateCounter.mutate({ id, counter_start_date: d })}
                 onUpdateCalories={(id, cal) => updateCalories.mutate({ id, calories: cal })}
                 onUpdateGrams={async (id, g, pmId) => {
