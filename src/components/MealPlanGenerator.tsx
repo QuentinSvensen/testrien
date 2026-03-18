@@ -146,7 +146,7 @@ export function MealPlanGenerator() {
     const isToujoursItem = (item: { name: string; group_id: string | null }, itemKey: string) => {
       if (item.group_id && toujoursPresentGroupIds.has(item.group_id)) return true;
       if (toujoursFoodKeys.has(itemKey)) return true;
-      return toujoursKeys.some((tjKey) => smartFoodContains(item.name, tjKey));
+      return toujoursKeys.some((tjKey) => smartFoodContains(item.name, tjKey as string));
     };
 
     const computeQtyNeeded = (item: { content_quantity: string | null; content_quantity_type: string | null }, need: { grams: number; count: number }) => {
