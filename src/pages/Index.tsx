@@ -603,7 +603,7 @@ const Index = () => {
                             for (const si of shoppingItems) {
                               const k = normalizeKey(si.name);
                               if (isTJ(si, k)) continue;
-                              if (accentSafeKeyMatch(si.name, nk)) exact.push(si);
+                              if (normalizeKey(si.name) === normalizeKey(nk)) exact.push(si);
                               else if (smartFoodContains(si.name, nk)) partial.push(si);
                             }
                             const tgts = exact.length > 0 ? exact : (partial.length === 1 ? partial : []);

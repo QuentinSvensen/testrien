@@ -595,7 +595,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
               const checkKey = ambData?.needKey;
               
               for (const [nk, need] of Object.entries(needsRaw)) {
-                if (checkKey ? nk === checkKey : (accentSafeKeyMatch(item.name, nk))) {
+                if (checkKey ? nk === checkKey : (normalizeKey(item.name) === normalizeKey(nk))) {
                   const nb = item.content_quantity ? parseFloat(item.content_quantity.replace(/[^0-9.,]/g, '').replace(',', '.')) : 0;
                   const nbType = (item as any).content_quantity_type;
                   let qtyNeeded = 1;
