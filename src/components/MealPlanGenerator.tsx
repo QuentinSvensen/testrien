@@ -66,7 +66,7 @@ export function MealPlanGenerator() {
   const allPlats = getMealsByCategory("plat");
   const persistedRaw = getPreference<unknown>(MENU_PREF_KEY, null);
   const persistedIds = useMemo(() => parseStoredIds(persistedRaw), [JSON.stringify(persistedRaw)]);
-  const persistedNeeds = getPreference<Record<string, { grams: number; count: number }>>(MENU_NEEDS_KEY, {});
+  const persistedNeeds = getPreference<Record<string, { grams: number; count: number; rawName?: string }>>(MENU_NEEDS_KEY, {});
 
   const [selectedMealIds, setSelectedMealIds] = useState<string[]>([]);
   const persistedGrimpeCount = getPreference<number>(MENU_GRIMPE_COUNT_KEY, 4);
@@ -138,7 +138,7 @@ export function MealPlanGenerator() {
     return inv;
   }, [shoppingItems, frozenGroupIds]);
 
-  const updateShoppingChecks = (needsMap: Map<string, { grams: number; count: number }>) => {
+  const updateShoppingChecks = (needsMap: Map<string, { grams: number; count: number; rawName?: string }>) => {
     const toujoursKeys = [...toujoursFoodKeys];
     const matchedItemIds = new Set<string>();
     const desiredQuantities = new Map<string, number>();
@@ -160,6 +160,7 @@ export function MealPlanGenerator() {
     for (const [needKey, need] of needsMap) {
       const exactMatches: typeof shoppingItems = [];
       const partialMatches: typeof shoppingItems = [];
+      const matchName = need.rawName || needKey; // Use raw name for accent-safe matching
 
       for (const item of shoppingItems) {
         const itemKey = normalizeKey(item.name);
@@ -167,7 +168,7 @@ export function MealPlanGenerator() {
 
         if (itemKey === needKey || keyMatch(itemKey, needKey)) {
           exactMatches.push(item);
-        } else if (smartFoodContains(item.name, needKey)) {
+        } else if (smartFoodContains(item.name, matchName)) {
           partialMatches.push(item);
         }
       }
@@ -431,19 +432,19 @@ export function MealPlanGenerator() {
     }
 
     // Build total needs map for shopping check persistence
-    const needsMap = new Map<string, { grams: number; count: number }>();
+    const needsMap = new Map<string, { grams: number; count: number; rawName: string }>();
     for (const id of selectedIds) {
       const recipe = allPlats.find(r => r.id === id);
       if (!recipe) continue;
       const usage = getRecipeUsage(recipe);
       for (const [key, used] of usage) {
-        const prev = needsMap.get(key) || { grams: 0, count: 0 };
-        needsMap.set(key, { grams: prev.grams + used.grams, count: prev.count + used.count });
+        const prev = needsMap.get(key) || { grams: 0, count: 0, rawName: used.rawName };
+        needsMap.set(key, { grams: prev.grams + used.grams, count: prev.count + used.count, rawName: prev.rawName });
       }
     }
 
     // Persist needs for re-check on green toggle
-    const needsObj: Record<string, { grams: number; count: number }> = {};
+    const needsObj: Record<string, { grams: number; count: number; rawName: string }> = {};
     for (const [k, v] of needsMap) needsObj[k] = v;
 
     setSelectedMealIds(selectedIds);

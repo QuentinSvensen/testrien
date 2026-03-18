@@ -75,7 +75,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
 
   // Compute which items have ambiguous partial matches with menu ingredients (ONLY multi-match)
   // Returns ALL items in ambiguous groups, plus tracks which needKey has a confirmed item
-  const needsRaw = getPreference<Record<string, { grams: number; count: number }>>('menu_generator_needs_v1', {});
+  const needsRaw = getPreference<Record<string, { grams: number; count: number; rawName?: string }>>('menu_generator_needs_v1', {});
 
   const { ambiguousItemData, confirmedAmbiguous } = useMemo(() => {
     const needs = needsRaw;
@@ -89,6 +89,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
     for (const ingKey of ingredientKeys) {
       const matchingItems: string[] = [];
       let hasExactMatch = false;
+      const matchName = needs[ingKey]?.rawName || ingKey;
 
       for (const si of items) {
         if (isToujoursPresent.has(si.id)) continue;
@@ -96,7 +97,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
         const ingKeyNorm = normalizeKey(ingKey);
         if (siKey === ingKeyNorm) {
           hasExactMatch = true;
-        } else if (smartFoodContains(si.name, ingKey)) {
+        } else if (smartFoodContains(si.name, matchName)) {
           matchingItems.push(si.id);
         }
       }
