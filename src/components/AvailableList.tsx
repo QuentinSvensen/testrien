@@ -62,9 +62,11 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
   const [editingRatioId, setEditingRatioId] = useState<string | null>(null);
   const [ratioInput, setRatioInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const { getTargetCalorieThreshold, getRemainingProtein } = useCalorieBalance();
+  const { getTargetCalorieThreshold, getDayProtein, DAILY_PROTEIN_GOAL } = useCalorieBalance();
   const baseCalorieThreshold = getTargetCalorieThreshold();
-  const remainingProtein = getRemainingProtein();
+  const JS_DAY_TO_KEY: Record<number, string> = { 1:"lundi",2:"mardi",3:"mercredi",4:"jeudi",5:"vendredi",6:"samedi",0:"dimanche" };
+  const todayProtein = getDayProtein(JS_DAY_TO_KEY[new Date().getDay()]);
+  const remainingProtein = Math.max(0, DAILY_PROTEIN_GOAL - todayProtein);
   const [tempCalorieOverride, setTempCalorieOverride] = useState<number | null>(null);
   const calorieThreshold = tempCalorieOverride ?? baseCalorieThreshold;
 
