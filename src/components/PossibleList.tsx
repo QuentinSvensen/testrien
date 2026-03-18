@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { Plus, Dice5, ArrowUpDown, CalendarDays, CalendarClock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MealList } from "@/components/MealList";
