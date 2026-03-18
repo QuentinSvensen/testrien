@@ -1,4 +1,5 @@
 import { defineConfig } from "vite";
+import react from "@vitejs/plugin-react";
 import path from "path";
 
 const reactPath = path.resolve(__dirname, "./node_modules/react");
@@ -13,9 +14,7 @@ export default defineConfig({
       overlay: false,
     },
   },
-  plugins: [
-    (await import(path.resolve(__dirname, "./node_modules/@vitejs/plugin-react/dist/index.mjs"))).default(),
-  ],
+  plugins: [react()],
   optimizeDeps: {
     include: ["react", "react-dom", "react/jsx-runtime", "react-dom/client"],
   },
