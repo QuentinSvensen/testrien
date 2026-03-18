@@ -133,7 +133,7 @@ const Index = () => {
   
   const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
   const foodItemIndex = useMemo(() => buildFoodItemIndex(foodItems), [foodItems]);
-  const { deductIngredientsFromStock, restoreIngredientsToStock, adjustStockForIngredientChange, deductNameMatchStock } = useMealTransfers(foodItems);
+  const { deductIngredientsFromStock, restoreIngredientsToStock, adjustStockForIngredientChange, deductNameMatchStock, updateFoodItemCountersForPlanning } = useMealTransfers(foodItems);
 
   // Preload ALL lazy chunks + prefetch ALL query data once unlocked (idle callback)
   const preloadDone = useRef(false);
