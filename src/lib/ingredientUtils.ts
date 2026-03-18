@@ -202,10 +202,18 @@ export function parseIngredientLineRaw(ing: string): ParsedIngredientRaw {
  * "100g poulet | 80g dinde, 50g salade" → [[{poulet}, {dinde}], [{salade}]]
  * Optional ingredients are prefixed with "?" e.g. "?50g parmesan"
  */
+const _groupsCache = new Map<string, ParsedIngredient[][]>();
+const GROUPS_CACHE_MAX = 300;
+
 export function parseIngredientGroups(raw: string): ParsedIngredient[][] {
   if (!raw?.trim()) return [];
-  return raw.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean)
+  const cached = _groupsCache.get(raw);
+  if (cached) return cached;
+  const result = raw.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean)
     .map(group => group.split(/\|/).map(s => s.trim()).filter(Boolean).map(parseIngredientLine));
+  if (_groupsCache.size > GROUPS_CACHE_MAX) _groupsCache.clear();
+  _groupsCache.set(raw, result);
+  return result;
 }
 
 // ─── Ingredient Editing (String-based — for UI) ─────────────────────────────
