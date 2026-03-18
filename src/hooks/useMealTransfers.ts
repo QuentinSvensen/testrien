@@ -13,6 +13,23 @@ import {
   sortStockDeductionPriority,
 } from "@/lib/stockUtils";
 
+const DAY_KEY_TO_INDEX: Record<string, number> = {
+  lundi: 0, mardi: 1, mercredi: 2, jeudi: 3, vendredi: 4, samedi: 5, dimanche: 6,
+};
+
+/** Compute the ISO date string for a planned meal day+time (12h for midi, 19h for soir) */
+export function computePlannedCounterDate(dayOfWeek: string, mealTime: string | null): string {
+  const today = new Date();
+  const todayDow = today.getDay(); // 0=Sun
+  const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Mon
+  const targetIdx = DAY_KEY_TO_INDEX[dayOfWeek] ?? 0;
+  const diff = targetIdx - todayIdx;
+  const d = new Date(today);
+  d.setDate(d.getDate() + diff);
+  d.setHours(mealTime === "soir" ? 19 : 12, 0, 0, 0);
+  return d.toISOString();
+}
+
 /**
  * Centralised stock-transfer logic extracted from Index.tsx.
  * Every Supabase call is wrapped in try/catch with a destructive toast on failure.
@@ -34,7 +51,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
   };
 
   /** Deduct ingredients from stock when moving to Possible */
-  const deductIngredientsFromStock = async (meal: Meal): Promise<FoodItem[]> => {
+  const deductIngredientsFromStock = async (meal: Meal, counterDate?: string): Promise<FoodItem[]> => {
     if (!meal.ingredients?.trim()) return [];
     const groups = parseIngredientGroups(meal.ingredients);
     const stockMap = buildStockMap(foodItems);
@@ -86,13 +103,13 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             const remainder = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
             if (remainder > 0) {
               const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-              updatesById.set(fi.id, { id: fi.id, quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, remainder), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
+              updatesById.set(fi.id, { id: fi.id, quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, remainder), ...(shouldStartCounter ? { counter_start_date: counterDate ?? new Date().toISOString() } : {}) });
             } else if (fullUnits > 0) {
               updatesById.set(fi.id, { id: fi.id, quantity: fullUnits, grams: formatNumeric(perUnit), ...(fi.counter_start_date ? { counter_start_date: null } : {}) });
             } else { updatesById.set(fi.id, { id: fi.id, delete: true }); }
           } else {
             const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-            updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
+            updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: counterDate ?? new Date().toISOString() } : {}) });
           }
         }
       }
@@ -380,10 +397,42 @@ export function useMealTransfers(foodItems: FoodItem[]) {
     invalidateStock();
   };
 
+  /** Update food items' counter_start_date when a possible meal's planning changes */
+  const updateFoodItemCountersForPlanning = async (
+    ingredients: string | null,
+    dayOfWeek: string | null,
+    mealTime: string | null,
+  ) => {
+    if (!ingredients?.trim()) return;
+    const groups = parseIngredientGroups(ingredients);
+    const targetDate = dayOfWeek ? computePlannedCounterDate(dayOfWeek, mealTime) : null;
+
+    for (const group of groups) {
+      if (group.every(alt => (alt as any).optional)) continue;
+      const alt = group[0];
+      if (!alt) continue;
+      // Find food items matching this ingredient that have a counter
+      const matchingItems = foodItems.filter(
+        fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter
+      );
+      for (const fi of matchingItems) {
+        const newDate = targetDate ?? new Date().toISOString();
+        // Only update if the date actually changes
+        if (fi.counter_start_date !== newDate) {
+          await safeMutate("Mise à jour compteur planifié", () =>
+            supabase.from("food_items").update({ counter_start_date: newDate } as any).eq("id", fi.id)
+          );
+        }
+      }
+    }
+    invalidateStock();
+  };
+
   return {
     deductIngredientsFromStock,
     restoreIngredientsToStock,
     adjustStockForIngredientChange,
     deductNameMatchStock,
+    updateFoodItemCountersForPlanning,
   };
 }

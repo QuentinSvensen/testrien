@@ -13,6 +13,7 @@ import { fr } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useFoodItems } from "@/hooks/useFoodItems";
 import { analyzeMealIngredients } from "@/lib/stockUtils";
+import { useMealTransfers } from "@/hooks/useMealTransfers";
 
 /** Additive planning input: click "+" to enter a value that gets added to current */
 function PlanningInput({ storageKey, currentValue, onSave, placeholder, className }: {
@@ -420,6 +421,16 @@ export function WeeklyPlanning() {
   const qc = useQueryClient();
   const { getPreference, setPreference } = usePreferences();
   const { items: foodItems } = useFoodItems();
+  const { updateFoodItemCountersForPlanning } = useMealTransfers(foodItems);
+
+  const updatePlanningWithCounters = (pmId: string, day: string | null, time: string | null) => {
+    updatePlanning.mutate({ id: pmId, day_of_week: day, meal_time: time });
+    const pm = possibleMeals.find(p => p.id === pmId);
+    if (pm) {
+      const ing = pm.ingredients_override ?? pm.meals?.ingredients;
+      updateFoodItemCountersForPlanning(ing, day, time);
+    }
+  };
 
   // Force refetch possible_meals on mount to ensure planning always shows latest data
   useEffect(() => {
@@ -596,7 +607,7 @@ export function WeeklyPlanning() {
     e.preventDefault();
     setDragOverSlot(null);
     const pmId = e.dataTransfer.getData("pmId");
-    if (pmId) updatePlanning.mutate({ id: pmId, day_of_week: day, meal_time: time });
+    if (pmId) updatePlanningWithCounters(pmId, day, time);
   };
 
   const handleDropOnCard = (e: React.DragEvent, targetPm: PossibleMeal) => {
@@ -617,7 +628,7 @@ export function WeeklyPlanning() {
     e.preventDefault();
     setDragOverUnplanned(false);
     const pmId = e.dataTransfer.getData("pmId");
-    if (pmId) updatePlanning.mutate({ id: pmId, day_of_week: null, meal_time: null });
+    if (pmId) updatePlanningWithCounters(pmId, null, null);
   };
 
   const handleTouchStart = (e: React.TouchEvent, pm: PossibleMeal) => {
@@ -718,9 +729,9 @@ export function WeeklyPlanning() {
     if (slotEl) {
       const day = slotEl.getAttribute("data-day")!;
       const time = slotEl.getAttribute("data-time")!;
-      updatePlanning.mutate({ id: state.pmId, day_of_week: day, meal_time: time });
+      updatePlanningWithCounters(state.pmId, day, time);
     } else if (el?.closest("[data-unplanned]")) {
-      updatePlanning.mutate({ id: state.pmId, day_of_week: null, meal_time: null });
+      updatePlanningWithCounters(state.pmId, null, null);
     }
   };
 
@@ -740,7 +751,7 @@ export function WeeklyPlanning() {
   };
 
   const handleRemoveFromSlot = (pm: PossibleMeal) => {
-    updatePlanning.mutate({ id: pm.id, day_of_week: null, meal_time: null });
+    updatePlanningWithCounters(pm.id, null, null);
   };
 
   const renderMiniCard = (pm: PossibleMeal, compact = false) => {
