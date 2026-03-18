@@ -113,7 +113,6 @@ export function smartFoodContains(a: string, b: string): boolean {
   }
 
   // Accent-level check on matched word pairs (prevents "épicée" matching "épice/épices")
-  // Uses light-normalized forms (preserving accents) to detect different words
   const aLight = lightNormalize(a).split(/\s+/);
   const bLight = lightNormalize(b).split(/\s+/);
   const shorterLight = shorterIsA ? aLight : bLight;
@@ -122,15 +121,12 @@ export function smartFoodContains(a: string, b: string): boolean {
     const sWord = shorterLight[si];
     const lWord = longerLight[li];
     if (!sWord || !lWord) continue;
-    // Both are accent-free → nothing to check
-    if (sWord === normalizeForMatch(sWord) && lWord === normalizeForMatch(lWord)) continue;
-    // Compare: strip trailing e/s from both light forms
+    // Skip accent check if either word is already fully accent-stripped (pre-normalized input)
+    if (sWord === normalizeForMatch(sWord) || lWord === normalizeForMatch(lWord)) continue;
+    // Both have accent info — compare fuzzy forms
     const sFuzzy = fuzzyWord(sWord);
     const lFuzzy = fuzzyWord(lWord);
-    if (sFuzzy !== lFuzzy) {
-      // e.g. "épic" vs "epic" or "épicé" vs "épice" — accent-different bases → reject
-      return false;
-    }
+    if (sFuzzy !== lFuzzy) return false;
   }
 
   if (shorter.length === longer.length) {
