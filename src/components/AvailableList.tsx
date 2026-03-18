@@ -13,6 +13,7 @@ import {
   getMissingIngredients,
   formatExpirationLabel, compareExpirationWithCounter, buildScaledMealForRatio,
   getIndivisibleConstrainedRatio, getValidDiscreteRatios,
+  getDisplayedCalories, getDisplayedProtein, parseMacroDisplay,
   type StockInfo, type FoodItemIndex,
 } from "@/lib/stockUtils";
 import {
