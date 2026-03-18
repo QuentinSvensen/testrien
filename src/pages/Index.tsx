@@ -71,20 +71,9 @@ const CATEGORIES: {value: MealCategory;label: string;emoji: string;}[] = [
 { value: "dessert", label: "Desserts", emoji: "🍰" },
 { value: "bonus", label: "Bonus", emoji: "⭐" }];
 
-/** Get displayed calories for a meal: ingredient-computed (orange) takes priority over raw */
+/** Get displayed calories for a meal: uses shared helper */
 function getDisplayedMealCalories(meal: Meal): number {
-  return extractSortableCalories(meal) ?? 0;
-}
-
-/** Extract sortable calories from a meal (shared logic with useMeals) */
-function extractSortableCalories(meal: { calories?: string | null; ingredients?: string | null }): number | null {
-  const ingCal = computeIngredientCalories(meal.ingredients ?? null);
-  if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-  if (!meal.calories) return null;
-  const match = meal.calories.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-  if (!match) return null;
-  const parsed = Number.parseFloat(match[0]);
-  return Number.isFinite(parsed) ? parsed : null;
+  return getDisplayedCalories(meal) ?? 0;
 }
 
 function validateMealName(name: string): string | null {
