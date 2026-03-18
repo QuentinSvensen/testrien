@@ -51,7 +51,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
   };
 
   /** Deduct ingredients from stock when moving to Possible */
-  const deductIngredientsFromStock = async (meal: Meal, counterDate?: string): Promise<FoodItem[]> => {
+  const deductIngredientsFromStock = async (meal: Meal): Promise<FoodItem[]> => {
     if (!meal.ingredients?.trim()) return [];
     const groups = parseIngredientGroups(meal.ingredients);
     const stockMap = buildStockMap(foodItems);
