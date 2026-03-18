@@ -102,7 +102,7 @@ const PAGE_TO_ROUTE: Record<MainPage, string> = {
 
 const Index = () => {
   const qc = useQueryClient();
-  const [session, setSession] = useState<import("@supabase/supabase-js").Session | null | undefined>(undefined);
+  const [session, setSession] = useState<any>(undefined);
   const [blockedCount, setBlockedCount] = useState<number | null>(null);
   const navigate = useNavigate();
   const location = useLocation();
