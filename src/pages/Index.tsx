@@ -173,7 +173,7 @@ const Index = () => {
     const handleUnload = () => {
       const current = parseInt(localStorage.getItem(TAB_KEY) || '1');
       if (current <= 1) {
-        supabase.auth.signOut();
+        (supabase.auth as any).signOut();
         localStorage.setItem(TAB_KEY, '0');
       } else {
         localStorage.setItem(TAB_KEY, String(current - 1));
