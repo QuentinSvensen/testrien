@@ -16,7 +16,7 @@ const MENU_GRIMPE_COUNT_KEY = "menu_generator_grimpe_count_v1";
 type MenuSortMode = "manual" | "calories" | "alphabetical";
 
 function keyMatch(a: string, b: string): boolean {
-  return normalizeKey(a) === normalizeKey(b);
+  return accentSafeKeyMatch(a, b);
 }
 
 
