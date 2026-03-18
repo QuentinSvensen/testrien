@@ -257,7 +257,7 @@ export function analyzeMealIngredients(
         }
         // Counter analysis
         if (fi.counter_start_date) {
-          const days = Math.floor((Date.now() - new Date(fi.counter_start_date).getTime()) / 86400000);
+          const days = computeCounterDays(fi.counter_start_date);
           if (result.maxIngredientCounter === null || days > result.maxIngredientCounter) {
             result.maxIngredientCounter = days;
             result.maxCounterName = fi.name;
