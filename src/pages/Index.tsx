@@ -141,6 +141,7 @@ const Index = () => {
   const { getPreference, setPreference, isLoading: isPreferencesLoading } = usePreferences({ enabled: unlocked });
   
   const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
+  const foodItemIndex = useMemo(() => buildFoodItemIndex(foodItems), [foodItems]);
   const { deductIngredientsFromStock, restoreIngredientsToStock, adjustStockForIngredientChange, deductNameMatchStock } = useMealTransfers(foodItems);
 
   // Preload ALL lazy chunks + prefetch ALL query data once unlocked (idle callback)
