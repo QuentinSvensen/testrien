@@ -26,7 +26,7 @@ import { fr } from "date-fns/locale";
 import {
   normalizeForMatch, normalizeKey, strictNameMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
-  getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories,
+  getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, smartFoodContains,
 } from "@/lib/ingredientUtils";
 import {
   buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
