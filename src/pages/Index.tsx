@@ -964,13 +964,9 @@ const Index = () => {
                       onToggleCollapse={() => toggleSectionCollapse(`unparun-${cat.value}`)}
                       sortMode={unParUnSortModes[cat.value] || "expiration"}
                       onToggleSort={() => {
-                        setUnParUnSortModes(prev => {
-                          const current = prev[cat.value] || "expiration";
-                          const next: UnParUnSortMode = current === "manual" ? "expiration" : "manual";
-                          const updated = { ...prev, [cat.value]: next };
-                          setPreference.mutate({ key: 'meal_unparun_sort_modes', value: updated });
-                          return updated;
-                        });
+                        const current = unParUnSortModes[cat.value] || "expiration";
+                        const next: UnParUnSortMode = current === "manual" ? "expiration" : "manual";
+                        setUnParUnSort(cat.value, next);
                       }}
                       onMoveToPossible={async (fi, consumeQty, consumeGrams) => {
                         const snapshot = [{ ...fi }];
