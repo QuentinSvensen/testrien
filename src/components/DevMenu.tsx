@@ -18,11 +18,12 @@ interface DevMenuProps {
   getMealsByCategory: (cat: MealCategory) => Meal[];
   shoppingGroups: ShoppingGroup[];
   shoppingItems: ShoppingItem[];
+  foodItems?: FoodItem[];
   blockedCount: number | null;
   setBlockedCount: (n: number) => void;
 }
 
-export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingItems, blockedCount, setBlockedCount }: DevMenuProps) {
+export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingItems, foodItems, blockedCount, setBlockedCount }: DevMenuProps) {
   const handleExportMeals = () => {
     const allCats: MealCategory[] = ["plat", "entree", "dessert", "bonus", "petit_dejeuner"];
     const lines = allCats.flatMap((cat) => getMealsByCategory(cat)).map((m) => {
