@@ -128,8 +128,9 @@ export function PossibleList({ category, items, sortMode, onToggleSort, onRandom
         if (!meal) return null;
         const currentIngredients = pm.ingredients_override ?? meal.ingredients;
         const mealForAnalysis = { ...meal, ingredients: currentIngredients };
-        const expiredIngs = getExpiredIngredientNames(mealForAnalysis, foodItems);
-        const soonIngs = getExpiringSoonIngredientNames(mealForAnalysis, foodItems);
+        const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
+        const expiredIngs = analysis.expiredIngredientNames;
+        const soonIngs = analysis.expiringSoonIngredientNames;
 
         return (
           <MemoizedPossibleMealCard key={pm.id} pm={pm} stockMap={stockMap}

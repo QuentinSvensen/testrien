@@ -115,8 +115,8 @@ export function MasterList({ category, meals, foodItems, sortMode, sortAsc, onTo
                 onUpdateOvenTemp={(t) => onUpdateOvenTemp(meal.id, t)}
                 onUpdateOvenMinutes={(m) => onUpdateOvenMinutes(meal.id, m)}
                 missingIngredientNames={missingIngs.size > 0 ? missingIngs : undefined}
-                expirationLabel={expLabel} expirationDate={expDate} expirationIsToday={expIsTodayM}
-                expiredIngredientNames={expiredIngs} expiringSoonIngredientNames={soonIngs}
+                expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayM}
+                expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames}
                 onDragStart={(e) => { e.dataTransfer.setData("mealId", meal.id); e.dataTransfer.setData("source", "master"); setDragIndex(index); }}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (dragIndex !== null && dragIndex !== index) onReorder(dragIndex, index); setDragIndex(null); }} />
