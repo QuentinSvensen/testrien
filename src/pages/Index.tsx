@@ -29,13 +29,14 @@ import {
   extractIngredientMacros, applyIngredientMacros,
 } from "@/lib/ingredientUtils";
 import {
-  buildStockMap, findStockKey, pickBestAlternative,
+  buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
   getMealMultiple, getMealFractionalRatio,
   getEarliestIngredientExpiration, getEarliestIngredientCounterDate, getExpiringIngredientName, getExpiredIngredientNames,
   getMaxIngredientCounter, getMaxIngredientCounterName, getCounterIngredientNames,
   getMissingIngredients, isFoodUsedInMeals,
   formatExpirationLabel, compareExpirationWithCounter,
   sortStockDeductionPriority, buildScaledMealForRatio, scaleIngredientStringExact,
+  type FoodItemIndex,
 } from "@/lib/stockUtils";
 import { useMealTransfers } from "@/hooks/useMealTransfers";
 
@@ -71,13 +72,18 @@ const CATEGORIES: {value: MealCategory;label: string;emoji: string;}[] = [
 
 /** Get displayed calories for a meal: ingredient-computed (orange) takes priority over raw */
 function getDisplayedMealCalories(meal: Meal): number {
-  const ingCal = computeIngredientCalories(meal.ingredients);
+  return extractSortableCalories(meal) ?? 0;
+}
+
+/** Extract sortable calories from a meal (shared logic with useMeals) */
+function extractSortableCalories(meal: { calories?: string | null; ingredients?: string | null }): number | null {
+  const ingCal = computeIngredientCalories(meal.ingredients ?? null);
   if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-  if (!meal.calories) return 0;
+  if (!meal.calories) return null;
   const match = meal.calories.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-  if (!match) return 0;
+  if (!match) return null;
   const parsed = Number.parseFloat(match[0]);
-  return Number.isFinite(parsed) ? parsed : 0;
+  return Number.isFinite(parsed) ? parsed : null;
 }
 
 function validateMealName(name: string): string | null {
@@ -140,6 +146,7 @@ const Index = () => {
   const { getPreference, setPreference, isLoading: isPreferencesLoading } = usePreferences({ enabled: unlocked });
   
   const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
+  const foodItemIndex = useMemo(() => buildFoodItemIndex(foodItems), [foodItems]);
   const { deductIngredientsFromStock, restoreIngredientsToStock, adjustStockForIngredientChange, deductNameMatchStock } = useMealTransfers(foodItems);
 
   // Preload ALL lazy chunks + prefetch ALL query data once unlocked (idle callback)
