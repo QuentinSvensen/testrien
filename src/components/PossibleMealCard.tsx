@@ -225,37 +225,7 @@ export function PossibleMealCard({
     setEditingIngredients(false);
   };
 
-  const updateLine = (idx: number, field: "qty" | "count" | "name" | "cal" | "pro", value: string) => {
-    setIngLines(prev => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], [field]: value };
-      if (field === "name" && idx === next.length - 1 && value.trim()) {
-        next.push({ qty: "", count: "", name: "", cal: "", pro: "", isOr: false, isOptional: false });
-      }
-      return next;
-    });
-  };
 
-  const toggleOr = (idx: number) => {
-    if (idx === 0) return;
-    setIngLines(prev => {
-      const next = [...prev];
-      next[idx] = { ...next[idx], isOr: !next[idx].isOr };
-      return next;
-    });
-  };
-
-  const handleIngKeyDown = (idx: number, field: "qty" | "count" | "name", e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      if (field === "qty") countRefs.current[idx]?.focus();
-      else if (field === "count") nameRefs.current[idx]?.focus();
-      else if (idx < ingLines.length - 1) qtyRefs.current[idx + 1]?.focus();
-      else if (ingLines[idx].name.trim()) setTimeout(() => qtyRefs.current[idx + 1]?.focus(), 0);
-      else commitIngredients();
-    }
-    if (e.key === "Escape") commitIngredients();
-  };
 
   const selectedDate = pm.expiration_date ? parseISO(pm.expiration_date) : undefined;
 
