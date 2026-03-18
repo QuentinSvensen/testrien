@@ -5,7 +5,8 @@ import { MealList } from "@/components/MealList";
 import { PossibleMealCard } from "@/components/PossibleMealCard";
 import type { PossibleMeal } from "@/hooks/useMeals";
 import { computeIngredientCalories } from "@/lib/ingredientUtils";
-import { buildStockMap, analyzeMealIngredients } from "@/lib/stockUtils";
+import { buildStockMap, analyzeMealIngredients, getDisplayedPMCalories } from "@/lib/stockUtils";
+import type { StockInfo } from "@/lib/stockUtils";
 import type { FoodItem } from "@/components/FoodItems";
 
 const MemoizedPossibleMealCard = React.memo(
