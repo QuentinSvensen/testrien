@@ -195,16 +195,9 @@ export function PossibleMealCard({
           const scaledIngredients = scaleIngredientStringExact(meal.ingredients, ratio);
           onUpdatePossibleIngredients(scaledIngredients);
         }
-        // Always scale grams when applying ratio
-        if (meal.grams) {
-          const baseG = parseFloat(meal.grams.replace(/[^0-9.]/g, '')) || 0;
-          if (baseG > 0) onUpdateGrams(String(Math.round(baseG * ratio)));
-        }
-        // Scale calories directly only for cards without ingredients
-        if (!meal.ingredients && meal.calories) {
-          const baseCal = parseFloat(meal.calories.replace(/[^0-9.]/g, '')) || 0;
-          if (baseCal > 0) onUpdateCalories(String(Math.round(baseCal * ratio)));
-        }
+        // NOTE: Do NOT call onUpdateGrams or onUpdateCalories here — those modify the MASTER meal.
+        // The scaled values are derived from ingredients_override (for ingredient-based calories)
+        // and visible via the detectedRatio badge for grams display.
       }
     }
     setEditing(null);
