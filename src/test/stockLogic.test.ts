@@ -425,7 +425,7 @@ describe("strictNameMatch edge cases", () => {
 
   it("does NOT match unrelated similar names", () => {
     expect(strictNameMatch("pain", "paris")).toBe(false);
-    expect(strictNameMatch("riz", "ris")).toBe(true); // 1 char diff - this matches!
+    expect(strictNameMatch("riz", "ris")).toBe(false); // ≤3 chars → exact match required
   });
 
   it("matches with accents", () => {
