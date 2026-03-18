@@ -139,7 +139,7 @@ export function useCalorieBalance() {
   const manualProteins = getPreference<Record<string, number>>('planning_manual_proteins', {});
   const extraProteins = getPreference<Record<string, number>>('planning_extra_proteins', {});
   const breakfastManualProteins = getPreference<Record<string, number>>('planning_breakfast_manual_proteins', {});
-  const DAILY_PROTEIN_GOAL = getPreference<number>('planning_daily_protein_goal', 150);
+  const DAILY_PROTEIN_GOAL = getPreference<number>('planning_protein_goal', getPreference<number>('planning_daily_protein_goal', 150));
 
   const planningMeals = useMemo(() => possibleMeals.filter((pm) => {
     if (pm.meals?.category === "plat") return true;
