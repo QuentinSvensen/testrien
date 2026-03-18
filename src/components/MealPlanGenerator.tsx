@@ -450,6 +450,8 @@ export function MealPlanGenerator() {
     setPreference.mutate({ key: MENU_PREF_KEY, value: selectedIds });
     setPreference.mutate({ key: MENU_NEEDS_KEY, value: needsObj });
 
+    // Reset session sync flag so the new menu takes effect
+    sessionStorage.removeItem(SESSION_SYNC_KEY);
     // Update shopping list checkboxes & quantities
     updateShoppingChecks(needsMap);
   };
