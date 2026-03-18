@@ -114,18 +114,18 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
     }
 
     return { ambiguousItemData: itemToGroup, confirmedAmbiguous: confirmed };
-  }, [items, needsJson, isToujoursPresent]);
+  }, [items, needsRaw, isToujoursPresent]);
 
   // Track dismissed ambiguous groups (user double-clicked to fully dismiss)
   const [dismissedAmbiguous, setDismissedAmbiguous] = useState<Set<string>>(new Set());
   // Reset dismissed state when menu is regenerated (needs change)
-  const prevNeedsJson = useRef(needsJson);
+  const prevNeedsRef = useRef(needsRaw);
   useEffect(() => {
-    if (needsJson !== prevNeedsJson.current) {
-      prevNeedsJson.current = needsJson;
+    if (needsRaw !== prevNeedsRef.current) {
+      prevNeedsRef.current = needsRaw;
       setDismissedAmbiguous(new Set());
     }
-  }, [needsJson]);
+  }, [needsRaw]);
 
   // An item shows the colored ❓ if it's in an ambiguous group AND either:
   // - no item in the group is confirmed yet, OR
