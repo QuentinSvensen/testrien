@@ -12,7 +12,8 @@ import {
   getEarliestIngredientExpiration, getExpiringIngredientName, getExpiredIngredientNames, getExpiringSoonIngredientNames,
   getMaxIngredientCounter, getCounterIngredientNames, getMissingIngredients,
   formatExpirationLabel, compareExpirationWithCounter, buildScaledMealForRatio,
-  getIndivisibleConstrainedRatio, getValidDiscreteRatios
+  getIndivisibleConstrainedRatio, getValidDiscreteRatios,
+  type StockInfo,
 } from "@/lib/stockUtils";
 import {
   normalizeForMatch, strictNameMatch, parseQty, formatNumeric, getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, computeIngredientProtein
