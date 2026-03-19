@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein } from "@/hooks/useCalorieBalance";
 import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer } from "lucide-react";
-import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey } from "@/lib/ingredientUtils";
+import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, normalizeForMatch } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { format, parseISO } from "date-fns";
@@ -201,7 +201,7 @@ interface TouchDragState {
 }
 
 // ─── PlanningMiniCard ────────────────────────────────────────────────────────
-function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPast, displayCal, isComputedCal, displayPro, isComputedPro, compact, isTouchDevice, touchDragActive, slotDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onRemove, onCalorieChange, expiredIngredientNames, expiringSoonIngredientNames, onDoubleClick }: {
+function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPast, displayCal, isComputedCal, displayPro, isComputedPro, compact, isTouchDevice, touchDragActive, slotDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onRemove, onCalorieChange, expiredIngredientNames, expiringSoonIngredientNames, onDoubleClick, foodItems }: {
   pm: PossibleMeal; meal: any; expired: boolean; counterDays: number | null; counterUrgent: boolean; isPast: boolean; displayCal: string | null; isComputedCal: boolean; displayPro: string | null; isComputedPro: boolean; compact: boolean;
   isTouchDevice: boolean; touchDragActive: boolean; slotDragOver: string | null;
   onDragStart: (e: React.DragEvent) => void; onDragOver: (e: React.DragEvent) => void; onDragLeave: () => void; onDrop: (e: React.DragEvent) => void;
@@ -210,6 +210,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
   expiredIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
   onDoubleClick?: () => void;
+  foodItems?: Array<{ name: string; quantity?: number | null }>;
 }) {
   const [editingCal, setEditingCal] = useState(false);
   const [calValue, setCalValue] = useState("");
@@ -317,7 +318,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                     {format(parseISO(pm.expiration_date), "d MMM", { locale: fr })}
                   </span>
                 )}
-                {meal.ingredients && renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames)}
+                {meal.ingredients && renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, foodItems)}
               </div>
             )}
           </div>
@@ -351,7 +352,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
               )}
               {meal.ingredients && (
                 <div className={`${pm.expiration_date || meal.grams ? "mt-0.5" : ""} text-[9px] text-white/50 flex flex-wrap gap-x-1`}>
-                  {renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames)}
+                  {renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, foodItems)}
                 </div>
               )}
             </div>
@@ -893,6 +894,7 @@ export function WeeklyPlanning() {
           setPreference.mutate({ key: 'planning_cal_overrides', value: updated });
         }}
         onDoubleClick={() => setPopupPm(pm)}
+        foodItems={foodItems}
       />
     );
   };
@@ -1504,8 +1506,8 @@ export function WeeklyPlanning() {
                   <div className="bg-black/20 rounded-xl p-3 mt-1">
                     <p className="text-xs font-semibold text-white/60 mb-1 uppercase tracking-wide">Ingrédients</p>
                     <div className="text-sm text-white/90 space-y-0.5">
-                      {displayIngredients.split(/[,\n]+/).map((g, i) => (
-                        <p key={i}>{cleanIngredientText(g.trim())}</p>
+                      {renderIngredientDisplayPlanning(displayIngredients, undefined, undefined, foodItems).map((el, i) => (
+                        <p key={i}>{el}</p>
                       ))}
                     </div>
                   </div>
@@ -1584,32 +1586,66 @@ function renderIngredientDisplayPlanning(
   ingredients: string,
   expiredIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
+  foodItems?: Array<{ name: string; quantity?: number | null }>,
 ) {
-  // Strip cal/pro markers BEFORE splitting to avoid breaking on commas inside markers
   const cleaned = cleanIngredientText(ingredients);
   const groups = cleaned.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
-  
+
+  // Build a set of available food names for quick lookup
+  const availableNames = new Set<string>();
+  if (foodItems) {
+    for (const fi of foodItems) {
+      if ((fi.quantity ?? 0) > 0) availableNames.add(normalizeForMatch(fi.name));
+    }
+  }
+
+  const isAvailable = (name: string) => {
+    const norm = normalizeForMatch(name.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim());
+    for (const avail of availableNames) {
+      if (avail === norm || avail.includes(norm) || norm.includes(avail)) return true;
+    }
+    return false;
+  };
+
   groups.forEach((group, gi) => {
     const isOpt = group.startsWith("?");
     const display = isOpt ? group.slice(1).trim() : group;
-    
-    // Normalize name for matching (strip lead quantity)
+
+    // Handle OR alternatives (|)
+    const alternatives = display.split(/\s*\|\s*/);
+    if (alternatives.length > 1 && foodItems) {
+      const altElements = alternatives.map((alt, ai) => {
+        const available = isAvailable(alt);
+        return (
+          <span key={ai} className={available ? '' : 'line-through opacity-40'}>
+            {alt}{ai < alternatives.length - 1 ? <span className="opacity-60"> ou </span> : ''}
+          </span>
+        );
+      });
+      elements.push(
+        <span key={gi}>
+          {isOpt ? '?' : ''}{altElements}{gi < groups.length - 1 ? ' •' : ''}
+        </span>
+      );
+      return;
+    }
+
     const normalizedName = normalizeKey(display.replace(/^\d+(?:\.\d+)?(?:g|ml|x| unit)?\s+/i, ""));
     const isExpired = expiredIngredientNames?.has(normalizedName);
     const isSoon = expiringSoonIngredientNames?.has(normalizedName);
-    
+
     const cls = isExpired ? 'bg-red-500/40 text-red-100 px-0.5 rounded font-semibold'
       : isSoon ? 'ring-1 ring-red-500/60 font-semibold px-0.5 rounded'
       : isOpt ? 'italic text-white/40'
       : '';
-    
+
     elements.push(
       <span key={gi} className={cls}>
         {isOpt ? '?' : ''}{display}{gi < groups.length - 1 ? ' •' : ''}
       </span>
     );
   });
-  
+
   return elements;
 }
