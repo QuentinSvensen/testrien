@@ -638,10 +638,6 @@ export function WeeklyPlanning() {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
         breakfastProt = possiblePdj ? getCardDisplayProtein(possiblePdj) : parseProtein(breakfast.protein);
-          breakfastProt = getCardDisplayProtein(possiblePdj);
-        } else {
-          breakfastProt = parseProtein(breakfast.protein);
-        }
       } else {
         const ingPro = computeIngredientProtein(breakfast.ingredients);
         breakfastProt = ingPro !== null ? ingPro : parseProtein(breakfast.protein);
