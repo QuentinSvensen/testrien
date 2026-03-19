@@ -595,7 +595,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const fakeMeal: Meal = { ...displayMeal, id: nmKey, grams: displayGrams, color: meal.color };
     return (
       <div key={`nm-${idx}`} className="relative">
-        <MealCard meal={fakeMeal}
+        <MealCard meal={fakeMeal} stockMap={stockMap}
           onMoveToPossible={() => {
             const cr = customRatios[nmKey];
             onMoveNameMatchToPossible(meal, fi, cr && cr !== 1 ? cr : undefined);
