@@ -342,6 +342,11 @@ export function useMealTransfers(foodItems: FoodItem[]) {
           const deduct = Math.min(fiCount, toDeduct);
           toDeduct -= deduct;
           const remaining = fiCount - deduct;
+          // Snapshot newly affected items for future restoration
+          if (!existingSnapshotIds.has(fi.id)) {
+            newSnapshots.push({ ...fi });
+            existingSnapshotIds.add(fi.id);
+          }
           if (remaining <= 0) {
             await safeMutate("Ajustement stock (count)", () => supabase.from("food_items").delete().eq("id", fi.id));
           } else {
