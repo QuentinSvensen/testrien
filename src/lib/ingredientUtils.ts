@@ -287,8 +287,12 @@ export function parseIngredientGroups(raw: string): ParsedIngredient[][] {
   if (!raw?.trim()) return [];
   const cached = _groupsCache.get(raw);
   if (cached) return cached;
-  const result = raw.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean)
+
+  const rawGroups = raw.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
+  const filteredRawGroups = rawGroups.filter(group => !group.split(/\|/).some(alt => hasNegativeMetric(alt.trim())));
+  const result = filteredRawGroups
     .map(group => group.split(/\|/).map(s => s.trim()).filter(Boolean).map(parseIngredientLine));
+
   if (_groupsCache.size > GROUPS_CACHE_MAX) _groupsCache.clear();
   _groupsCache.set(raw, result);
   return result;
