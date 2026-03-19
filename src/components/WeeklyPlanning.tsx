@@ -448,7 +448,7 @@ export function WeeklyPlanning() {
 
   // Breakfast selections per day
   const breakfastSelections = getPreference<Record<string, string>>('planning_breakfast', {});
-  const { getDayCalories, DAILY_GOAL, getBreakfastForDay } = useCalorieBalance();
+  const { getDayCalories, DAILY_GOAL, getBreakfastForDay } = useCalorieBalance(isAvailableCb);
   const petitDejMeals = getMealsByCategory('petit_dejeuner');
   const possiblePetitDej = possibleMeals.filter(pm => pm.meals?.category === 'petit_dejeuner');
 
