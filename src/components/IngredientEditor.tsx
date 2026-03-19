@@ -114,9 +114,14 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
             dragIdx === idx ? 'opacity-30' : ''
           } ${dragOverIdx === idx && dragIdx !== idx ? 'border-t-2 border-yellow-300/60' : ''}`}
         >
-          <div className="h-7 flex items-center justify-center cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60">
+          <button
+            type="button"
+            tabIndex={-1}
+            onMouseDown={(e) => e.preventDefault()}
+            className="h-7 flex items-center justify-center cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60"
+          >
             <GripVertical className="h-3 w-3" />
-          </div>
+          </button>
           <button
             type="button"
             onClick={() => toggleOr(idx)}
