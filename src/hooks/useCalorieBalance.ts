@@ -193,9 +193,12 @@ export function useCalorieBalance() {
     const extra = extraCalories[day] || 0;
     let breakfastCal = 0;
     if (breakfast) {
-      const possiblePdj = possibleMeals.find(pm => pm.meal_id === breakfastSelections[day] && pm.meals?.category === 'petit_dejeuner');
-      if (possiblePdj) {
-        breakfastCal = getCardDisplayCalories(possiblePdj);
+      const selId = breakfastSelections[day];
+      // If it's a possible meal selection, use card display calories (respects overrides)
+      if (selId?.startsWith('pm:')) {
+        const pmId = selId.slice(3);
+        const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
+        breakfastCal = possiblePdj ? getCardDisplayCalories(possiblePdj) : parseCalories(breakfast.calories);
       } else {
         breakfastCal = parseCalories(breakfast.calories);
       }
