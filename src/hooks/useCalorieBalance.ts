@@ -219,7 +219,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) => {
           const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-          const ingPro = computeIngredientProtein(displayIngredients);
+          const ingPro = computeIngredientProtein(displayIngredients, isAvailable);
           return s + (ingPro !== null ? ingPro : parseCalories(pm.meals?.protein));
         }, 0);
       }
