@@ -1507,6 +1507,9 @@ export function WeeklyPlanning() {
                     </div>
                   </div>
                 )}
+                {(meal.oven_temp || meal.oven_minutes) && (
+                  <p className="text-sm text-white/80 mt-2">🔥 {meal.oven_temp && `${meal.oven_temp}°`}{meal.oven_temp && meal.oven_minutes && ' · '}{meal.oven_minutes && `${meal.oven_minutes} min`}</p>
+                )}
                 <p className="text-xs text-white/50 mt-3">
                   {DAY_LABELS[popupBreakfast.day]}
                 </p>
