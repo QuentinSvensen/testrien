@@ -1540,8 +1540,8 @@ export function WeeklyPlanning() {
           <DialogTitle className="sr-only">Détails du petit déjeuner</DialogTitle>
           {popupBreakfast && (() => {
             const meal = popupBreakfast.meal;
-            const ingCal = computeIngredientCalories(meal.ingredients);
-            const ingPro = computeIngredientProtein(meal.ingredients);
+            const ingCal = computeIngredientCalories(meal.ingredients, isAvailableCb);
+            const ingPro = computeIngredientProtein(meal.ingredients, isAvailableCb);
             const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
             const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
             return (
