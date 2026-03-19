@@ -1592,23 +1592,19 @@ function renderIngredientDisplayPlanning(
   const groups = cleaned.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
 
-  // Build a set of available food names for quick lookup
-  const availableNames = new Set<string>();
-  if (foodItems) {
-    for (const fi of foodItems) {
-      if ((fi.quantity ?? 0) > 0) availableNames.add(normalizeForMatch(fi.name));
-    }
-  }
-
   const isAvailable = (name: string) => {
     const stripped = name.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim();
     if (!stripped) return false;
+
     for (const fi of (foodItems || [])) {
       if ((fi.quantity ?? 0) <= 0) continue;
-      // Exact normalized match or smartFoodContains (handles accents, plurals, gender)
-      if (normalizeForMatch(fi.name) === normalizeForMatch(stripped)) return true;
-      if (smartFoodContains(fi.name, stripped) || smartFoodContains(stripped, fi.name)) return true;
+
+      // Strict matching only: avoids false positives like
+      // "purée en poudre" matching "purée préparé"
+      if (accentSafeKeyMatch(fi.name, stripped)) return true;
+      if (strictNameMatch(fi.name, stripped)) return true;
     }
+
     return false;
   };
 
