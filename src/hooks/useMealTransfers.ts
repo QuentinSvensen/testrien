@@ -417,6 +417,10 @@ export function useMealTransfers(foodItems: FoodItem[]) {
       );
       for (const fi of matchingItems) {
         const newDate = targetDate ?? new Date().toISOString();
+        // If the item already has an earlier counter (opened before planned meal), don't touch it
+        if (fi.counter_start_date && new Date(fi.counter_start_date) < new Date(newDate)) {
+          continue;
+        }
         // Only update if the date actually changes
         if (fi.counter_start_date !== newDate) {
           await safeMutate("Mise à jour compteur planifié", () =>
