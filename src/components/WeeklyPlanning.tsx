@@ -443,16 +443,14 @@ export function WeeklyPlanning() {
   const petitDejMeals = getMealsByCategory('petit_dejeuner');
   const possiblePetitDej = possibleMeals.filter(pm => pm.meals?.category === 'petit_dejeuner');
 
-  const setBreakfastForDay = (day: string, mealId: string | null) => {
+  const setBreakfastForDay = (day: string, selId: string | null) => {
     const updated = { ...breakfastSelections };
-    if (mealId) updated[day] = mealId;
+    if (selId) updated[day] = selId;
     else delete updated[day];
     setPreference.mutate({ key: 'planning_breakfast', value: updated });
 
     // Auto-enable auto-consume for "Dèj choco", disable on other changes
-    const selectedMeal = mealId
-      ? (petitDejMeals.find(m => m.id === mealId) || possiblePetitDej.find(pm => pm.meal_id === mealId)?.meals)
-      : null;
+    const selectedMeal = getBreakfastMealFromSelId(selId);
     const isDejeChoco = selectedMeal?.name?.toLowerCase().includes('dèj choco') || selectedMeal?.name?.toLowerCase().includes('dej choco');
     if (isDejeChoco) {
       const updatedAC = { ...autoConsumeBreakfast, [day]: true };
@@ -462,6 +460,21 @@ export function WeeklyPlanning() {
       delete updatedAC[day];
       setPreference.mutate({ key: 'planning_auto_consume_breakfast', value: updatedAC });
     }
+  };
+
+  /** Resolve a selection ID to a Meal object (for internal use) */
+  const getBreakfastMealFromSelId = (selId: string | null | undefined) => {
+    if (!selId) return null;
+    if (selId.startsWith('pm:')) {
+      const pmId = selId.slice(3);
+      return possiblePetitDej.find(pm => pm.id === pmId)?.meals || null;
+    }
+    if (selId.startsWith('meal:')) {
+      const mealId = selId.slice(5);
+      return petitDejMeals.find(m => m.id === mealId) || null;
+    }
+    // Legacy
+    return petitDejMeals.find(m => m.id === selId) || possiblePetitDej.find(pm => pm.meal_id === selId)?.meals || null;
   };
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   const [dragOverUnplanned, setDragOverUnplanned] = useState(false);
@@ -479,6 +492,7 @@ export function WeeklyPlanning() {
   const isTouchDevice = typeof window !== "undefined" && (navigator.maxTouchPoints > 0 || "ontouchstart" in window);
 
   const [popupPm, setPopupPm] = useState<PossibleMeal | null>(null);
+  const [popupBreakfast, setPopupBreakfast] = useState<{ meal: any; day: string } | null>(null);
   const [additiveModes, setAdditiveModes] = useState<Record<string, { active: boolean; value: string }>>({});
 
   useEffect(() => {
@@ -523,11 +537,20 @@ export function WeeklyPlanning() {
         const updatedConsumed = { ...freshConsumed };
         for (const day of toConsume) {
           updatedConsumed[day] = true;
-          const mealId = breakfastSelections[day];
-          // Look in catalog first, then in possible meals
-          const catalogMeal = petitDejMeals.find(m => m.id === mealId);
-          const possiblePm = possibleMeals.find(pm => pm.meal_id === mealId);
-          const breakfast = catalogMeal || possiblePm?.meals;
+          const selId = breakfastSelections[day];
+          // Resolve prefixed selection ID
+          let breakfast: any = null;
+          if (selId.startsWith('pm:')) {
+            const pmId = selId.slice(3);
+            const pm = possibleMeals.find(p => p.id === pmId);
+            if (pm?.meals) breakfast = { ...pm.meals, ingredients: pm.ingredients_override ?? pm.meals.ingredients };
+          } else if (selId.startsWith('meal:')) {
+            const mId = selId.slice(5);
+            breakfast = petitDejMeals.find(m => m.id === mId);
+          } else {
+            // Legacy plain ID
+            breakfast = petitDejMeals.find(m => m.id === selId) || possibleMeals.find(pm => pm.meal_id === selId)?.meals;
+          }
           if (breakfast) {
             // Build a Meal-like object for the transfer functions
             const mealObj = {
@@ -991,7 +1014,13 @@ export function WeeklyPlanning() {
               <div className="flex items-center gap-1">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors truncate max-w-[120px]">
+                    <button
+                      className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors truncate max-w-[120px]"
+                      onDoubleClick={() => {
+                        const bm = getBreakfastForDay(day);
+                        if (bm) setPopupBreakfast({ meal: bm, day });
+                      }}
+                    >
                       {getBreakfastForDay(day)?.name || '🥐 Petit déj'}
                     </button>
                   </PopoverTrigger>
@@ -1010,9 +1039,10 @@ export function WeeklyPlanning() {
                             const calDisplay = ingCal !== null ? String(ingCal) : pm.meals?.calories;
                             const ingPro = computeIngredientProtein(displayIng);
                             const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
+                            const pmSelId = `pm:${pm.id}`;
                             return (
-                              <button key={pm.id} onClick={() => setBreakfastForDay(day, pm.meal_id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pm.meal_id ? 'bg-primary/10 font-bold' : ''}`}>
-                                {pm.meals?.name} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
+                              <button key={pm.id} onClick={() => setBreakfastForDay(day, pmSelId)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pmSelId ? 'bg-primary/10 font-bold' : ''}`}>
+                                {pm.meals?.name} {pm.ingredients_override ? '✏️' : ''} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                               </button>
                             );
                           })}
@@ -1025,8 +1055,9 @@ export function WeeklyPlanning() {
                         const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
                         const ingPro = computeIngredientProtein(m.ingredients);
                         const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
+                        const mealSelId = `meal:${m.id}`;
                           return (
-                          <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
+                          <button key={m.id} onClick={() => setBreakfastForDay(day, mealSelId)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === mealSelId ? 'bg-primary/10 font-bold' : ''}`}>
                             {m.name} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                           </button>
                         );
@@ -1427,6 +1458,55 @@ export function WeeklyPlanning() {
                     {DAY_LABELS[popupPm.day_of_week]} — {TIME_LABELS[popupPm.meal_time]}
                   </p>
                 )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
+
+      {/* Breakfast double-click popup */}
+      <Dialog open={!!popupBreakfast} onOpenChange={(open) => { if (!open) setPopupBreakfast(null); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Détails du petit déjeuner</DialogTitle>
+          {popupBreakfast && (() => {
+            const meal = popupBreakfast.meal;
+            const ingCal = computeIngredientCalories(meal.ingredients);
+            const ingPro = computeIngredientProtein(meal.ingredients);
+            const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
+            const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
+            return (
+              <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: meal.color }}>
+                <h3 className="text-lg font-bold mb-2">🥐 {meal.name}</h3>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {displayCal && (
+                    <span className="text-sm font-bold bg-black/30 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <Flame className="h-3.5 w-3.5" /> {displayCal} kcal
+                    </span>
+                  )}
+                  {displayPro && (
+                    <span className="text-sm font-bold bg-blue-600/50 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      🍗 {displayPro}g
+                    </span>
+                  )}
+                  {meal.grams && (
+                    <span className="text-sm bg-white/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <Weight className="h-3.5 w-3.5" /> {meal.grams}
+                    </span>
+                  )}
+                </div>
+                {meal.ingredients && (
+                  <div className="bg-black/20 rounded-xl p-3 mt-1">
+                    <p className="text-xs font-semibold text-white/60 mb-1 uppercase tracking-wide">Ingrédients</p>
+                    <div className="text-sm text-white/90 space-y-0.5">
+                      {meal.ingredients.split(/[,\n]+/).map((g: string, i: number) => (
+                        <p key={i}>{cleanIngredientText(g.trim())}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-white/50 mt-3">
+                  {DAY_LABELS[popupBreakfast.day]}
+                </p>
               </div>
             );
           })()}

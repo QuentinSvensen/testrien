@@ -365,6 +365,10 @@ export function useMeals(options?: { enabled?: boolean }) {
           sort_order: maxOrder,
           expiration_date: source.expiration_date,
           counter_start_date: source.counter_start_date,
+          ingredients_override: source.ingredients_override,
+          quantity: source.quantity,
+          day_of_week: source.day_of_week,
+          meal_time: source.meal_time,
         });
       if (error) throw error;
     },
