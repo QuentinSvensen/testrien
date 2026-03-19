@@ -631,7 +631,25 @@ export function WeeklyPlanning() {
       return total + (manualProteins[`${day}-${time}`] || 0);
     }, 0);
     const breakfast = getBreakfastForDay(day);
-    const breakfastProt = breakfast ? parseProtein(breakfast.protein) : (breakfastManualProteins[day] || 0);
+    let breakfastProt = 0;
+    if (breakfast) {
+      const selId = breakfastSelections[day];
+      if (selId?.startsWith('pm:')) {
+        const pmId = selId.slice(3);
+        const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
+        if (possiblePdj) {
+          const { getCardDisplayProtein } = require('@/hooks/useCalorieBalance');
+          breakfastProt = getCardDisplayProtein(possiblePdj);
+        } else {
+          breakfastProt = parseProtein(breakfast.protein);
+        }
+      } else {
+        const ingPro = computeIngredientProtein(breakfast.ingredients);
+        breakfastProt = ingPro !== null ? ingPro : parseProtein(breakfast.protein);
+      }
+    } else {
+      breakfastProt = breakfastManualProteins[day] || 0;
+    }
     const extraProt = extraProteins[day] || 0;
     return mealProt + breakfastProt + extraProt;
   };
