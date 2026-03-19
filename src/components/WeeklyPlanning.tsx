@@ -1118,9 +1118,9 @@ export function WeeklyPlanning() {
                       )}
                       <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Tous</p>
                       {petitDejMeals.map(m => {
-                        const ingCal = computeIngredientCalories(m.ingredients);
+                        const ingCal = computeIngredientCalories(m.ingredients, isAvailableCb);
                         const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
-                        const ingPro = computeIngredientProtein(m.ingredients);
+                        const ingPro = computeIngredientProtein(m.ingredients, isAvailableCb);
                         const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
                         const mealSelId = `meal:${m.id}`;
                           return (
