@@ -93,7 +93,7 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
       }}
       className="flex flex-col gap-1"
     >
-      <div className="grid grid-cols-[0.8rem_1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 mb-0.5 pl-0 pr-0">
+      <div className="grid grid-cols-[0.8rem_1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] lg:grid-cols-[0.8rem_1.2rem_0.8rem_3rem_2.2rem_minmax(0,12rem)_2.5rem_2.5rem] gap-x-0.5 gap-y-0.5 mb-0.5 pl-0 pr-0">
         <span className="text-[8px] text-white/50 text-center"></span>
         <span className="text-[8px] text-white/50 text-center">Ou</span>
         <span className="text-[8px] text-white/50 text-center">?</span>
