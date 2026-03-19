@@ -40,6 +40,7 @@ interface MealCardProps {
   missingIngredientNames?: Set<string>;
   counterIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
+  stockMap?: Map<string, StockInfo>;
 }
 
 // Ingredient parsing utilities imported from @/lib/ingredientUtils
