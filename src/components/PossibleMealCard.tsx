@@ -17,7 +17,7 @@ import {
   parseIngredientsToLines, serializeIngredients, computeIngredientCalories,
   computeIngredientProtein, cleanIngredientText, normalizeKey
 } from "@/lib/ingredientUtils";
-import { scaleIngredientStringExact } from "@/lib/stockUtils";
+import { scaleIngredientStringExact, findStockKey } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
 import { fr } from "date-fns/locale";
 
