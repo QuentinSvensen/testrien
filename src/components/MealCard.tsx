@@ -273,17 +273,17 @@ function renderIngredientDisplay(
   counterIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
 ) {
-  const groups = ingredients.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
+  // Strip cal/pro markers BEFORE splitting to avoid breaking on commas inside markers
+  const cleaned = cleanIngredientText(ingredients);
+  const groups = cleaned.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
   
   groups.forEach((group, gi) => {
     const alts = group.split(/\|/).map(s => s.trim()).filter(Boolean);
     const groupIsOptional = alts[0]?.startsWith("?");
     alts.forEach((alt, ai) => {
-      const cleanAlt = alt.startsWith("?") ? alt.slice(1).trim() : alt;
-      // Strip {cal} and [pro] suffix from display
-      const displayAlt = cleanIngredientText(cleanAlt);
-      const parsed = parseIngredientLineDisplay(cleanAlt);
+      const displayAlt = alt.startsWith("?") ? alt.slice(1).trim() : alt;
+      const parsed = parseIngredientLineDisplay(displayAlt);
       const normalizedName = normalizeKey(parsed.name);
       const isExpired = expiredIngredientNames?.has(normalizedName);
       const isSoon = expiringSoonIngredientNames?.has(normalizedName);

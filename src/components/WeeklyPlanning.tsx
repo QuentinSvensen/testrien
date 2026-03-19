@@ -1532,13 +1532,14 @@ function renderIngredientDisplayPlanning(
   expiredIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
 ) {
-  const groups = ingredients.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+  // Strip cal/pro markers BEFORE splitting to avoid breaking on commas inside markers
+  const cleaned = cleanIngredientText(ingredients);
+  const groups = cleaned.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
   
   groups.forEach((group, gi) => {
     const isOpt = group.startsWith("?");
-    const cleanGroup = isOpt ? group.slice(1).trim() : group;
-    const display = cleanIngredientText(cleanGroup);
+    const display = isOpt ? group.slice(1).trim() : group;
     
     // Normalize name for matching (strip lead quantity)
     const normalizedName = normalizeKey(display.replace(/^\d+(?:\.\d+)?(?:g|ml|x| unit)?\s+/i, ""));
