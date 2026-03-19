@@ -274,6 +274,7 @@ function renderIngredientDisplay(
   missingIngredientNames?: Set<string>,
   counterIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
+  stockMap?: Map<string, StockInfo>,
 ) {
   // Strip cal/pro markers BEFORE splitting to avoid breaking on commas inside markers
   const cleaned = cleanIngredientText(ingredients);
