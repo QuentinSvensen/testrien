@@ -300,7 +300,7 @@ export interface IngLine { qty: string; count: string; name: string; cal: string
 
 /** Extract {cal} and [pro] suffixes from a raw ingredient token */
 export function extractMetrics(raw: string): { text: string; cal: string; pro: string } {
-  const match = raw.match(/(.*?)(?:\{(\d+(?:[.,]\d+)?)\})?(?:\s*\[(\d+(?:[.,]\d+)?)\])?\s*$/);
+  const match = raw.match(/(.*?)(?:\{(-?\d+(?:[.,]\d+)?)\})?(?:\s*\[(-?\d+(?:[.,]\d+)?)\])?\s*$/);
   if (match) {
     return {
       text: match[1].trim(),
@@ -309,6 +309,12 @@ export function extractMetrics(raw: string): { text: string; cal: string; pro: s
     };
   }
   return { text: raw, cal: "", pro: "" };
+}
+
+/** Check if a raw ingredient token has a negative cal or pro value */
+export function hasNegativeMetric(raw: string): boolean {
+  const { cal, pro } = extractMetrics(raw);
+  return (cal !== "" && parseFloat(cal) < 0) || (pro !== "" && parseFloat(pro) < 0);
 }
 
 /** Removes {cal} and [pro] strings globally for clean UI display */

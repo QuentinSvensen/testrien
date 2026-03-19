@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein } from "@/hooks/useCalorieBalance";
 import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer } from "lucide-react";
-import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, accentSafeKeyMatch, strictNameMatch } from "@/lib/ingredientUtils";
+import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, accentSafeKeyMatch, strictNameMatch, hasNegativeMetric } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { format, parseISO } from "date-fns";
@@ -1588,7 +1588,10 @@ function renderIngredientDisplayPlanning(
   expiringSoonIngredientNames?: Set<string>,
   foodItems?: Array<{ name: string; quantity?: number | null }>,
 ) {
-  const cleaned = cleanIngredientText(ingredients);
+  // Split raw ingredients first, filter out negative-metric groups, then clean for display
+  const rawGroups = ingredients.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+  const filteredRaw = rawGroups.filter(g => !g.split(/\|/).some(alt => hasNegativeMetric(alt.trim())));
+  const cleaned = cleanIngredientText(filteredRaw.join(", "));
   const groups = cleaned.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
 
