@@ -1584,32 +1584,66 @@ function renderIngredientDisplayPlanning(
   ingredients: string,
   expiredIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
+  foodItems?: Array<{ name: string; quantity?: number | null }>,
 ) {
-  // Strip cal/pro markers BEFORE splitting to avoid breaking on commas inside markers
   const cleaned = cleanIngredientText(ingredients);
   const groups = cleaned.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
-  
+
+  // Build a set of available food names for quick lookup
+  const availableNames = new Set<string>();
+  if (foodItems) {
+    for (const fi of foodItems) {
+      if ((fi.quantity ?? 0) > 0) availableNames.add(normalizeForMatch(fi.name));
+    }
+  }
+
+  const isAvailable = (name: string) => {
+    const norm = normalizeForMatch(name.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim());
+    for (const avail of availableNames) {
+      if (avail === norm || avail.includes(norm) || norm.includes(avail)) return true;
+    }
+    return false;
+  };
+
   groups.forEach((group, gi) => {
     const isOpt = group.startsWith("?");
     const display = isOpt ? group.slice(1).trim() : group;
-    
-    // Normalize name for matching (strip lead quantity)
+
+    // Handle OR alternatives (|)
+    const alternatives = display.split(/\s*\|\s*/);
+    if (alternatives.length > 1 && foodItems) {
+      const altElements = alternatives.map((alt, ai) => {
+        const available = isAvailable(alt);
+        return (
+          <span key={ai} className={available ? '' : 'line-through opacity-40'}>
+            {alt}{ai < alternatives.length - 1 ? <span className="opacity-60"> ou </span> : ''}
+          </span>
+        );
+      });
+      elements.push(
+        <span key={gi}>
+          {isOpt ? '?' : ''}{altElements}{gi < groups.length - 1 ? ' •' : ''}
+        </span>
+      );
+      return;
+    }
+
     const normalizedName = normalizeKey(display.replace(/^\d+(?:\.\d+)?(?:g|ml|x| unit)?\s+/i, ""));
     const isExpired = expiredIngredientNames?.has(normalizedName);
     const isSoon = expiringSoonIngredientNames?.has(normalizedName);
-    
+
     const cls = isExpired ? 'bg-red-500/40 text-red-100 px-0.5 rounded font-semibold'
       : isSoon ? 'ring-1 ring-red-500/60 font-semibold px-0.5 rounded'
       : isOpt ? 'italic text-white/40'
       : '';
-    
+
     elements.push(
       <span key={gi} className={cls}>
         {isOpt ? '?' : ''}{display}{gi < groups.length - 1 ? ' •' : ''}
       </span>
     );
   });
-  
+
   return elements;
 }
