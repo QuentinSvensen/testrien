@@ -62,7 +62,14 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
   const [editingRatioId, setEditingRatioId] = useState<string | null>(null);
   const [ratioInput, setRatioInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
-  const { getTargetCalorieThreshold, getDayProtein, DAILY_PROTEIN_GOAL } = useCalorieBalance();
+  const isAvailableCb = (name: string) => {
+    const key = findStockKey(stockMap, name);
+    if (!key) return false;
+    const stock = stockMap.get(key);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
+  };
+  const { getTargetCalorieThreshold, getDayProtein, DAILY_PROTEIN_GOAL } = useCalorieBalance(isAvailableCb);
   const baseCalorieThreshold = getTargetCalorieThreshold();
   const JS_DAY_TO_KEY: Record<number, string> = { 1:"lundi",2:"mardi",3:"mercredi",4:"jeudi",5:"vendredi",6:"samedi",0:"dimanche" };
   const todayProtein = getDayProtein(JS_DAY_TO_KEY[new Date().getDay()]);
