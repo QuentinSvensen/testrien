@@ -205,8 +205,11 @@ export function useMealTransfers(foodItems: FoodItem[]) {
     invalidateStock();
   };
 
-  /** Adjust stock when possible meal ingredients are edited (delta-based) */
-  const adjustStockForIngredientChange = async (oldIngredients: string | null, newIngredients: string | null, snapshots?: FoodItem[]) => {
+  /** Adjust stock when possible meal ingredients are edited (delta-based).
+   *  Returns snapshots of newly affected items (not already in the passed snapshots). */
+  const adjustStockForIngredientChange = async (oldIngredients: string | null, newIngredients: string | null, snapshots?: FoodItem[]): Promise<FoodItem[]> => {
+    const newSnapshots: FoodItem[] = [];
+    const existingSnapshotIds = new Set(snapshots?.map(s => s.id) ?? []);
     // Refetch fresh food items to avoid stale data after multiple edits
     const { data: freshItems } = await supabase.from("food_items").select("*").order("sort_order", { ascending: true });
     const currentFoodItems: FoodItem[] = (freshItems ?? []).map((d: any) => ({
