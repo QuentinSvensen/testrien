@@ -831,7 +831,16 @@ const Index = () => {
                   setMasterSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
                 }}
                 onDelete={(id) => { deletePossibleMeal.mutate(id); }}
-                onDuplicate={(id) => duplicatePossibleMeal.mutate(id)}
+                onDuplicate={async (id) => {
+                  const pm = possibleMeals.find(p => p.id === id);
+                  if (pm?.meals) {
+                    // Use the overridden ingredients if present, deduct from stock
+                    const ingredientsToDeduce = pm.ingredients_override ?? pm.meals.ingredients;
+                    const mealForDeduction = { ...pm.meals, ingredients: ingredientsToDeduce };
+                    await deductIngredientsFromStock(mealForDeduction);
+                  }
+                  duplicatePossibleMeal.mutate(id);
+                }}
                 onUpdateExpiration={(id, d) => updateExpiration.mutate({ id, expiration_date: d })}
                 onUpdatePlanning={(id, day, time) => {
                   updatePlanning.mutate({ id, day_of_week: day, meal_time: time });
