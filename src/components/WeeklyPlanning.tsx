@@ -1098,9 +1098,9 @@ export function WeeklyPlanning() {
                           <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Possible</p>
                           {possiblePetitDej.map(pm => {
                             const displayIng = pm.ingredients_override ?? pm.meals?.ingredients;
-                            const ingCal = computeIngredientCalories(displayIng);
+                            const ingCal = computeIngredientCalories(displayIng, isAvailableCb);
                             const calDisplay = ingCal !== null ? String(ingCal) : pm.meals?.calories;
-                            const ingPro = computeIngredientProtein(displayIng);
+                            const ingPro = computeIngredientProtein(displayIng, isAvailableCb);
                             const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
                             const pmSelId = `pm:${pm.id}`;
                             // Find other days where this possible breakfast is selected
