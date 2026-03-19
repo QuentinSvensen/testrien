@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein } from "@/hooks/useCalorieBalance";
 import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer } from "lucide-react";
-import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, normalizeForMatch, smartFoodContains } from "@/lib/ingredientUtils";
+import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, accentSafeKeyMatch, strictNameMatch } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { format, parseISO } from "date-fns";
