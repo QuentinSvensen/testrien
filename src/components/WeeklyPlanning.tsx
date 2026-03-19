@@ -422,6 +422,14 @@ export function WeeklyPlanning() {
   const qc = useQueryClient();
   const { getPreference, setPreference, isLoading: prefsLoading } = usePreferences();
   const { items: foodItems } = useFoodItems();
+  const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
+  const isAvailableCb = useCallback((name: string) => {
+    const key = findStockKey(stockMap, name);
+    if (!key) return false;
+    const stock = stockMap.get(key);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
+  }, [stockMap]);
   const { updateFoodItemCountersForPlanning, deductIngredientsFromStock, deductNameMatchStock } = useMealTransfers(foodItems);
 
   const updatePlanningWithCounters = (pmId: string, day: string | null, time: string | null) => {
