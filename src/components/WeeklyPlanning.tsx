@@ -1506,8 +1506,8 @@ export function WeeklyPlanning() {
                   <div className="bg-black/20 rounded-xl p-3 mt-1">
                     <p className="text-xs font-semibold text-white/60 mb-1 uppercase tracking-wide">Ingrédients</p>
                     <div className="text-sm text-white/90 space-y-0.5">
-                      {displayIngredients.split(/[,\n]+/).map((g, i) => (
-                        <p key={i}>{cleanIngredientText(g.trim())}</p>
+                      {renderIngredientDisplayPlanning(displayIngredients, undefined, undefined, foodItems).map((el, i) => (
+                        <p key={i}>{el}</p>
                       ))}
                     </div>
                   </div>
