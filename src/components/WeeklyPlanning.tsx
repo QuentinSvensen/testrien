@@ -1601,9 +1601,13 @@ function renderIngredientDisplayPlanning(
   }
 
   const isAvailable = (name: string) => {
-    const norm = normalizeForMatch(name.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim());
-    for (const avail of availableNames) {
-      if (avail === norm || avail.includes(norm) || norm.includes(avail)) return true;
+    const stripped = name.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim();
+    if (!stripped) return false;
+    for (const fi of (foodItems || [])) {
+      if ((fi.quantity ?? 0) <= 0) continue;
+      // Exact normalized match or smartFoodContains (handles accents, plurals, gender)
+      if (normalizeForMatch(fi.name) === normalizeForMatch(stripped)) return true;
+      if (smartFoodContains(fi.name, stripped) || smartFoodContains(stripped, fi.name)) return true;
     }
     return false;
   };
