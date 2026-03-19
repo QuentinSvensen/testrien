@@ -552,7 +552,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     };
     return (
       <div key={fi.id} className="relative">
-        <MealCard meal={fakeMeal}
+        <MealCard meal={fakeMeal} stockMap={stockMap}
           onMoveToPossible={() => onMoveFoodItemToPossible(fi)}
           onRename={() => {}} onDelete={() => onDeleteFoodItem(fi.id)} onUpdateCalories={() => {}} onUpdateGrams={() => {}} onUpdateIngredients={() => {}}
           onDragStart={(e) => { e.dataTransfer.setData("mealId", fi.id); e.dataTransfer.setData("source", "available"); if (unifiedIdx !== undefined) setAvDragIndex(unifiedIdx); }}
@@ -595,7 +595,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const fakeMeal: Meal = { ...displayMeal, id: nmKey, grams: displayGrams, color: meal.color };
     return (
       <div key={`nm-${idx}`} className="relative">
-        <MealCard meal={fakeMeal}
+        <MealCard meal={fakeMeal} stockMap={stockMap}
           onMoveToPossible={() => {
             const cr = customRatios[nmKey];
             onMoveNameMatchToPossible(meal, fi, cr && cr !== 1 ? cr : undefined);
@@ -662,7 +662,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const expiringIng = analysis.expiringIngredientName;
     return (
       <div key={meal.id} className="relative">
-        <MealCard meal={displayMeal}
+        <MealCard meal={displayMeal} stockMap={stockMap}
           onMoveToPossible={() => {
             const cr = customRatios[meal.id];
             if (cr && cr !== 1) {
@@ -737,7 +737,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const partialKey = `partial-${meal.id}`;
     return (
       <div key={partialKey} className="relative">
-        <MealCard meal={partialMeal}
+        <MealCard meal={partialMeal} stockMap={stockMap}
           onMoveToPossible={() => {
             onMovePartialToPossible(meal, effectiveRatio);
             setCustomRatios(prev => { const next = { ...prev }; delete next[partialKey]; return next; });

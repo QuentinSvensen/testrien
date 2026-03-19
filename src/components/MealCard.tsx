@@ -12,6 +12,7 @@ import {
   parseIngredientsToLines, serializeIngredients, normalizeKey,
   computeIngredientCalories, computeIngredientProtein, cleanIngredientText
 } from "@/lib/ingredientUtils";
+import { findStockKey, type StockInfo } from "@/lib/stockUtils";
 
 interface MealCardProps {
   meal: Meal;
@@ -39,6 +40,7 @@ interface MealCardProps {
   missingIngredientNames?: Set<string>;
   counterIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
+  stockMap?: Map<string, StockInfo>;
 }
 
 // Ingredient parsing utilities imported from @/lib/ingredientUtils
@@ -48,7 +50,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
   onUpdateIngredients, onToggleFavorite, onUpdateOvenTemp, onUpdateOvenMinutes, onDragStart, 
   onDragOver, onDrop, isHighlighted, hideDelete, expirationLabel, expirationDate, 
   expirationIsToday, expiringIngredientName, expiredIngredientNames, expiringSoonIngredientNames,
-  maxIngredientCounter, missingIngredientNames, counterIngredientNames 
+  maxIngredientCounter, missingIngredientNames, counterIngredientNames, stockMap
 }, _ref) {
   const parseIngredientLine = parseIngredientLineDisplay;
   const formatQty = formatQtyDisplay;
@@ -234,7 +236,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
               )}
               {meal.ingredients && (
                 <p className="text-[11px] text-white/65 leading-tight flex-1 flex flex-wrap gap-x-1">
-                  {renderIngredientDisplay(meal.ingredients, expiredIngredientNames, missingIngredientNames, counterIngredientNames, expiringSoonIngredientNames)}
+                  {renderIngredientDisplay(meal.ingredients, expiredIngredientNames, missingIngredientNames, counterIngredientNames, expiringSoonIngredientNames, stockMap)}
                 </p>
               )}
             </div>
@@ -272,6 +274,7 @@ function renderIngredientDisplay(
   missingIngredientNames?: Set<string>,
   counterIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
+  stockMap?: Map<string, StockInfo>,
 ) {
   // Strip cal/pro markers BEFORE splitting to avoid breaking on commas inside markers
   const cleaned = cleanIngredientText(ingredients);
@@ -289,10 +292,15 @@ function renderIngredientDisplay(
       const isSoon = expiringSoonIngredientNames?.has(normalizedName);
       const isMissing = missingIngredientNames?.has(normalizedName);
       const hasCounter = counterIngredientNames?.has(normalizedName);
+
+      const stockKey = stockMap ? findStockKey(stockMap, parsed.name) : null;
+      const stock = stockKey ? stockMap?.get(stockKey) : undefined;
+      const isUnavailableAlt = !!stockMap && (!stock || (!stock.infinite && stock.grams <= 0 && stock.count <= 0));
+
       const cls = isExpired ? 'bg-red-500/40 text-red-100 px-0.5 rounded font-semibold'
         : isSoon ? 'ring-1 ring-red-500/60 font-semibold px-0.5 rounded'
         : hasCounter ? 'underline decoration-2 underline-offset-2 decoration-white/60 font-semibold'
-        : isMissing ? 'bg-white/20 text-white/40 px-0.5 rounded line-through'
+        : (isMissing || isUnavailableAlt) ? 'bg-white/20 text-white/40 px-0.5 rounded line-through'
         : groupIsOptional ? 'italic text-white/40'
         : '';
       

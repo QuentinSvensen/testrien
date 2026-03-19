@@ -103,7 +103,7 @@ export function MasterList({ category, meals, foodItems, sortMode, sortAsc, onTo
             const expIsTodayM = isToday(analysis.earliestExpiration);
 
             return (
-              <MealCard key={meal.id} meal={meal}
+              <MealCard key={meal.id} meal={meal} stockMap={stockMap}
                 onMoveToPossible={() => onMoveToPossible(meal.id)}
                 onRename={(name) => onRename(meal.id, name)}
                 onDelete={() => onDelete(meal.id)}
