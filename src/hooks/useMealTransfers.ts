@@ -364,6 +364,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
       }
     }
     invalidateStock();
+    return newSnapshots;
   };
 
   /** Deduct name-match stock (no ingredients, just name match) */
