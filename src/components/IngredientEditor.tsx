@@ -84,7 +84,11 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
   return (
     <div
       onBlur={(e) => {
-        if (!e.currentTarget.contains(e.relatedTarget as Node)) onCommit();
+        // Delay to allow focus to settle (e.g. clicking drag handle)
+        setTimeout(() => {
+          const container = e.currentTarget;
+          if (container && !container.contains(document.activeElement)) onCommit();
+        }, 100);
       }}
       className="flex flex-col gap-1"
     >
