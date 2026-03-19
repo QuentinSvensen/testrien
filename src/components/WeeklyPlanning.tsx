@@ -829,10 +829,10 @@ export function WeeklyPlanning() {
     const expiredIngs = analysis.expiredIngredientNames;
     const soonIngs = analysis.expiringSoonIngredientNames;
 
-    const ingCal = computeIngredientCalories(displayIngredients);
+    const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
     const isComputedCal = !overrideCal && ingCal !== null;
 
-    const ingPro = computeIngredientProtein(displayIngredients);
+    const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
     const isComputedPro = ingPro !== null;
 
     // Use shared ratio detection
