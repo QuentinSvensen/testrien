@@ -85,8 +85,8 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
   return (
     <div
       onBlur={(e) => {
-        // Delay to allow focus to settle (e.g. clicking drag handle)
         setTimeout(() => {
+          if (handleRef.current) return;
           const container = e.currentTarget;
           if (container && !container.contains(document.activeElement)) onCommit();
         }, 100);
