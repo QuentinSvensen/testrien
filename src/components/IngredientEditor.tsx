@@ -19,6 +19,7 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
   const nameRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const handleRef = useRef(false);
 
   const updateLine = (idx: number, field: "qty" | "count" | "name" | "cal" | "pro", value: string) => {
     const next = [...lines];
@@ -84,8 +85,8 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
   return (
     <div
       onBlur={(e) => {
-        // Delay to allow focus to settle (e.g. clicking drag handle)
         setTimeout(() => {
+          if (handleRef.current) return;
           const container = e.currentTarget;
           if (container && !container.contains(document.activeElement)) onCommit();
         }, 100);
@@ -114,14 +115,16 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
             dragIdx === idx ? 'opacity-30' : ''
           } ${dragOverIdx === idx && dragIdx !== idx ? 'border-t-2 border-yellow-300/60' : ''}`}
         >
-          <button
-            type="button"
-            tabIndex={-1}
-            onMouseDown={(e) => e.preventDefault()}
+          <div
             className="h-7 flex items-center justify-center cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60"
+            onMouseDown={() => {
+              // Mark that drag interaction started from handle — prevent blur commit
+              handleRef.current = true;
+              setTimeout(() => { handleRef.current = false; }, 500);
+            }}
           >
             <GripVertical className="h-3 w-3" />
-          </button>
+          </div>
           <button
             type="button"
             onClick={() => toggleOr(idx)}
