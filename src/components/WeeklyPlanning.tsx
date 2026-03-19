@@ -352,7 +352,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
               )}
               {meal.ingredients && (
                 <div className={`${pm.expiration_date || meal.grams ? "mt-0.5" : ""} text-[9px] text-white/50 flex flex-wrap gap-x-1`}>
-                  {renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames)}
+                  {renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, foodItems)}
                 </div>
               )}
             </div>
