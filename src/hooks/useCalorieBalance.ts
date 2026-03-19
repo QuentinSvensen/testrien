@@ -235,7 +235,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
         breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailable) : parseCalories(breakfast.protein);
       } else {
-        const ingPro = computeIngredientProtein(breakfast.ingredients);
+        const ingPro = computeIngredientProtein(breakfast.ingredients, isAvailable);
         breakfastPro = ingPro !== null ? ingPro : parseCalories(breakfast.protein);
       }
     } else {
