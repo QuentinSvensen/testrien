@@ -142,7 +142,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
                 </span>
               )}
               {(() => {
-                const ingCal = computeIngredientCalories(meal.ingredients);
+                const ingCal = computeIngredientCalories(meal.ingredients, isAvailableCb);
                 const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
                 const isComputed = ingCal !== null;
                 return displayCal ? (
