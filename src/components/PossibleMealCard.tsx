@@ -377,6 +377,11 @@ export function PossibleMealCard({
               </button>
             );
           })()}
+          {(meal.oven_temp || meal.oven_minutes) && (
+            <span className="text-[10px] text-white/90 bg-black/30 px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
+              🔥 {meal.oven_temp && `${meal.oven_temp}°`}{meal.oven_temp && meal.oven_minutes && ' · '}{meal.oven_minutes && `${meal.oven_minutes}min`}
+            </span>
+          )}
           {/* ratio badge moved to absolute top-right */}
           {(() => {
             const ingCal = computeIngredientCalories(displayIngredients);
