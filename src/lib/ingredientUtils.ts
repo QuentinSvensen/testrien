@@ -232,7 +232,7 @@ export interface ParsedIngredient { qty: number; count: number; name: string; op
 export interface ParsedIngredientRaw { qty: number; count: number; name: string; rawName: string; optional: boolean; }
 
 // Precompiled regex patterns (avoid recompilation per call)
-const _RE_METRIC_STRIP = /(?:\{\d+(?:[.,]\d+)?\})?(?:\s*\[\d+(?:[.,]\d+)?\])?\s*$/;
+const _RE_METRIC_STRIP = /(?:\{-?\d+(?:[.,]\d+)?\})?(?:\s*\[-?\d+(?:[.,]\d+)?\])?\s*$/;
 const _UNIT = "(?:g|gr|grammes?|kg|ml|cl|l)";
 const _RE_FULL = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_UNIT}\\s+(\\d+(?:[.,]\\d+)?)\\s+(.+)$`, "i");
 const _RE_UNIT = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_UNIT}\\s+(.+)$`, "i");
