@@ -10,7 +10,8 @@ import type { Meal } from "@/hooks/useMeals";
 import {
   type IngLine, parseIngredientLineDisplay, formatQtyDisplay,
   parseIngredientsToLines, serializeIngredients, normalizeKey,
-  computeIngredientCalories, computeIngredientProtein, cleanIngredientText
+  computeIngredientCalories, computeIngredientProtein, cleanIngredientText,
+  hasNegativeMetric
 } from "@/lib/ingredientUtils";
 import { findStockKey, type StockInfo } from "@/lib/stockUtils";
 
