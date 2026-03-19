@@ -263,15 +263,28 @@ const Index = () => {
     }
 
     const clearAll = async () => {
-      // Verify no duplicate reset from DB
-      const { data: freshResetPref } = await supabase.from('user_preferences')
-        .select('value').eq('key', 'last_weekly_reset').maybeSingle();
+      const userId = (await supabase.auth.getUser()).data.user?.id;
+      if (!userId) return;
+
+      // Verify no duplicate reset from DB (per-user, avoids picking another user's preference)
+      const { data: freshResetPref } = await supabase
+        .from('user_preferences')
+        .select('value')
+        .eq('key', 'last_weekly_reset')
+        .eq('user_id', userId)
+        .maybeSingle();
       if (freshResetPref?.value) {
         const freshResetDate = new Date(String(freshResetPref.value));
         if (freshResetDate.getTime() >= mostRecentSunday.getTime()) return;
       }
-      // Load saved snapshots
-      const snapResult = await supabase.from('user_preferences').select('value').eq('key', 'planning_saved_snapshots').maybeSingle();
+
+      // Load saved snapshots (per-user)
+      const snapResult = await supabase
+        .from('user_preferences')
+        .select('value')
+        .eq('key', 'planning_saved_snapshots')
+        .eq('user_id', userId)
+        .maybeSingle();
       const snapshots: Record<string, { cal?: number; prot?: number }> = (snapResult.data?.value as any) ?? {};
 
       // Backup possible_meals before deletion
@@ -285,7 +298,9 @@ const Index = () => {
         sort_order: pm.sort_order,
         ingredients_override: pm.ingredients_override,
       }));
-      await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: backup, user_id: (await supabase.auth.getUser()).data.user?.id } as any, { onConflict: 'user_id,key' });
+      await supabase
+        .from('user_preferences')
+        .upsert({ key: 'possible_meals_backup', value: backup, user_id: userId } as any, { onConflict: 'user_id,key' });
 
       await Promise.all(possibleMeals.map(pm =>
         (supabase as any).from("possible_meals").delete().eq("id", pm.id)

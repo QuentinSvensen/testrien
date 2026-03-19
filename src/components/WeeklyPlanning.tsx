@@ -900,7 +900,16 @@ export function WeeklyPlanning() {
   const weekTotal = DAYS.reduce((sum, day) => sum + getDayCalories(day), 0);
 
   const handleRestoreBackup = async () => {
-    const { data } = await supabase.from('user_preferences').select('value').eq('key', 'possible_meals_backup').maybeSingle();
+    const userId = (await supabase.auth.getUser()).data.user?.id;
+    if (!userId) { alert('Utilisateur non connecté.'); return; }
+
+    const { data } = await supabase
+      .from('user_preferences')
+      .select('value')
+      .eq('key', 'possible_meals_backup')
+      .eq('user_id', userId)
+      .maybeSingle();
+
     const backup = (data?.value as any[]) ?? [];
     if (backup.length === 0) { alert('Aucune sauvegarde trouvée.'); return; }
     if (!confirm(`Restaurer ${backup.length} carte(s) possible(s) ?`)) return;
