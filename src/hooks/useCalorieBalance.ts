@@ -200,7 +200,9 @@ export function useCalorieBalance() {
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
         breakfastCal = possiblePdj ? getCardDisplayCalories(possiblePdj) : parseCalories(breakfast.calories);
       } else {
-        breakfastCal = parseCalories(breakfast.calories);
+        // Use ingredient-computed calories (consistent with picker display), fallback to meal.calories
+        const ingCal = computeIngredientCalories(breakfast.ingredients);
+        breakfastCal = ingCal !== null ? ingCal : parseCalories(breakfast.calories);
       }
     } else {
       breakfastCal = breakfastManualCalories[day] || 0;
@@ -224,7 +226,20 @@ export function useCalorieBalance() {
     }, 0);
 
     const breakfast = getBreakfastForDay(day);
-    const breakfastPro = breakfast ? parseCalories(breakfast.protein) : (breakfastManualProteins[day] || 0);
+    let breakfastPro = 0;
+    if (breakfast) {
+      const selId = breakfastSelections[day];
+      if (selId?.startsWith('pm:')) {
+        const pmId = selId.slice(3);
+        const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
+        breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj) : parseCalories(breakfast.protein);
+      } else {
+        const ingPro = computeIngredientProtein(breakfast.ingredients);
+        breakfastPro = ingPro !== null ? ingPro : parseCalories(breakfast.protein);
+      }
+    } else {
+      breakfastPro = breakfastManualProteins[day] || 0;
+    }
     const extra = extraProteins[day] || 0;
 
     return mealPro + breakfastPro + extra;
