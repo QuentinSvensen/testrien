@@ -105,6 +105,15 @@ export function PossibleMealCard({
 
   const displayIngredients = pm.ingredients_override ?? meal.ingredients;
 
+  // Build isAvailable callback from stockMap for macro computation
+  const isAvailableCb = stockMap ? (name: string) => {
+    const key = findStockKey(stockMap, name);
+    if (!key) return false;
+    const stock = stockMap.get(key);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
+  } : undefined;
+
   // Detect scale ratio from override vs original ingredients
   // Returns ratio only if ALL non-optional ingredients have the same ratio
   const detectScaleRatio = (): number | null => {
