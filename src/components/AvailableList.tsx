@@ -662,7 +662,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const expiringIng = analysis.expiringIngredientName;
     return (
       <div key={meal.id} className="relative">
-        <MealCard meal={displayMeal}
+        <MealCard meal={displayMeal} stockMap={stockMap}
           onMoveToPossible={() => {
             const cr = customRatios[meal.id];
             if (cr && cr !== 1) {
