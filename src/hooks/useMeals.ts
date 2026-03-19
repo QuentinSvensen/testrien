@@ -354,11 +354,11 @@ export function useMeals(options?: { enabled?: boolean }) {
   });
 
   const duplicatePossibleMeal = useMutation({
-    mutationFn: async (sourcePmId: string) => {
+    mutationFn: async (sourcePmId: string): Promise<string | undefined> => {
       const source = possibleMeals.find(pm => pm.id === sourcePmId);
-      if (!source) return;
+      if (!source) return undefined;
       const maxOrder = possibleMeals.length;
-      const { error } = await supabase
+      const { data, error } = await supabase
         .from("possible_meals")
         .insert({
           meal_id: source.meal_id,
@@ -369,8 +369,11 @@ export function useMeals(options?: { enabled?: boolean }) {
           quantity: source.quantity,
           day_of_week: source.day_of_week,
           meal_time: source.meal_time,
-        });
+        })
+        .select('id')
+        .single();
       if (error) throw error;
+      return data?.id;
     },
     onSuccess: invalidatePM,
     onError: onMutationError,
