@@ -86,6 +86,7 @@ export function getOverrideScaleRatio(
 export function getCardDisplayCalories(
   pm: PossibleMeal,
   calOverride?: string | null,
+  isAvailable?: (name: string) => boolean,
 ): number {
   const meal = pm.meals;
   if (!meal) return 0;
@@ -96,7 +97,7 @@ export function getCardDisplayCalories(
 
   // 2. Ingredient-computed calories (from ingredients_override or base ingredients)
   const displayIngredients = pm.ingredients_override ?? meal.ingredients;
-  const ingCal = computeIngredientCalories(displayIngredients);
+  const ingCal = computeIngredientCalories(displayIngredients, isAvailable);
   if (ingCal !== null) return ingCal * qty;
 
   // 3. Base calories scaled by ratio
@@ -109,13 +110,13 @@ export function getCardDisplayCalories(
 /**
  * Compute the displayed protein for a single planning card.
  */
-export function getCardDisplayProtein(pm: PossibleMeal): number {
+export function getCardDisplayProtein(pm: PossibleMeal, isAvailable?: (name: string) => boolean): number {
   const meal = pm.meals;
   if (!meal) return 0;
   const qty = pm.quantity ?? 1;
 
   const displayIngredients = pm.ingredients_override ?? meal.ingredients;
-  const ingPro = computeIngredientProtein(displayIngredients);
+  const ingPro = computeIngredientProtein(displayIngredients, isAvailable);
   if (ingPro !== null) return ingPro * qty;
 
   const ratio = getOverrideScaleRatio(meal, pm.ingredients_override);
@@ -124,7 +125,7 @@ export function getCardDisplayProtein(pm: PossibleMeal): number {
   return scaledPro * qty;
 }
 
-export function useCalorieBalance() {
+export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
   const { meals: allMeals, possibleMeals, getMealsByCategory } = useMeals();
   const { getPreference } = usePreferences();
 
@@ -183,7 +184,7 @@ export function useCalorieBalance() {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) =>
-          s + getCardDisplayCalories(pm, calOverrides[pm.id])
+          s + getCardDisplayCalories(pm, calOverrides[pm.id], isAvailable)
         , 0);
       }
       return total + (manualCalories[`${day}-${time}`] || 0);
@@ -198,10 +199,10 @@ export function useCalorieBalance() {
       if (selId?.startsWith('pm:')) {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        breakfastCal = possiblePdj ? getCardDisplayCalories(possiblePdj) : parseCalories(breakfast.calories);
+        breakfastCal = possiblePdj ? getCardDisplayCalories(possiblePdj, undefined, isAvailable) : parseCalories(breakfast.calories);
       } else {
         // Use ingredient-computed calories (consistent with picker display), fallback to meal.calories
-        const ingCal = computeIngredientCalories(breakfast.ingredients);
+        const ingCal = computeIngredientCalories(breakfast.ingredients, isAvailable);
         breakfastCal = ingCal !== null ? ingCal : parseCalories(breakfast.calories);
       }
     } else {
@@ -218,7 +219,7 @@ export function useCalorieBalance() {
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) => {
           const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-          const ingPro = computeIngredientProtein(displayIngredients);
+          const ingPro = computeIngredientProtein(displayIngredients, isAvailable);
           return s + (ingPro !== null ? ingPro : parseCalories(pm.meals?.protein));
         }, 0);
       }
@@ -232,9 +233,9 @@ export function useCalorieBalance() {
       if (selId?.startsWith('pm:')) {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj) : parseCalories(breakfast.protein);
+        breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailable) : parseCalories(breakfast.protein);
       } else {
-        const ingPro = computeIngredientProtein(breakfast.ingredients);
+        const ingPro = computeIngredientProtein(breakfast.ingredients, isAvailable);
         breakfastPro = ingPro !== null ? ingPro : parseCalories(breakfast.protein);
       }
     } else {

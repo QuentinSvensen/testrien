@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { useMeals, DAYS, TIMES, type PossibleMeal, type Meal } from "@/hooks/useMeals";
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
@@ -12,7 +12,7 @@ import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useFoodItems } from "@/hooks/useFoodItems";
-import { analyzeMealIngredients } from "@/lib/stockUtils";
+import { analyzeMealIngredients, buildStockMap, findStockKey } from "@/lib/stockUtils";
 import { useMealTransfers } from "@/hooks/useMealTransfers";
 
 /** Additive planning input: click "+" to enter a value that gets added to current */
@@ -422,6 +422,14 @@ export function WeeklyPlanning() {
   const qc = useQueryClient();
   const { getPreference, setPreference, isLoading: prefsLoading } = usePreferences();
   const { items: foodItems } = useFoodItems();
+  const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
+  const isAvailableCb = useCallback((name: string) => {
+    const key = findStockKey(stockMap, name);
+    if (!key) return false;
+    const stock = stockMap.get(key);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
+  }, [stockMap]);
   const { updateFoodItemCountersForPlanning, deductIngredientsFromStock, deductNameMatchStock } = useMealTransfers(foodItems);
 
   const updatePlanningWithCounters = (pmId: string, day: string | null, time: string | null) => {
@@ -440,7 +448,7 @@ export function WeeklyPlanning() {
 
   // Breakfast selections per day
   const breakfastSelections = getPreference<Record<string, string>>('planning_breakfast', {});
-  const { getDayCalories, DAILY_GOAL, getBreakfastForDay } = useCalorieBalance();
+  const { getDayCalories, DAILY_GOAL, getBreakfastForDay } = useCalorieBalance(isAvailableCb);
   const petitDejMeals = getMealsByCategory('petit_dejeuner');
   const possiblePetitDej = possibleMeals.filter(pm => pm.meals?.category === 'petit_dejeuner');
 
@@ -821,10 +829,10 @@ export function WeeklyPlanning() {
     const expiredIngs = analysis.expiredIngredientNames;
     const soonIngs = analysis.expiringSoonIngredientNames;
 
-    const ingCal = computeIngredientCalories(displayIngredients);
+    const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
     const isComputedCal = !overrideCal && ingCal !== null;
 
-    const ingPro = computeIngredientProtein(displayIngredients);
+    const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
     const isComputedPro = ingPro !== null;
 
     // Use shared ratio detection
@@ -1090,9 +1098,9 @@ export function WeeklyPlanning() {
                           <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Possible</p>
                           {possiblePetitDej.map(pm => {
                             const displayIng = pm.ingredients_override ?? pm.meals?.ingredients;
-                            const ingCal = computeIngredientCalories(displayIng);
+                            const ingCal = computeIngredientCalories(displayIng, isAvailableCb);
                             const calDisplay = ingCal !== null ? String(ingCal) : pm.meals?.calories;
-                            const ingPro = computeIngredientProtein(displayIng);
+                            const ingPro = computeIngredientProtein(displayIng, isAvailableCb);
                             const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
                             const pmSelId = `pm:${pm.id}`;
                             // Find other days where this possible breakfast is selected
@@ -1110,9 +1118,9 @@ export function WeeklyPlanning() {
                       )}
                       <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Tous</p>
                       {petitDejMeals.map(m => {
-                        const ingCal = computeIngredientCalories(m.ingredients);
+                        const ingCal = computeIngredientCalories(m.ingredients, isAvailableCb);
                         const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
-                        const ingPro = computeIngredientProtein(m.ingredients);
+                        const ingPro = computeIngredientProtein(m.ingredients, isAvailableCb);
                         const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
                         const mealSelId = `meal:${m.id}`;
                           return (
@@ -1466,8 +1474,8 @@ export function WeeklyPlanning() {
           {popupPm && popupPm.meals && (() => {
             const meal = popupPm.meals;
             const displayIngredients = popupPm.ingredients_override ?? meal.ingredients;
-            const ingCal = computeIngredientCalories(displayIngredients);
-            const ingPro = computeIngredientProtein(displayIngredients);
+            const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
+            const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
             const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
             const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
             const counterDays = getAdaptedCounterDays(popupPm.counter_start_date, popupPm.day_of_week, popupPm.created_at);
@@ -1532,8 +1540,8 @@ export function WeeklyPlanning() {
           <DialogTitle className="sr-only">Détails du petit déjeuner</DialogTitle>
           {popupBreakfast && (() => {
             const meal = popupBreakfast.meal;
-            const ingCal = computeIngredientCalories(meal.ingredients);
-            const ingPro = computeIngredientProtein(meal.ingredients);
+            const ingCal = computeIngredientCalories(meal.ingredients, isAvailableCb);
+            const ingPro = computeIngredientProtein(meal.ingredients, isAvailableCb);
             const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
             const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
             return (
