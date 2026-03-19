@@ -111,7 +111,7 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
           onDragOver={(e) => handleDragOver(e, idx)}
           onDrop={(e) => handleDrop(e, idx)}
           onDragEnd={handleDragEnd}
-          className={`grid grid-cols-[0.8rem_1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 pl-0 pr-0 transition-opacity ${
+          className={`grid grid-cols-[0.8rem_1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] lg:grid-cols-[0.8rem_1.2rem_0.8rem_3rem_2.2rem_minmax(0,12rem)_2.5rem_2.5rem] gap-x-0.5 gap-y-0.5 pl-0 pr-0 transition-opacity ${
             dragIdx === idx ? 'opacity-30' : ''
           } ${dragOverIdx === idx && dragIdx !== idx ? 'border-t-2 border-yellow-300/60' : ''}`}
         >
