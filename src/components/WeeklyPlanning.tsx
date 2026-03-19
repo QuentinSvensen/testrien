@@ -537,11 +537,20 @@ export function WeeklyPlanning() {
         const updatedConsumed = { ...freshConsumed };
         for (const day of toConsume) {
           updatedConsumed[day] = true;
-          const mealId = breakfastSelections[day];
-          // Look in catalog first, then in possible meals
-          const catalogMeal = petitDejMeals.find(m => m.id === mealId);
-          const possiblePm = possibleMeals.find(pm => pm.meal_id === mealId);
-          const breakfast = catalogMeal || possiblePm?.meals;
+          const selId = breakfastSelections[day];
+          // Resolve prefixed selection ID
+          let breakfast: any = null;
+          if (selId.startsWith('pm:')) {
+            const pmId = selId.slice(3);
+            const pm = possibleMeals.find(p => p.id === pmId);
+            if (pm?.meals) breakfast = { ...pm.meals, ingredients: pm.ingredients_override ?? pm.meals.ingredients };
+          } else if (selId.startsWith('meal:')) {
+            const mId = selId.slice(5);
+            breakfast = petitDejMeals.find(m => m.id === mId);
+          } else {
+            // Legacy plain ID
+            breakfast = petitDejMeals.find(m => m.id === selId) || possibleMeals.find(pm => pm.meal_id === selId)?.meals;
+          }
           if (breakfast) {
             // Build a Meal-like object for the transfer functions
             const mealObj = {
