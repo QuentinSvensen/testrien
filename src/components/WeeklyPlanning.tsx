@@ -910,9 +910,14 @@ export function WeeklyPlanning() {
       .eq('user_id', userId)
       .maybeSingle();
 
-    const backup = (data?.value as any[]) ?? [];
+    const raw = data?.value as any;
+    // Support both old format (array of cards) and new format (object with cards + inputs)
+    const isNewFormat = raw && !Array.isArray(raw) && raw.cards;
+    const backup: any[] = isNewFormat ? raw.cards : (Array.isArray(raw) ? raw : []);
     if (backup.length === 0) { alert('Aucune sauvegarde trouvée.'); return; }
     if (!confirm(`Restaurer ${backup.length} carte(s) possible(s) ?`)) return;
+
+    // Restore cards
     await Promise.all(backup.map((pm: any) =>
       (supabase as any).from("possible_meals").insert({
         meal_id: pm.meal_id,
@@ -925,6 +930,20 @@ export function WeeklyPlanning() {
         ingredients_override: pm.ingredients_override,
       })
     ));
+
+    // Restore input values if available
+    if (isNewFormat) {
+      if (raw.manualCalories) setPreference.mutate({ key: 'planning_manual_calories', value: raw.manualCalories });
+      if (raw.manualProteins) setPreference.mutate({ key: 'planning_manual_proteins', value: raw.manualProteins });
+      if (raw.extraCalories) setPreference.mutate({ key: 'planning_extra_calories', value: raw.extraCalories });
+      if (raw.extraProteins) setPreference.mutate({ key: 'planning_extra_proteins', value: raw.extraProteins });
+      if (raw.breakfastManualCalories) setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: raw.breakfastManualCalories });
+      if (raw.breakfastManualProteins) setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: raw.breakfastManualProteins });
+      if (raw.breakfastSelections) setPreference.mutate({ key: 'planning_breakfast', value: raw.breakfastSelections });
+      if (raw.drinkChecks) setPreference.mutate({ key: 'planning_drink_checks', value: raw.drinkChecks });
+      if (raw.calOverrides) setPreference.mutate({ key: 'planning_cal_overrides', value: raw.calOverrides });
+    }
+
     qc.invalidateQueries({ queryKey: ["possible_meals"] });
   };
 
