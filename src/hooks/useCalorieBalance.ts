@@ -202,7 +202,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
         breakfastCal = possiblePdj ? getCardDisplayCalories(possiblePdj, undefined, isAvailable) : parseCalories(breakfast.calories);
       } else {
         // Use ingredient-computed calories (consistent with picker display), fallback to meal.calories
-        const ingCal = computeIngredientCalories(breakfast.ingredients);
+        const ingCal = computeIngredientCalories(breakfast.ingredients, isAvailable);
         breakfastCal = ingCal !== null ? ingCal : parseCalories(breakfast.calories);
       }
     } else {
