@@ -1,5 +1,5 @@
 import { useMemo } from 'react';
-import { useMeals, DAYS, TIMES, type PossibleMeal } from '@/hooks/useMeals';
+import { useMeals, DAYS, TIMES, type PossibleMeal, type Meal } from '@/hooks/useMeals';
 import { usePreferences } from '@/hooks/usePreferences';
 import { computeIngredientCalories, computeIngredientProtein } from '@/lib/ingredientUtils';
 
