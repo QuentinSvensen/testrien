@@ -19,6 +19,7 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
   const nameRefs = useRef<(HTMLInputElement | null)[]>([]);
   const [dragIdx, setDragIdx] = useState<number | null>(null);
   const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
+  const handleRef = useRef(false);
 
   const updateLine = (idx: number, field: "qty" | "count" | "name" | "cal" | "pro", value: string) => {
     const next = [...lines];
