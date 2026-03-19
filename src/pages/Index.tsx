@@ -837,9 +837,15 @@ const Index = () => {
                     // Use the overridden ingredients if present, deduct from stock
                     const ingredientsToDeduce = pm.ingredients_override ?? pm.meals.ingredients;
                     const mealForDeduction = { ...pm.meals, ingredients: ingredientsToDeduce };
-                    await deductIngredientsFromStock(mealForDeduction);
+                    const snapshots = await deductIngredientsFromStock(mealForDeduction);
+                    // Create the duplicate and store snapshots under its new ID
+                    const newId = await duplicatePossibleMeal.mutateAsync(id);
+                    if (newId && snapshots.length > 0) {
+                      updateSnapshots(prev => ({ ...prev, [newId]: snapshots }));
+                    }
+                  } else {
+                    duplicatePossibleMeal.mutate(id);
                   }
-                  duplicatePossibleMeal.mutate(id);
                 }}
                 onUpdateExpiration={(id, d) => updateExpiration.mutate({ id, expiration_date: d })}
                 onUpdatePlanning={(id, day, time) => {
