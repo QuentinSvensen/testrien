@@ -181,7 +181,7 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
           />
           <Input
             placeholder="cal"
-            inputMode="decimal"
+            inputMode="text"
             value={line.cal}
             onChange={e => updateLine(idx, "cal", e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") onCommit(); if (e.key === "Escape") onCommit(); }}
@@ -189,7 +189,7 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
           />
           <Input
             placeholder="prot"
-            inputMode="decimal"
+            inputMode="text"
             value={line.pro}
             onChange={e => updateLine(idx, "pro", e.target.value)}
             onKeyDown={e => { if (e.key === "Enter") onCommit(); if (e.key === "Escape") onCommit(); }}
