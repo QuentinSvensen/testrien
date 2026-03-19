@@ -277,8 +277,10 @@ function renderIngredientDisplay(
   expiringSoonIngredientNames?: Set<string>,
   stockMap?: Map<string, StockInfo>,
 ) {
-  // Strip cal/pro markers BEFORE splitting to avoid breaking on commas inside markers
-  const cleaned = cleanIngredientText(ingredients);
+  // Split raw ingredients first, filter out negative-metric groups, then clean for display
+  const rawGroups = ingredients.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
+  const filteredRaw = rawGroups.filter(g => !g.split(/\|/).some(alt => hasNegativeMetric(alt.trim())));
+  const cleaned = cleanIngredientText(filteredRaw.join(", "));
   const groups = cleaned.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
   
