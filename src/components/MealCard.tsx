@@ -154,7 +154,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
                 ) : null;
               })()}
               {(() => {
-                const ingPro = computeIngredientProtein(meal.ingredients);
+                const ingPro = computeIngredientProtein(meal.ingredients, isAvailableCb);
                 const rawPro = ingPro !== null ? String(ingPro) : meal.protein;
                 const isComputedPro = ingPro !== null;
                 // Round display value visually
