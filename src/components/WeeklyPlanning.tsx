@@ -1005,7 +1005,13 @@ export function WeeklyPlanning() {
               <div className="flex items-center gap-1">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <button className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors truncate max-w-[120px]">
+                    <button
+                      className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors truncate max-w-[120px]"
+                      onDoubleClick={() => {
+                        const bm = getBreakfastForDay(day);
+                        if (bm) setPopupBreakfast({ meal: bm, day });
+                      }}
+                    >
                       {getBreakfastForDay(day)?.name || '🥐 Petit déj'}
                     </button>
                   </PopoverTrigger>
@@ -1024,9 +1030,10 @@ export function WeeklyPlanning() {
                             const calDisplay = ingCal !== null ? String(ingCal) : pm.meals?.calories;
                             const ingPro = computeIngredientProtein(displayIng);
                             const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
+                            const pmSelId = `pm:${pm.id}`;
                             return (
-                              <button key={pm.id} onClick={() => setBreakfastForDay(day, pm.meal_id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pm.meal_id ? 'bg-primary/10 font-bold' : ''}`}>
-                                {pm.meals?.name} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
+                              <button key={pm.id} onClick={() => setBreakfastForDay(day, pmSelId)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pmSelId ? 'bg-primary/10 font-bold' : ''}`}>
+                                {pm.meals?.name} {pm.ingredients_override ? '✏️' : ''} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                               </button>
                             );
                           })}
@@ -1039,8 +1046,9 @@ export function WeeklyPlanning() {
                         const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
                         const ingPro = computeIngredientProtein(m.ingredients);
                         const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
+                        const mealSelId = `meal:${m.id}`;
                           return (
-                          <button key={m.id} onClick={() => setBreakfastForDay(day, m.id)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === m.id ? 'bg-primary/10 font-bold' : ''}`}>
+                          <button key={m.id} onClick={() => setBreakfastForDay(day, mealSelId)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === mealSelId ? 'bg-primary/10 font-bold' : ''}`}>
                             {m.name} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                           </button>
                         );
