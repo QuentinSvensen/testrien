@@ -149,11 +149,31 @@ export function useCalorieBalance() {
   const getMealsForSlot = (day: string, time: string) =>
     planningMeals.filter((pm) => pm.day_of_week === day && pm.meal_time === time);
 
-  const getBreakfastForDay = (day: string) => {
-    const mealId = breakfastSelections[day];
-    if (!mealId) return null;
-    return petitDejMeals.find((m) => m.id === mealId)
-      || allMeals.find(m => m.id === mealId && m.category === 'petit_dejeuner')
+  /** Resolve a breakfast selection ID to a Meal-like object.
+   *  Supports both prefixed format (pm:xxx / meal:xxx) and legacy plain IDs. */
+  const getBreakfastForDay = (day: string): Meal | null => {
+    const selId = breakfastSelections[day];
+    if (!selId) return null;
+
+    // Prefixed format
+    if (selId.startsWith('pm:')) {
+      const pmId = selId.slice(3);
+      const pm = possibleMeals.find(p => p.id === pmId);
+      if (!pm?.meals) return null;
+      // Return a meal-like object with overridden ingredients baked in
+      const m = pm.meals;
+      return { ...m, ingredients: pm.ingredients_override ?? m.ingredients } as Meal;
+    }
+    if (selId.startsWith('meal:')) {
+      const mealId = selId.slice(5);
+      return petitDejMeals.find(m => m.id === mealId)
+        || allMeals.find(m => m.id === mealId && m.category === 'petit_dejeuner')
+        || null;
+    }
+
+    // Legacy: plain meal ID (backwards compat)
+    return petitDejMeals.find((m) => m.id === selId)
+      || allMeals.find(m => m.id === selId && m.category === 'petit_dejeuner')
       || null;
   };
 
