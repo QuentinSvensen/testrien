@@ -411,7 +411,7 @@ export function PossibleMealCard({
             ) : null;
           })()}
           {(() => {
-            const ingPro = computeIngredientProtein(displayIngredients);
+            const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
             let rawPro = ingPro !== null ? String(ingPro) : meal.protein;
             const isComputedPro = ingPro !== null;
             // Scale manual protein by detected ratio
