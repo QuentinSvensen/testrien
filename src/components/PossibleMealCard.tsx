@@ -345,7 +345,7 @@ export function PossibleMealCard({
 
           {/* Options */}
           <div className="ml-auto flex items-center justify-end gap-1.5 shrink-0 flex-wrap">
-          {counterDays !== null && (
+          {counterDays !== null && counterDays >= 1 && (
           <button
             onClick={() => onUpdateCounter(null)}
             className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-all shrink-0 ${
