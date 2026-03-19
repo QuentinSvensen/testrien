@@ -50,7 +50,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
   onUpdateIngredients, onToggleFavorite, onUpdateOvenTemp, onUpdateOvenMinutes, onDragStart, 
   onDragOver, onDrop, isHighlighted, hideDelete, expirationLabel, expirationDate, 
   expirationIsToday, expiringIngredientName, expiredIngredientNames, expiringSoonIngredientNames,
-  maxIngredientCounter, missingIngredientNames, counterIngredientNames 
+  maxIngredientCounter, missingIngredientNames, counterIngredientNames, stockMap
 }, _ref) {
   const parseIngredientLine = parseIngredientLineDisplay;
   const formatQty = formatQtyDisplay;
