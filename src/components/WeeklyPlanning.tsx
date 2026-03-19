@@ -932,7 +932,7 @@ export function WeeklyPlanning() {
     if (!confirm('Réinitialiser le planning ? Les cartes seront supprimées et les valeurs sauvegardées (💾) seront restaurées.')) return;
     const snaps = savedSnapshots;
 
-    // Backup possible_meals before deletion
+    // Backup possible_meals + all input values before deletion
     const backup = possibleMeals.map(pm => ({
       meal_id: pm.meal_id,
       quantity: pm.quantity,
@@ -943,8 +943,20 @@ export function WeeklyPlanning() {
       sort_order: pm.sort_order,
       ingredients_override: pm.ingredients_override,
     }));
+    const fullBackup = {
+      cards: backup,
+      manualCalories,
+      manualProteins,
+      extraCalories,
+      extraProteins,
+      breakfastManualCalories,
+      breakfastManualProteins,
+      breakfastSelections,
+      drinkChecks,
+      calOverrides,
+    };
     const userId = (await supabase.auth.getUser()).data.user?.id;
-    await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: backup, user_id: userId } as any, { onConflict: 'user_id,key' });
+    await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: fullBackup, user_id: userId } as any, { onConflict: 'user_id,key' });
 
     await Promise.all(possibleMeals.map(pm =>
       (supabase as any).from("possible_meals").delete().eq("id", pm.id)
