@@ -1454,6 +1454,55 @@ export function WeeklyPlanning() {
           })()}
         </DialogContent>
       </Dialog>
+
+      {/* Breakfast double-click popup */}
+      <Dialog open={!!popupBreakfast} onOpenChange={(open) => { if (!open) setPopupBreakfast(null); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Détails du petit déjeuner</DialogTitle>
+          {popupBreakfast && (() => {
+            const meal = popupBreakfast.meal;
+            const ingCal = computeIngredientCalories(meal.ingredients);
+            const ingPro = computeIngredientProtein(meal.ingredients);
+            const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
+            const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
+            return (
+              <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: meal.color }}>
+                <h3 className="text-lg font-bold mb-2">🥐 {meal.name}</h3>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {displayCal && (
+                    <span className="text-sm font-bold bg-black/30 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <Flame className="h-3.5 w-3.5" /> {displayCal} kcal
+                    </span>
+                  )}
+                  {displayPro && (
+                    <span className="text-sm font-bold bg-blue-600/50 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      🍗 {displayPro}g
+                    </span>
+                  )}
+                  {meal.grams && (
+                    <span className="text-sm bg-white/20 px-2.5 py-1 rounded-full flex items-center gap-1">
+                      <Weight className="h-3.5 w-3.5" /> {meal.grams}
+                    </span>
+                  )}
+                </div>
+                {meal.ingredients && (
+                  <div className="bg-black/20 rounded-xl p-3 mt-1">
+                    <p className="text-xs font-semibold text-white/60 mb-1 uppercase tracking-wide">Ingrédients</p>
+                    <div className="text-sm text-white/90 space-y-0.5">
+                      {meal.ingredients.split(/[,\n]+/).map((g: string, i: number) => (
+                        <p key={i}>{cleanIngredientText(g.trim())}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                <p className="text-xs text-white/50 mt-3">
+                  {DAY_LABELS[popupBreakfast.day]}
+                </p>
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
