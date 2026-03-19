@@ -105,6 +105,15 @@ export function PossibleMealCard({
 
   const displayIngredients = pm.ingredients_override ?? meal.ingredients;
 
+  // Build isAvailable callback from stockMap for macro computation
+  const isAvailableCb = stockMap ? (name: string) => {
+    const key = findStockKey(stockMap, name);
+    if (!key) return false;
+    const stock = stockMap.get(key);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
+  } : undefined;
+
   // Detect scale ratio from override vs original ingredients
   // Returns ratio only if ALL non-optional ingredients have the same ratio
   const detectScaleRatio = (): number | null => {
@@ -385,7 +394,7 @@ export function PossibleMealCard({
           )}
           {/* ratio badge moved to absolute top-right */}
           {(() => {
-            const ingCal = computeIngredientCalories(displayIngredients);
+            const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
             let displayCal = ingCal !== null ? String(ingCal) : meal.calories;
             const isComputed = ingCal !== null;
             // Scale manual calories by detected ratio
@@ -402,7 +411,7 @@ export function PossibleMealCard({
             ) : null;
           })()}
           {(() => {
-            const ingPro = computeIngredientProtein(displayIngredients);
+            const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
             let rawPro = ingPro !== null ? String(ingPro) : meal.protein;
             const isComputedPro = ingPro !== null;
             // Scale manual protein by detected ratio
