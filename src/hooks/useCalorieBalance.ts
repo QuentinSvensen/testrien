@@ -86,6 +86,7 @@ export function getOverrideScaleRatio(
 export function getCardDisplayCalories(
   pm: PossibleMeal,
   calOverride?: string | null,
+  isAvailable?: (name: string) => boolean,
 ): number {
   const meal = pm.meals;
   if (!meal) return 0;
@@ -96,7 +97,7 @@ export function getCardDisplayCalories(
 
   // 2. Ingredient-computed calories (from ingredients_override or base ingredients)
   const displayIngredients = pm.ingredients_override ?? meal.ingredients;
-  const ingCal = computeIngredientCalories(displayIngredients);
+  const ingCal = computeIngredientCalories(displayIngredients, isAvailable);
   if (ingCal !== null) return ingCal * qty;
 
   // 3. Base calories scaled by ratio
