@@ -427,15 +427,8 @@ function _computeMacro(
   for (const group of groups) {
     let chosenLine = group[0];
     if (isAvailable) {
-      // Pick the first available alternative
       for (const alt of group) {
         if (isAvailable(alt.name)) { chosenLine = alt; break; }
-      }
-    } else if (group.length > 1) {
-      // No availability info: pick the first alternative that has a value for this field
-      for (const alt of group) {
-        const rv = field === 'cal' ? alt.cal : alt.pro;
-        if (rv && !isNaN(parseFloat(rv.replace(",", ".")))) { chosenLine = alt; break; }
       }
     }
     const rawVal = field === 'cal' ? chosenLine.cal : chosenLine.pro;
