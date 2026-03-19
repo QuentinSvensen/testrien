@@ -5,14 +5,14 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein } from "@/hooks/useCalorieBalance";
 import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer } from "lucide-react";
-import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, accentSafeKeyMatch, strictNameMatch, hasNegativeMetric } from "@/lib/ingredientUtils";
+import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, hasNegativeMetric } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { format, parseISO } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useFoodItems } from "@/hooks/useFoodItems";
-import { analyzeMealIngredients, buildStockMap, findStockKey } from "@/lib/stockUtils";
+import { analyzeMealIngredients, buildStockMap, findStockKey, type StockInfo } from "@/lib/stockUtils";
 import { useMealTransfers } from "@/hooks/useMealTransfers";
 
 /** Additive planning input: click "+" to enter a value that gets added to current */
@@ -201,7 +201,7 @@ interface TouchDragState {
 }
 
 // ─── PlanningMiniCard ────────────────────────────────────────────────────────
-function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPast, displayCal, isComputedCal, displayPro, isComputedPro, compact, isTouchDevice, touchDragActive, slotDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onRemove, onCalorieChange, expiredIngredientNames, expiringSoonIngredientNames, onDoubleClick, foodItems }: {
+function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPast, displayCal, isComputedCal, displayPro, isComputedPro, compact, isTouchDevice, touchDragActive, slotDragOver, onDragStart, onDragOver, onDragLeave, onDrop, onTouchStart, onTouchMove, onTouchEnd, onTouchCancel, onRemove, onCalorieChange, expiredIngredientNames, expiringSoonIngredientNames, onDoubleClick, stockMap }: {
   pm: PossibleMeal; meal: any; expired: boolean; counterDays: number | null; counterUrgent: boolean; isPast: boolean; displayCal: string | null; isComputedCal: boolean; displayPro: string | null; isComputedPro: boolean; compact: boolean;
   isTouchDevice: boolean; touchDragActive: boolean; slotDragOver: string | null;
   onDragStart: (e: React.DragEvent) => void; onDragOver: (e: React.DragEvent) => void; onDragLeave: () => void; onDrop: (e: React.DragEvent) => void;
@@ -210,7 +210,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
   expiredIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
   onDoubleClick?: () => void;
-  foodItems?: Array<{ name: string; quantity?: number | null }>;
+  stockMap?: Map<string, StockInfo>;
 }) {
   const [editingCal, setEditingCal] = useState(false);
   const [calValue, setCalValue] = useState("");
@@ -318,7 +318,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                     {format(parseISO(pm.expiration_date), "d MMM", { locale: fr })}
                   </span>
                 )}
-                {meal.ingredients && renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, foodItems)}
+                {meal.ingredients && renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, stockMap)}
               </div>
             )}
           </div>
@@ -352,7 +352,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
               )}
               {meal.ingredients && (
                 <div className={`${pm.expiration_date || meal.grams ? "mt-0.5" : ""} text-[9px] text-white/50 flex flex-wrap gap-x-1`}>
-                  {renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, foodItems)}
+                  {renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, stockMap)}
                 </div>
               )}
             </div>
@@ -902,7 +902,7 @@ export function WeeklyPlanning() {
           setPreference.mutate({ key: 'planning_cal_overrides', value: updated });
         }}
         onDoubleClick={() => setPopupPm(pm)}
-        foodItems={foodItems}
+        stockMap={stockMap}
       />
     );
   };
@@ -1514,7 +1514,7 @@ export function WeeklyPlanning() {
                   <div className="bg-black/20 rounded-xl p-3 mt-1">
                     <p className="text-xs font-semibold text-white/60 mb-1 uppercase tracking-wide">Ingrédients</p>
                     <div className="text-sm text-white/90 space-y-0.5">
-                      {renderIngredientDisplayPlanning(displayIngredients, undefined, undefined, foodItems).map((el, i) => (
+                      {renderIngredientDisplayPlanning(displayIngredients, undefined, undefined, stockMap).map((el, i) => (
                         <p key={i}>{el}</p>
                       ))}
                     </div>
@@ -1594,7 +1594,7 @@ function renderIngredientDisplayPlanning(
   ingredients: string,
   expiredIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
-  foodItems?: Array<{ name: string; quantity?: number | null }>,
+  stockMap?: Map<string, StockInfo>,
 ) {
   // Split raw ingredients first, filter out negative-metric groups, then clean for display
   const rawGroups = ingredients.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
@@ -1604,19 +1604,14 @@ function renderIngredientDisplayPlanning(
   const elements: React.ReactNode[] = [];
 
   const isAvailable = (name: string) => {
+    if (!stockMap) return false;
     const stripped = name.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim();
     if (!stripped) return false;
-
-    for (const fi of (foodItems || [])) {
-      if ((fi.quantity ?? 0) <= 0) continue;
-
-      // Strict matching only: avoids false positives like
-      // "purée en poudre" matching "purée préparé"
-      if (accentSafeKeyMatch(fi.name, stripped)) return true;
-      if (strictNameMatch(fi.name, stripped)) return true;
-    }
-
-    return false;
+    const stockKey = findStockKey(stockMap, stripped);
+    if (!stockKey) return false;
+    const stock = stockMap.get(stockKey);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
   };
 
   groups.forEach((group, gi) => {
@@ -1625,7 +1620,7 @@ function renderIngredientDisplayPlanning(
 
     // Handle OR alternatives (|)
     const alternatives = display.split(/\s*\|\s*/);
-    if (alternatives.length > 1 && foodItems) {
+    if (alternatives.length > 1 && stockMap) {
       const altElements = alternatives.map((alt, ai) => {
         const available = isAvailable(alt);
         return (
