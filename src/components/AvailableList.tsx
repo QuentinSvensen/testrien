@@ -737,7 +737,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     const partialKey = `partial-${meal.id}`;
     return (
       <div key={partialKey} className="relative">
-        <MealCard meal={partialMeal}
+        <MealCard meal={partialMeal} stockMap={stockMap}
           onMoveToPossible={() => {
             onMovePartialToPossible(meal, effectiveRatio);
             setCustomRatios(prev => { const next = { ...prev }; delete next[partialKey]; return next; });
