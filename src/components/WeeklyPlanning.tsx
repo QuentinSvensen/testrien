@@ -318,7 +318,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                     {format(parseISO(pm.expiration_date), "d MMM", { locale: fr })}
                   </span>
                 )}
-                {meal.ingredients && renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames)}
+                {meal.ingredients && renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, foodItems)}
               </div>
             )}
           </div>
