@@ -894,6 +894,7 @@ export function WeeklyPlanning() {
           setPreference.mutate({ key: 'planning_cal_overrides', value: updated });
         }}
         onDoubleClick={() => setPopupPm(pm)}
+        foodItems={foodItems}
       />
     );
   };
