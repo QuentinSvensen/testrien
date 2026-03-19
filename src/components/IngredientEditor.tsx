@@ -1,4 +1,5 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
+import { GripVertical } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import type { IngLine } from "@/lib/ingredientUtils";
 
@@ -10,12 +11,14 @@ interface IngredientEditorProps {
 
 /**
  * Shared ingredient editing grid used by MealCard and PossibleMealCard.
- * Extracted to eliminate ~80 lines of duplication.
+ * Supports drag & drop reordering of ingredient lines.
  */
 export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditorProps) {
   const qtyRefs = useRef<(HTMLInputElement | null)[]>([]);
   const countRefs = useRef<(HTMLInputElement | null)[]>([]);
   const nameRefs = useRef<(HTMLInputElement | null)[]>([]);
+  const [dragIdx, setDragIdx] = useState<number | null>(null);
+  const [dragOverIdx, setDragOverIdx] = useState<number | null>(null);
 
   const updateLine = (idx: number, field: "qty" | "count" | "name" | "cal" | "pro", value: string) => {
     const next = [...lines];
@@ -51,6 +54,33 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
     if (e.key === "Escape") onCommit();
   };
 
+  const handleDragStart = (e: React.DragEvent, idx: number) => {
+    e.dataTransfer.effectAllowed = "move";
+    setDragIdx(idx);
+  };
+
+  const handleDragOver = (e: React.DragEvent, idx: number) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = "move";
+    setDragOverIdx(idx);
+  };
+
+  const handleDrop = (e: React.DragEvent, targetIdx: number) => {
+    e.preventDefault();
+    if (dragIdx === null || dragIdx === targetIdx) { setDragIdx(null); setDragOverIdx(null); return; }
+    const next = [...lines];
+    const [moved] = next.splice(dragIdx, 1);
+    next.splice(targetIdx, 0, moved);
+    onUpdate(next);
+    setDragIdx(null);
+    setDragOverIdx(null);
+  };
+
+  const handleDragEnd = () => {
+    setDragIdx(null);
+    setDragOverIdx(null);
+  };
+
   return (
     <div
       onBlur={(e) => {
@@ -58,7 +88,8 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
       }}
       className="flex flex-col gap-1"
     >
-      <div className="grid grid-cols-[1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 mb-0.5 pl-0 pr-0">
+      <div className="grid grid-cols-[0.8rem_1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 mb-0.5 pl-0 pr-0">
+        <span className="text-[8px] text-white/50 text-center"></span>
         <span className="text-[8px] text-white/50 text-center">Ou</span>
         <span className="text-[8px] text-white/50 text-center">?</span>
         <span className="text-[8px] text-white/50 text-center">g</span>
@@ -68,7 +99,20 @@ export function IngredientEditor({ lines, onUpdate, onCommit }: IngredientEditor
         <span className="text-[8px] text-white/50 text-center">P</span>
       </div>
       {lines.map((line, idx) => (
-        <div key={idx} className="grid grid-cols-[1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 pl-0 pr-0">
+        <div
+          key={idx}
+          draggable
+          onDragStart={(e) => handleDragStart(e, idx)}
+          onDragOver={(e) => handleDragOver(e, idx)}
+          onDrop={(e) => handleDrop(e, idx)}
+          onDragEnd={handleDragEnd}
+          className={`grid grid-cols-[0.8rem_1.2rem_0.8rem_2.5rem_1.8rem_1fr_2rem_2rem] gap-x-0.5 gap-y-0.5 pl-0 pr-0 transition-opacity ${
+            dragIdx === idx ? 'opacity-30' : ''
+          } ${dragOverIdx === idx && dragIdx !== idx ? 'border-t-2 border-yellow-300/60' : ''}`}
+        >
+          <div className="h-7 flex items-center justify-center cursor-grab active:cursor-grabbing text-white/30 hover:text-white/60">
+            <GripVertical className="h-3 w-3" />
+          </div>
           <button
             type="button"
             onClick={() => toggleOr(idx)}
