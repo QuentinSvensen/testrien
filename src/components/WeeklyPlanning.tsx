@@ -492,6 +492,7 @@ export function WeeklyPlanning() {
   const isTouchDevice = typeof window !== "undefined" && (navigator.maxTouchPoints > 0 || "ontouchstart" in window);
 
   const [popupPm, setPopupPm] = useState<PossibleMeal | null>(null);
+  const [popupBreakfast, setPopupBreakfast] = useState<{ meal: any; day: string } | null>(null);
   const [additiveModes, setAdditiveModes] = useState<Record<string, { active: boolean; value: string }>>({});
 
   useEffect(() => {
