@@ -236,7 +236,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
               )}
               {meal.ingredients && (
                 <p className="text-[11px] text-white/65 leading-tight flex-1 flex flex-wrap gap-x-1">
-                  {renderIngredientDisplay(meal.ingredients, expiredIngredientNames, missingIngredientNames, counterIngredientNames, expiringSoonIngredientNames)}
+                  {renderIngredientDisplay(meal.ingredients, expiredIngredientNames, missingIngredientNames, counterIngredientNames, expiringSoonIngredientNames, stockMap)}
                 </p>
               )}
             </div>
