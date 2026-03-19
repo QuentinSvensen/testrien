@@ -1594,7 +1594,7 @@ function renderIngredientDisplayPlanning(
   ingredients: string,
   expiredIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
-  foodItems?: Array<{ name: string; quantity?: number | null }>,
+  stockMap?: Map<string, StockInfo>,
 ) {
   // Split raw ingredients first, filter out negative-metric groups, then clean for display
   const rawGroups = ingredients.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
@@ -1604,19 +1604,14 @@ function renderIngredientDisplayPlanning(
   const elements: React.ReactNode[] = [];
 
   const isAvailable = (name: string) => {
+    if (!stockMap) return false;
     const stripped = name.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim();
     if (!stripped) return false;
-
-    for (const fi of (foodItems || [])) {
-      if ((fi.quantity ?? 0) <= 0) continue;
-
-      // Strict matching only: avoids false positives like
-      // "purée en poudre" matching "purée préparé"
-      if (accentSafeKeyMatch(fi.name, stripped)) return true;
-      if (strictNameMatch(fi.name, stripped)) return true;
-    }
-
-    return false;
+    const stockKey = findStockKey(stockMap, stripped);
+    if (!stockKey) return false;
+    const stock = stockMap.get(stockKey);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
   };
 
   groups.forEach((group, gi) => {
@@ -1625,7 +1620,7 @@ function renderIngredientDisplayPlanning(
 
     // Handle OR alternatives (|)
     const alternatives = display.split(/\s*\|\s*/);
-    if (alternatives.length > 1 && foodItems) {
+    if (alternatives.length > 1 && stockMap) {
       const altElements = alternatives.map((alt, ai) => {
         const available = isAvailable(alt);
         return (
