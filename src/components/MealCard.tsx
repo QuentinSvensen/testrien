@@ -83,6 +83,14 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
   };
 
 
+  // Build isAvailable callback from stockMap for macro computation
+  const isAvailableCb = stockMap ? (name: string) => {
+    const key = findStockKey(stockMap, name);
+    if (!key) return false;
+    const stock = stockMap.get(key);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
+  } : undefined;
 
   const ovenTemp = (meal as any).oven_temp;
   const ovenMinutes = (meal as any).oven_minutes;
