@@ -184,7 +184,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) =>
-          s + getCardDisplayCalories(pm, calOverrides[pm.id])
+          s + getCardDisplayCalories(pm, calOverrides[pm.id], isAvailable)
         , 0);
       }
       return total + (manualCalories[`${day}-${time}`] || 0);
