@@ -1474,8 +1474,8 @@ export function WeeklyPlanning() {
           {popupPm && popupPm.meals && (() => {
             const meal = popupPm.meals;
             const displayIngredients = popupPm.ingredients_override ?? meal.ingredients;
-            const ingCal = computeIngredientCalories(displayIngredients);
-            const ingPro = computeIngredientProtein(displayIngredients);
+            const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
+            const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
             const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
             const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
             const counterDays = getAdaptedCounterDays(popupPm.counter_start_date, popupPm.day_of_week, popupPm.created_at);
