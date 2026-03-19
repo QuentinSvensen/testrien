@@ -637,8 +637,7 @@ export function WeeklyPlanning() {
       if (selId?.startsWith('pm:')) {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        if (possiblePdj) {
-          const { getCardDisplayProtein } = require('@/hooks/useCalorieBalance');
+        breakfastProt = possiblePdj ? getCardDisplayProtein(possiblePdj) : parseProtein(breakfast.protein);
           breakfastProt = getCardDisplayProtein(possiblePdj);
         } else {
           breakfastProt = parseProtein(breakfast.protein);
