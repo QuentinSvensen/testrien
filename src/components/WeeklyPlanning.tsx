@@ -1044,7 +1044,7 @@ export function WeeklyPlanning() {
                             const otherDays = DAYS.filter(d => d !== day && breakfastSelections[d] === pmSelId);
                             const otherDaysLabel = otherDays.length > 0 ? otherDays.map(d => DAY_LABELS[d]?.slice(0, 3)).join(', ') : null;
                             return (
-                              <button key={pm.id} onClick={() => setBreakfastForDay(day, pmSelId)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pmSelId ? 'bg-primary/10 font-bold' : ''}`}>
+                              <button key={pm.id} onClick={() => setBreakfastForDay(day, pmSelId)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pmSelId ? 'bg-primary/10 font-bold' : ''} ${otherDaysLabel ? 'bg-muted/60' : ''}`}>
                                 {pm.meals?.name} {pm.ingredients_override ? '✏️' : ''} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
                                 {otherDaysLabel && <span className="ml-1 text-[9px] text-amber-500 font-medium">📅 {otherDaysLabel}</span>}
                               </button>
