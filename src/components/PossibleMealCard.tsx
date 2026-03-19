@@ -198,13 +198,15 @@ export function PossibleMealCard({
         if (!isNaN(pct) && pct >= 10) ratio = pct / 100;
       }
       if (ratio !== null && onUpdatePossibleIngredients) {
-        // Build base ingredients: use original, or synthesize from grams+name
-        const baseIng = meal.ingredients
-          ? meal.ingredients
-          : (() => {
-              const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
-              return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
-            })();
+        // Build base ingredients: use current override if present, then original, or synthesize
+        const baseIng = pm.ingredients_override
+          ? pm.ingredients_override
+          : meal.ingredients
+            ? meal.ingredients
+            : (() => {
+                const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+                return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
+              })();
         const scaledIngredients = scaleIngredientStringExact(baseIng, ratio);
         onUpdatePossibleIngredients(scaledIngredients);
       }
