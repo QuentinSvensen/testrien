@@ -443,16 +443,14 @@ export function WeeklyPlanning() {
   const petitDejMeals = getMealsByCategory('petit_dejeuner');
   const possiblePetitDej = possibleMeals.filter(pm => pm.meals?.category === 'petit_dejeuner');
 
-  const setBreakfastForDay = (day: string, mealId: string | null) => {
+  const setBreakfastForDay = (day: string, selId: string | null) => {
     const updated = { ...breakfastSelections };
-    if (mealId) updated[day] = mealId;
+    if (selId) updated[day] = selId;
     else delete updated[day];
     setPreference.mutate({ key: 'planning_breakfast', value: updated });
 
     // Auto-enable auto-consume for "Dèj choco", disable on other changes
-    const selectedMeal = mealId
-      ? (petitDejMeals.find(m => m.id === mealId) || possiblePetitDej.find(pm => pm.meal_id === mealId)?.meals)
-      : null;
+    const selectedMeal = getBreakfastMealFromSelId(selId);
     const isDejeChoco = selectedMeal?.name?.toLowerCase().includes('dèj choco') || selectedMeal?.name?.toLowerCase().includes('dej choco');
     if (isDejeChoco) {
       const updatedAC = { ...autoConsumeBreakfast, [day]: true };
@@ -462,6 +460,21 @@ export function WeeklyPlanning() {
       delete updatedAC[day];
       setPreference.mutate({ key: 'planning_auto_consume_breakfast', value: updatedAC });
     }
+  };
+
+  /** Resolve a selection ID to a Meal object (for internal use) */
+  const getBreakfastMealFromSelId = (selId: string | null | undefined) => {
+    if (!selId) return null;
+    if (selId.startsWith('pm:')) {
+      const pmId = selId.slice(3);
+      return possiblePetitDej.find(pm => pm.id === pmId)?.meals || null;
+    }
+    if (selId.startsWith('meal:')) {
+      const mealId = selId.slice(5);
+      return petitDejMeals.find(m => m.id === mealId) || null;
+    }
+    // Legacy
+    return petitDejMeals.find(m => m.id === selId) || possiblePetitDej.find(pm => pm.meal_id === selId)?.meals || null;
   };
   const [dragOverSlot, setDragOverSlot] = useState<string | null>(null);
   const [dragOverUnplanned, setDragOverUnplanned] = useState(false);
