@@ -919,7 +919,15 @@ const Index = () => {
                   const pm = possibleMeals.find(p => p.id === pmId);
                   if (!pm) return;
                   const oldIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-                  if (oldIngredients || newIngredients) await adjustStockForIngredientChange(oldIngredients, newIngredients, deductionSnapshots[pmId]);
+                  if (oldIngredients || newIngredients) {
+                    const newSnaps = await adjustStockForIngredientChange(oldIngredients, newIngredients, deductionSnapshots[pmId]);
+                    if (newSnaps.length > 0) {
+                      updateSnapshots(prev => ({
+                        ...prev,
+                        [pmId]: [...(prev[pmId] ?? []), ...newSnaps],
+                      }));
+                    }
+                  }
                   let finalIngredients = newIngredients;
                   if (newIngredients) {
                     const { sourceIngredients } = propagateIngredientMacros('__pm__', newIngredients, meals);

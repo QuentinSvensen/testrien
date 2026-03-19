@@ -205,8 +205,11 @@ export function useMealTransfers(foodItems: FoodItem[]) {
     invalidateStock();
   };
 
-  /** Adjust stock when possible meal ingredients are edited (delta-based) */
-  const adjustStockForIngredientChange = async (oldIngredients: string | null, newIngredients: string | null, snapshots?: FoodItem[]) => {
+  /** Adjust stock when possible meal ingredients are edited (delta-based).
+   *  Returns snapshots of newly affected items (not already in the passed snapshots). */
+  const adjustStockForIngredientChange = async (oldIngredients: string | null, newIngredients: string | null, snapshots?: FoodItem[]): Promise<FoodItem[]> => {
+    const newSnapshots: FoodItem[] = [];
+    const existingSnapshotIds = new Set(snapshots?.map(s => s.id) ?? []);
     // Refetch fresh food items to avoid stale data after multiple edits
     const { data: freshItems } = await supabase.from("food_items").select("*").order("sort_order", { ascending: true });
     const currentFoodItems: FoodItem[] = (freshItems ?? []).map((d: any) => ({
@@ -259,6 +262,11 @@ export function useMealTransfers(foodItems: FoodItem[]) {
           const deduct = Math.min(totalAvail, toDeduct);
           const remaining = totalAvail - deduct;
           toDeduct -= deduct;
+          // Snapshot newly affected items for future restoration
+          if (!existingSnapshotIds.has(fi.id)) {
+            newSnapshots.push({ ...fi });
+            existingSnapshotIds.add(fi.id);
+          }
           if (remaining <= 0) {
             await safeMutate("Ajustement stock", () => supabase.from("food_items").delete().eq("id", fi.id));
           } else {
@@ -334,6 +342,11 @@ export function useMealTransfers(foodItems: FoodItem[]) {
           const deduct = Math.min(fiCount, toDeduct);
           toDeduct -= deduct;
           const remaining = fiCount - deduct;
+          // Snapshot newly affected items for future restoration
+          if (!existingSnapshotIds.has(fi.id)) {
+            newSnapshots.push({ ...fi });
+            existingSnapshotIds.add(fi.id);
+          }
           if (remaining <= 0) {
             await safeMutate("Ajustement stock (count)", () => supabase.from("food_items").delete().eq("id", fi.id));
           } else {
@@ -351,6 +364,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
       }
     }
     invalidateStock();
+    return newSnapshots;
   };
 
   /** Deduct name-match stock (no ingredients, just name match) */
