@@ -12,6 +12,7 @@ import {
   parseIngredientsToLines, serializeIngredients, normalizeKey,
   computeIngredientCalories, computeIngredientProtein, cleanIngredientText
 } from "@/lib/ingredientUtils";
+import { findStockKey, type StockInfo } from "@/lib/stockUtils";
 
 interface MealCardProps {
   meal: Meal;

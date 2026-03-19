@@ -552,7 +552,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
     };
     return (
       <div key={fi.id} className="relative">
-        <MealCard meal={fakeMeal}
+        <MealCard meal={fakeMeal} stockMap={stockMap}
           onMoveToPossible={() => onMoveFoodItemToPossible(fi)}
           onRename={() => {}} onDelete={() => onDeleteFoodItem(fi.id)} onUpdateCalories={() => {}} onUpdateGrams={() => {}} onUpdateIngredients={() => {}}
           onDragStart={(e) => { e.dataTransfer.setData("mealId", fi.id); e.dataTransfer.setData("source", "available"); if (unifiedIdx !== undefined) setAvDragIndex(unifiedIdx); }}
