@@ -283,7 +283,7 @@ function renderIngredientDisplay(
     const groupIsOptional = alts[0]?.startsWith("?");
     alts.forEach((alt, ai) => {
       const displayAlt = alt.startsWith("?") ? alt.slice(1).trim() : alt;
-      const parsed = parseIngredientLineDisplay(cleanAlt);
+      const parsed = parseIngredientLineDisplay(displayAlt);
       const normalizedName = normalizeKey(parsed.name);
       const isExpired = expiredIngredientNames?.has(normalizedName);
       const isSoon = expiringSoonIngredientNames?.has(normalizedName);
