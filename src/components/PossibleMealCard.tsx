@@ -15,7 +15,8 @@ import { format, parseISO } from "date-fns";
 import {
   type IngLine, parseIngredientLineDisplay, formatQtyDisplay,
   parseIngredientsToLines, serializeIngredients, computeIngredientCalories,
-  computeIngredientProtein, cleanIngredientText, normalizeKey
+  computeIngredientProtein, cleanIngredientText, normalizeKey,
+  hasNegativeMetric
 } from "@/lib/ingredientUtils";
 import { scaleIngredientStringExact, findStockKey } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
