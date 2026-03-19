@@ -83,6 +83,14 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
   };
 
 
+  // Build isAvailable callback from stockMap for macro computation
+  const isAvailableCb = stockMap ? (name: string) => {
+    const key = findStockKey(stockMap, name);
+    if (!key) return false;
+    const stock = stockMap.get(key);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
+  } : undefined;
 
   const ovenTemp = (meal as any).oven_temp;
   const ovenMinutes = (meal as any).oven_minutes;
@@ -134,7 +142,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
                 </span>
               )}
               {(() => {
-                const ingCal = computeIngredientCalories(meal.ingredients);
+                const ingCal = computeIngredientCalories(meal.ingredients, isAvailableCb);
                 const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
                 const isComputed = ingCal !== null;
                 return displayCal ? (
@@ -146,7 +154,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
                 ) : null;
               })()}
               {(() => {
-                const ingPro = computeIngredientProtein(meal.ingredients);
+                const ingPro = computeIngredientProtein(meal.ingredients, isAvailableCb);
                 const rawPro = ingPro !== null ? String(ingPro) : meal.protein;
                 const isComputedPro = ingPro !== null;
                 // Round display value visually
