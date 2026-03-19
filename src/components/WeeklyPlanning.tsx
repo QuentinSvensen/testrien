@@ -3,7 +3,7 @@ import { useMeals, DAYS, TIMES, type PossibleMeal, type Meal } from "@/hooks/use
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useCalorieBalance, getOverrideScaleRatio } from "@/hooks/useCalorieBalance";
+import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein } from "@/hooks/useCalorieBalance";
 import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer } from "lucide-react";
 import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -631,7 +631,20 @@ export function WeeklyPlanning() {
       return total + (manualProteins[`${day}-${time}`] || 0);
     }, 0);
     const breakfast = getBreakfastForDay(day);
-    const breakfastProt = breakfast ? parseProtein(breakfast.protein) : (breakfastManualProteins[day] || 0);
+    let breakfastProt = 0;
+    if (breakfast) {
+      const selId = breakfastSelections[day];
+      if (selId?.startsWith('pm:')) {
+        const pmId = selId.slice(3);
+        const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
+        breakfastProt = possiblePdj ? getCardDisplayProtein(possiblePdj) : parseProtein(breakfast.protein);
+      } else {
+        const ingPro = computeIngredientProtein(breakfast.ingredients);
+        breakfastProt = ingPro !== null ? ingPro : parseProtein(breakfast.protein);
+      }
+    } else {
+      breakfastProt = breakfastManualProteins[day] || 0;
+    }
     const extraProt = extraProteins[day] || 0;
     return mealProt + breakfastProt + extraProt;
   };
