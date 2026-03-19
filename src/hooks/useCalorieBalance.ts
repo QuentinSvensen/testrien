@@ -110,13 +110,13 @@ export function getCardDisplayCalories(
 /**
  * Compute the displayed protein for a single planning card.
  */
-export function getCardDisplayProtein(pm: PossibleMeal): number {
+export function getCardDisplayProtein(pm: PossibleMeal, isAvailable?: (name: string) => boolean): number {
   const meal = pm.meals;
   if (!meal) return 0;
   const qty = pm.quantity ?? 1;
 
   const displayIngredients = pm.ingredients_override ?? meal.ingredients;
-  const ingPro = computeIngredientProtein(displayIngredients);
+  const ingPro = computeIngredientProtein(displayIngredients, isAvailable);
   if (ingPro !== null) return ingPro * qty;
 
   const ratio = getOverrideScaleRatio(meal, pm.ingredients_override);
