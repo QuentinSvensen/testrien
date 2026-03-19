@@ -1454,7 +1454,7 @@ export function WeeklyPlanning() {
                   </div>
                 )}
                 {(meal.oven_temp || meal.oven_minutes) && (
-                  <p className="text-sm text-white/80 mt-2">🔥 {meal.oven_temp && `${meal.oven_temp}°`}{meal.oven_temp && meal.oven_minutes && ' · '}{meal.oven_minutes && `${meal.oven_minutes} min`}</p>
+                  <p className="text-sm text-white/80 mt-2 flex items-center gap-1"><Thermometer className="h-3.5 w-3.5" /> {meal.oven_temp && `${meal.oven_temp}°C`}{meal.oven_temp && meal.oven_minutes && ' · '}{meal.oven_minutes && `${meal.oven_minutes} min`}</p>
                 )}
                 {popupPm.day_of_week && popupPm.meal_time && (
                   <p className="text-xs text-white/50 mt-3">
