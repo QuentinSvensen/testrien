@@ -394,7 +394,7 @@ export function PossibleMealCard({
           )}
           {/* ratio badge moved to absolute top-right */}
           {(() => {
-            const ingCal = computeIngredientCalories(displayIngredients);
+            const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
             let displayCal = ingCal !== null ? String(ingCal) : meal.calories;
             const isComputed = ingCal !== null;
             // Scale manual calories by detected ratio
