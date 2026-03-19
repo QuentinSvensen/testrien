@@ -17,7 +17,7 @@ import {
   parseIngredientsToLines, serializeIngredients, computeIngredientCalories,
   computeIngredientProtein, cleanIngredientText, normalizeKey
 } from "@/lib/ingredientUtils";
-import { scaleIngredientStringExact } from "@/lib/stockUtils";
+import { scaleIngredientStringExact, findStockKey } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
 import { fr } from "date-fns/locale";
 
@@ -467,7 +467,7 @@ export function PossibleMealCard({
       {/* Row 3: ingredients (click to edit) — only show if base meal has ingredients */}
       {!editing && !editingIngredients && displayIngredients && meal.ingredients && (
         <button onClick={openIngredients} className="mt-1 text-[10px] text-white/60 flex flex-wrap gap-x-1 text-left hover:text-white/80 transition-colors">
-          {renderIngredientDisplayCompact(displayIngredients, expiredIngredientNames, expiringSoonIngredientNames)}
+          {renderIngredientDisplayCompact(displayIngredients, expiredIngredientNames, expiringSoonIngredientNames, stockMap)}
         </button>
       )}
     </div>
@@ -479,32 +479,58 @@ function renderIngredientDisplayCompact(
   ingredients: string,
   expiredIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
+  stockMap?: Map<string, StockInfo>,
 ) {
   // Strip cal/pro markers BEFORE splitting to avoid breaking on commas inside markers
   const cleaned = cleanIngredientText(ingredients);
   const groups = cleaned.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
-  
+
   groups.forEach((group, gi) => {
     const isOpt = group.startsWith("?");
     const display = isOpt ? group.slice(1).trim() : group;
-    
+
+    // Handle OR alternatives (|): strike-through unavailable alternatives
+    const alternatives = display.split(/\s*\|\s*/).map(s => s.trim()).filter(Boolean);
+    if (alternatives.length > 1) {
+      const altElements = alternatives.map((alt, ai) => {
+        const strippedAlt = alt.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim();
+        const stockKey = stockMap ? findStockKey(stockMap, strippedAlt) : null;
+        const stock = stockKey ? stockMap?.get(stockKey) : undefined;
+        const available = !!stock && (stock.infinite || stock.grams > 0 || stock.count > 0);
+
+        return (
+          <span key={ai} className={available ? '' : 'line-through opacity-40'}>
+            {alt}
+            {ai < alternatives.length - 1 ? <span className="opacity-70"> ou </span> : null}
+          </span>
+        );
+      });
+
+      elements.push(
+        <span key={gi} className={isOpt ? 'italic text-white/40' : ''}>
+          {isOpt ? '?' : ''}{altElements}{gi < groups.length - 1 ? ' •' : ''}
+        </span>
+      );
+      return;
+    }
+
     // Normalize name for matching (strip lead quantity)
     const normalizedName = normalizeKey(display.replace(/^\d+(?:\.\d+)?(?:g|ml|x| unit)?\s+/i, ""));
     const isExpired = expiredIngredientNames?.has(normalizedName);
     const isSoon = expiringSoonIngredientNames?.has(normalizedName);
-    
+
     const cls = isExpired ? 'bg-red-500/40 text-red-100 px-0.5 rounded font-semibold'
       : isSoon ? 'ring-1 ring-red-500/60 font-semibold px-0.5 rounded'
       : isOpt ? 'italic text-white/40'
       : '';
-    
+
     elements.push(
       <span key={gi} className={cls}>
         {isOpt ? '?' : ''}{display}{gi < groups.length - 1 ? ' •' : ''}
       </span>
     );
   });
-  
+
   return elements;
 }
