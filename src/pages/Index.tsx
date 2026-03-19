@@ -278,7 +278,7 @@ const Index = () => {
         if (freshResetDate.getTime() >= mostRecentSunday.getTime()) return;
       }
 
-      // Load saved snapshots (per-user)
+      // Load saved snapshots and current input values (per-user)
       const snapResult = await supabase
         .from('user_preferences')
         .select('value')
@@ -287,7 +287,22 @@ const Index = () => {
         .maybeSingle();
       const snapshots: Record<string, { cal?: number; prot?: number }> = (snapResult.data?.value as any) ?? {};
 
-      // Backup possible_meals before deletion
+      // Load current input values for full backup
+      const prefKeys = [
+        'planning_manual_calories', 'planning_manual_proteins',
+        'planning_extra_calories', 'planning_extra_proteins',
+        'planning_breakfast_manual_calories', 'planning_breakfast_manual_proteins',
+        'planning_breakfast', 'planning_drink_checks', 'planning_cal_overrides',
+      ];
+      const { data: prefRows } = await supabase
+        .from('user_preferences')
+        .select('key, value')
+        .eq('user_id', userId)
+        .in('key', prefKeys);
+      const prefMap: Record<string, any> = {};
+      for (const row of (prefRows || [])) { prefMap[row.key] = row.value; }
+
+      // Backup possible_meals + all input values before deletion
       const backup = possibleMeals.map(pm => ({
         meal_id: pm.meal_id,
         quantity: pm.quantity,
@@ -298,9 +313,21 @@ const Index = () => {
         sort_order: pm.sort_order,
         ingredients_override: pm.ingredients_override,
       }));
+      const fullBackup = {
+        cards: backup,
+        manualCalories: prefMap['planning_manual_calories'] || {},
+        manualProteins: prefMap['planning_manual_proteins'] || {},
+        extraCalories: prefMap['planning_extra_calories'] || {},
+        extraProteins: prefMap['planning_extra_proteins'] || {},
+        breakfastManualCalories: prefMap['planning_breakfast_manual_calories'] || {},
+        breakfastManualProteins: prefMap['planning_breakfast_manual_proteins'] || {},
+        breakfastSelections: prefMap['planning_breakfast'] || {},
+        drinkChecks: prefMap['planning_drink_checks'] || {},
+        calOverrides: prefMap['planning_cal_overrides'] || {},
+      };
       await supabase
         .from('user_preferences')
-        .upsert({ key: 'possible_meals_backup', value: backup, user_id: userId } as any, { onConflict: 'user_id,key' });
+        .upsert({ key: 'possible_meals_backup', value: fullBackup, user_id: userId } as any, { onConflict: 'user_id,key' });
 
       await Promise.all(possibleMeals.map(pm =>
         (supabase as any).from("possible_meals").delete().eq("id", pm.id)
