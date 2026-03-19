@@ -125,7 +125,7 @@ export function getCardDisplayProtein(pm: PossibleMeal, isAvailable?: (name: str
   return scaledPro * qty;
 }
 
-export function useCalorieBalance() {
+export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
   const { meals: allMeals, possibleMeals, getMealsByCategory } = useMeals();
   const { getPreference } = usePreferences();
 
