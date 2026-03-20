@@ -567,7 +567,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
           expirationLabel={expLabel} expirationDate={fi.expiration_date} expirationIsToday={expIsTodayFi} maxIngredientCounter={counterDays} />
         {fi.quantity && fi.quantity > 1 && (
-          <div className="absolute top-1 right-2 z-10 bg-black/60 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow flex items-center gap-0.5">
+          <div className="absolute top-0 right-0 z-10 bg-black/60 text-white text-[10px] font-black px-1.5 py-0.5 rounded-tr-2xl rounded-bl-2xl shadow-sm flex items-center gap-0.5">
             x{fi.quantity}
           </div>
         )}
@@ -616,27 +616,27 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           hideDelete expirationLabel={expLabel} expirationDate={fi.expiration_date} expirationIsToday={expIsTodayNm} maxIngredientCounter={counterDays} />
         {fi.is_infinite ? (
           editingRatioId === nmKey ? (
-            <div className="absolute top-1 right-2 z-20">
+            <div className="absolute top-0 right-0 z-20">
               <Input autoFocus value={ratioInput}
                 onChange={(e) => setRatioInput(e.target.value)}
                 onBlur={() => commitRatio(nmKey, 99)}
                 onKeyDown={(e) => { if (e.key === "Enter") commitRatio(nmKey, 99); if (e.key === "Escape") setEditingRatioId(null); }}
                 placeholder="x2, x3..."
-                className="w-20 h-6 text-[10px] bg-black/80 text-white border-white/30 placeholder:text-white/40 px-1.5 rounded-full shadow-lg focus-visible:ring-1 focus-visible:ring-white/50"
+                className="w-20 h-6 text-[10px] bg-black/80 text-white border-white/30 placeholder:text-white/40 px-1.5 rounded-tr-2xl rounded-bl-2xl shadow-lg focus-visible:ring-1 focus-visible:ring-white/50"
               />
             </div>
           ) : (
-            <div className="absolute top-1 right-2 z-10 flex items-center shadow flex-row-reverse">
+            <div className="absolute top-0 right-0 z-10 flex items-center shadow-sm flex-row-reverse overflow-hidden rounded-tr-2xl rounded-bl-2xl">
               <button
                 onClick={() => { setEditingRatioId(nmKey); setRatioInput(customRatio ? formatRatioBadge(customRatio) : ""); }}
-                className={`text-white text-[10px] font-black px-1.5 py-0.5 transition-colors ${!customRatio ? 'bg-black/60 hover:bg-black/80 rounded-full' : 'bg-black/60 hover:bg-black/80 rounded-r-full pl-1'}`}
+                className={`text-white text-[10px] font-black px-1.5 py-0.5 transition-colors ${!customRatio ? 'bg-black/60 hover:bg-black/80' : 'bg-black/60 hover:bg-black/80 pl-1'}`}
               >
                 <InfinityIcon className="inline h-[13px] w-[13px]" />
               </button>
               {customRatio && (
                 <button
                   onClick={() => { setEditingRatioId(nmKey); setRatioInput(formatRatioBadge(customRatio)); }}
-                  className="bg-orange-500/80 text-white text-[10px] font-black px-1.5 py-0.5 hover:bg-orange-500/90 transition-colors rounded-l-full pr-1"
+                  className="bg-orange-500/80 text-white text-[10px] font-black px-1.5 py-0.5 hover:bg-orange-500/90 transition-colors pr-1"
                 >
                   {formatRatioBadge(customRatio)}
                 </button>
@@ -644,7 +644,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
             </div>
           )
         ) : (
-          <div className="absolute top-1 right-2 z-10 bg-black/60 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow flex items-center gap-0.5">
+          <div className="absolute top-0 right-0 z-10 bg-black/60 text-white text-[10px] font-black px-1.5 py-0.5 rounded-tr-2xl rounded-bl-2xl shadow-sm flex items-center gap-0.5">
             {portionsAvailable !== null ? `x${portionsAvailable}` : `x${fi.quantity ?? 1}`}
           </div>
         )}
