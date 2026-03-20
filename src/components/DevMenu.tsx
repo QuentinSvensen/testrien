@@ -187,6 +187,7 @@ export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingI
         if (fi.is_dry) parts.push(`dry=1`);
         if (fi.is_indivisible) parts.push(`indiv=1`);
         if (fi.no_counter) parts.push(`no_counter=1`);
+        else if (fi.grams) parts.push(`no_counter=0`); // Explicitly export enabled-auto-counter for grams cards
         if (fi.food_type) parts.push(`type=${fi.food_type}`);
         if (fi.expiration_date) parts.push(`exp=${fi.expiration_date}`);
         if (fi.counter_start_date) parts.push(`counter=${fi.counter_start_date}`);
@@ -228,8 +229,9 @@ export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingI
           grams: params.grams || null, calories: params.cal || null, protein: params.prot || null,
           quantity: params.qty ? parseInt(params.qty) : null,
           is_meal: params.is_meal === '1', is_infinite: params.infinite === '1',
-          is_dry: params.dry === '1', is_indivisible: params.indiv === '1',
-          no_counter: params.no_counter === '1' || currentStorage === 'surgele',
+          is_dry: params.dry === '1' || (params.dry === undefined && currentStorage === 'sec'),
+          is_indivisible: params.indiv === '1',
+          no_counter: params.no_counter === '1' || (params.no_counter === undefined && !params.grams) || currentStorage === 'surgele',
           food_type: params.type || null,
           expiration_date: params.exp || null, counter_start_date: params.counter || null,
         } as any);
