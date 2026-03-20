@@ -11,6 +11,19 @@ node_modules
 dist
 dist-ssr
 *.local
+.env
+.env.*
+!.env.example
+
+# Lockfiles
+bun.lock
+bun.lockb
+yarn.lock
+pnpm-lock.yaml
+
+# Supabase
+supabase/migrations/
+supabase/.temp/
 
 # Editor directories and files
 .vscode/*
