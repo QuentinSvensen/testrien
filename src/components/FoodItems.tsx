@@ -115,7 +115,7 @@ export function useFoodItems() {
         is_infinite: d.is_infinite ?? false,
         is_dry: d.is_dry ?? false,
         is_indivisible: d.is_indivisible ?? false,
-        no_counter: d.no_counter ?? false,
+        no_counter: d.no_counter ?? (!d.grams),
         storage_type: d.storage_type ?? (d.is_dry ? 'sec' : 'frigo'),
         quantity: d.quantity ?? null,
         food_type: d.food_type ?? null,
@@ -246,7 +246,10 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
   const saveEdit = () => {
     const val = editValue.trim();
     if (editing === "name" && val) onUpdate({ name: val });
-    if (editing === "grams") onUpdate({ grams: val || null });
+    if (editing === "grams") {
+      const g = val || null;
+      onUpdate({ grams: g, ...(!g ? { no_counter: true } : {}) });
+    }
     if (editing === "calories") onUpdate({ calories: val || null });
     if (editing === "protein") onUpdate({ protein: val || null });
     if (editing === "quantity") onUpdate({ quantity: val ? parseInt(val) || null : null });
