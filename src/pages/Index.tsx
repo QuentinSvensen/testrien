@@ -217,7 +217,11 @@ const Index = () => {
       .on('postgres_changes', { event: '*', schema: 'public', table: 'food_items' }, () => { qc.invalidateQueries({ queryKey: ["food_items"] }); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'meals' }, () => { qc.invalidateQueries({ queryKey: ["meals"] }); })
       .on('postgres_changes', { event: '*', schema: 'public', table: 'possible_meals' }, () => { qc.invalidateQueries({ queryKey: ["possible_meals"] }); })
-      .subscribe();
+      .subscribe((status) => {
+        if (status === 'CHANNEL_ERROR') {
+          console.warn('Realtime sync: Connection failed. Ensure Realtime is enabled in your Supabase Dashboard.');
+        }
+      });
     return () => { supabase.removeChannel(channel); };
   }, [unlocked, qc]);
 
