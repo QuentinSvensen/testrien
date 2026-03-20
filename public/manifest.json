@@ -1,0 +1,17 @@
+{
+  "name": "MealsCards — Gestionnaire de repas",
+  "short_name": "MealsCards",
+  "description": "Organise tes repas selon ce que tu as dans le frigo.",
+  "start_url": "/repas",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#f97316",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "64x64",
+      "type": "image/x-icon"
+    }
+  ]
+}
