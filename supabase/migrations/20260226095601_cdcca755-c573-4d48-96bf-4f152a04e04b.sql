@@ -1,1 +1,0 @@
-ALTER TABLE public.possible_meals ADD COLUMN ingredients_override TEXT DEFAULT NULL;

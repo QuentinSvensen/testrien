@@ -1,1 +1,0 @@
-ALTER TABLE public.shopping_items ADD COLUMN content_quantity_type text DEFAULT null;

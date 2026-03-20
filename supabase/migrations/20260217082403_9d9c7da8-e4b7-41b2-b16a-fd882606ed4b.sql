@@ -1,1 +1,0 @@
-ALTER TABLE public.shopping_items ADD COLUMN brand text;
