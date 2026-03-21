@@ -292,8 +292,6 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
   const handleGramsCycle = () => {
     if (item.is_infinite) {
       onUpdate({ is_infinite: false, grams: null });
-    } else if (item.grams) {
-      onUpdate({ is_infinite: true, grams: null });
     } else {
       startEdit("grams");
     }
@@ -409,7 +407,7 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
               <button
                 onClick={handleGramsCycle}
                 className="text-[10px] text-white/70 bg-white/20 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 hover:bg-white/30"
-                title="Cliquer pour rendre infini"
+                title="Modifier les grammes"
               >
                 <Weight className="h-2.5 w-2.5" />{displayDefaultGrams}
               </button>

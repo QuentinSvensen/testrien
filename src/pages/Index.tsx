@@ -122,7 +122,7 @@ const Index = () => {
     toggleFavorite, deleteMeal, reorderMeals,
     moveToPossible, duplicatePossibleMeal, removeFromPossible,
     updateExpiration, updatePlanning, updateCounter,
-    deletePossibleMeal, reorderPossibleMeals, updatePossibleIngredients, updatePossibleQuantity,
+    deletePossibleMeal, reorderPossibleMeals, updatePossibleIngredients, updatePossibleQuantity, splitPossibleMealQuantity,
     getMealsByCategory, getPossibleByCategory, sortByExpiration, sortByPlanning, getRandomPossible
   } = useMeals({ enabled: unlocked });
 
@@ -872,6 +872,7 @@ const Index = () => {
                   removeFromPossible.mutate(id);
                   setMasterSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
                 }}
+                onSplitQuantity={(id, ratio, baseIng) => splitPossibleMealQuantity.mutate({ id, ratio, baseIngredients: baseIng })}
                 onDelete={(id) => { deletePossibleMeal.mutate(id); }}
                 onDuplicate={async (id) => {
                   const pm = possibleMeals.find(p => p.id === id);

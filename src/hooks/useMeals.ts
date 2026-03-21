@@ -337,6 +337,42 @@ export function useMeals(options?: { enabled?: boolean }) {
     onError: onMutationError,
   });
 
+  const splitPossibleMealQuantity = useMutation({
+    mutationFn: async ({ id, ratio, baseIngredients }: { id: string; ratio: number; baseIngredients: string | null }) => {
+      const pm = possibleMeals.find(p => p.id === id);
+      if (!pm) throw new Error("Possible meal not found");
+
+      const { error: updateError } = await supabase
+        .from("possible_meals")
+        .update({ ingredients_override: baseIngredients })
+        .eq("id", id);
+      if (updateError) throw updateError;
+
+      const copiesToInsert = [];
+      for (let i = 1; i < ratio; i++) {
+        copiesToInsert.push({
+          meal_id: pm.meal_id,
+          sort_order: possibleMeals.length + i, // Append at the end
+          expiration_date: pm.expiration_date,
+          counter_start_date: pm.counter_start_date,
+          ingredients_override: baseIngredients,
+          quantity: pm.quantity,
+          day_of_week: pm.day_of_week,
+          meal_time: pm.meal_time,
+        });
+      }
+      
+      if (copiesToInsert.length > 0) {
+        const { error: insertError } = await supabase
+          .from("possible_meals")
+          .insert(copiesToInsert);
+        if (insertError) throw insertError;
+      }
+    },
+    onSuccess: invalidatePM,
+    onError: onMutationError,
+  });
+
   const duplicatePossibleMeal = useMutation({
     mutationFn: async (sourcePmId: string): Promise<string | undefined> => {
       const source = possibleMeals.find(pm => pm.id === sourcePmId);
@@ -643,7 +679,7 @@ export function useMeals(options?: { enabled?: boolean }) {
     addMeal, addMealToPossibleDirectly, renameMeal, updateCalories, updateGrams, updateProtein, updateIngredients,
     updateOvenTemp, updateOvenMinutes,
     toggleFavorite, deleteMeal, reorderMeals,
-    moveToPossible, duplicatePossibleMeal, removeFromPossible,
+    moveToPossible, duplicatePossibleMeal, splitPossibleMealQuantity, removeFromPossible,
     updateExpiration, updatePlanning, updateCounter,
     deletePossibleMeal, reorderPossibleMeals, updatePossibleIngredients, updatePossibleQuantity,
     getMealsByCategory, getPossibleByCategory, sortByExpiration, sortByPlanning, getRandomPossible,

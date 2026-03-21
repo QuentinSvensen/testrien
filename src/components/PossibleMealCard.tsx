@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Copy, MoreVertical, Trash2, Calendar, Timer, Flame, Weight, Hash, List, Undo2, Percent, Thermometer } from "lucide-react";
+import { ArrowLeft, Copy, MoreVertical, Trash2, Calendar, Timer, Flame, Weight, Hash, List, Undo2, Percent, Thermometer, SplitSquareHorizontal } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IngredientEditor } from "@/components/IngredientEditor";
@@ -36,6 +36,7 @@ interface PossibleMealCardProps {
   onUpdateCalories: (cal: string | null) => void;
   onUpdateGrams: (g: string | null) => void;
   onUpdateQuantity?: (qty: number) => void;
+  onSplitQuantity?: (ratio: number, baseIngredients: string | null) => void;
   onUpdateIngredients: (ing: string | null) => void;
   onUpdatePossibleIngredients?: (newIngredients: string | null) => void;
   onDragStart: (e: React.DragEvent) => void;
@@ -90,7 +91,7 @@ export function PossibleMealCard({
   onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning,
   onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateQuantity,
   onUpdateIngredients, onUpdatePossibleIngredients, onDragStart, onDragOver,
-  onDrop, isHighlighted, expiredIngredientNames, expiringSoonIngredientNames
+  onDrop, isHighlighted, expiredIngredientNames, expiringSoonIngredientNames, onSplitQuantity
 }: PossibleMealCardProps) {
   const parseIngredientLine = parseIngredientLineDisplay;
   const formatQty = formatQtyDisplay;
@@ -208,8 +209,7 @@ export function PossibleMealCard({
         if (!isNaN(pct) && pct >= 10) ratio = pct / 100;
       }
       if (ratio !== null && onUpdatePossibleIngredients) {
-        // Build base ingredients: use current override if present, then original, or synthesize
-        const baseIng = pm.ingredients_override
+        const currentIng = pm.ingredients_override
           ? pm.ingredients_override
           : meal.ingredients
             ? meal.ingredients
@@ -217,7 +217,13 @@ export function PossibleMealCard({
               const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
               return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
             })();
-        const scaledIngredients = scaleIngredientStringExact(baseIng, ratio);
+            
+        // The user input (ratio) is intended to be the absolute multiplier (e.g., "x3" means 3x the original base).
+        // If the card is already multiplied by a known ratio (detectedRatio), we calculate the relative 
+        // difference needed to reach the target ratio safely from the current ingredients.
+        const effectiveRatio = detectedRatio ? (ratio / detectedRatio) : ratio;
+        
+        const scaledIngredients = scaleIngredientStringExact(currentIng, effectiveRatio);
         onUpdatePossibleIngredients(scaledIngredients);
       }
       // NOTE: Do NOT call onUpdateGrams or onUpdateCalories here — those modify the MASTER meal.
@@ -466,6 +472,18 @@ export function PossibleMealCard({
               {onReturnWithoutDeduction && (
                 <DropdownMenuItem onClick={onReturnWithoutDeduction}>
                   <Undo2 className="mr-2 h-4 w-4" /> {onReturnWithoutDeductionLabel || 'Remettre au choix (sans déduire)'}
+                </DropdownMenuItem>
+              )}
+              {onSplitQuantity && detectedRatio !== null && detectedRatio >= 2 && Number.isInteger(detectedRatio) && (
+                <DropdownMenuItem onClick={() => {
+                  const baseIng = pm.ingredients_override ? pm.ingredients_override : meal.ingredients ? meal.ingredients : (() => {
+                    const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+                    return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
+                  })();
+                  const baseIngredients = scaleIngredientStringExact(baseIng, 1 / detectedRatio);
+                  onSplitQuantity(detectedRatio, baseIngredients);
+                }}>
+                  <SplitSquareHorizontal className="mr-2 h-4 w-4" /> Diviser les quantités
                 </DropdownMenuItem>
               )}
               <DropdownMenuItem onClick={() => { setEditValue(""); setEditing("ratio"); }}>

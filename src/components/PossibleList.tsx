@@ -48,6 +48,7 @@ interface PossibleListProps {
   onUpdateIngredients: (id: string, ing: string | null) => void;
   onUpdatePossibleIngredients: (pmId: string, newIngredients: string | null) => void;
   onUpdateQuantity: (id: string, qty: number) => void;
+  onSplitQuantity?: (id: string, ratio: number, baseIngredients: string | null) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   onExternalDrop: (mealId: string, source: string) => void;
   highlightedId: string | null;
@@ -57,7 +58,7 @@ interface PossibleListProps {
   unParUnSourcePmIds: Set<string>;
 }
 
-export function PossibleList({ category, items, sortMode, stockMap, onToggleSort, onRandomPick, onRemove, onReturnWithoutDeduction, onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onUpdatePossibleIngredients, onUpdateQuantity, onReorder, onExternalDrop, highlightedId, foodItems, onAddDirectly, masterSourcePmIds, unParUnSourcePmIds }: PossibleListProps) {
+export function PossibleList({ category, items, sortMode, stockMap, onToggleSort, onRandomPick, onRemove, onReturnWithoutDeduction, onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onUpdatePossibleIngredients, onUpdateQuantity, onSplitQuantity, onReorder, onExternalDrop, highlightedId, foodItems, onAddDirectly, masterSourcePmIds, unParUnSourcePmIds }: PossibleListProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const sortLabel = sortMode === "manual" ? "Manuel" : sortMode === "expiration" ? "Péremption" : "Planning";
   const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "planning" ? CalendarClock : ArrowUpDown;
@@ -134,6 +135,7 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
             onUpdateIngredients={(ing) => onUpdateIngredients(pm.meal_id, ing)}
             onUpdatePossibleIngredients={(newIng) => onUpdatePossibleIngredients(pm.id, newIng)}
             onUpdateQuantity={unParUnSourcePmIds.has(pm.id) ? (qty) => onUpdateQuantity(pm.id, qty) : undefined}
+            onSplitQuantity={onSplitQuantity ? (ratio, baseIng) => onSplitQuantity(pm.id, ratio, baseIng) : undefined}
             onDragStart={(e) => { e.dataTransfer.setData("mealId", pm.meal_id); e.dataTransfer.setData("pmId", pm.id); e.dataTransfer.setData("source", "possible"); setDragIndex(index); }}
             onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
             onDrop={(e) => {
