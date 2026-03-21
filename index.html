@@ -3,31 +3,57 @@
   <head>
     <script id="console-shield">
       (function() {
-        const IGNORED = ["test", "[debug-metadata]", "DevTools", "React Router", "message channel", "asynchronous response"];
-        const shouldIgnore = (args) => {
-          try {
-            const str = JSON.stringify(args).toLowerCase();
-            if (IGNORED.some(s => str.includes(s.toLowerCase()))) return true;
-          } catch(e) {}
-          return args.some(arg => typeof arg === 'string' && IGNORED.some(s => arg.toLowerCase().includes(s.toLowerCase())));
+        // Broad keywords to suppress annoying browser/extension logs
+        const IGNORED = [
+          "asynchronous response by returning true",
+          "message channel closed before a response was received",
+          "asynchronous response",
+          "message channel closed",
+          "chrome-extension",
+          "DevTools",
+          "React Router"
+        ];
+        
+        const isIgnored = (err) => {
+          if (!err) return false;
+          const s = String(err.stack || err.message || err || "").toLowerCase();
+          return IGNORED.some(i => s.includes(i.toLowerCase()));
         };
+
+        // Aggressive console patching
         const patch = () => {
-          ['log', 'warn', 'info', 'debug', 'trace', 'dir', 'error', 'table'].forEach(m => {
+          ['error', 'warn', 'debug'].forEach(m => {
             const original = console[m];
             if (!original || original.__shielded) return;
-            const wrapper = function(...args) { if (!shouldIgnore(args)) original.apply(console, args); };
+            const wrapper = function(...args) {
+              if (isIgnored(args[0])) return;
+              original.apply(console, args);
+            };
             wrapper.__shielded = true;
-            try { Object.defineProperty(console, m, { value: wrapper, writable: false, configurable: false }); } catch(e) { console[m] = wrapper; }
+            try { 
+              Object.defineProperty(console, m, { value: wrapper, writable: true, configurable: true }); 
+            } catch(e) { 
+              console[m] = wrapper; 
+            }
           });
         };
         patch();
-        setInterval(patch, 1000);
-        const silentListener = (e) => { 
-          const err = e.error || e.reason || e.message || e;
-          if (err && shouldIgnore([err.message || err])) { e.stopImmediatePropagation(); e.preventDefault(); return true; } 
+        
+        // Listeners for uncaught errors/rejections
+        const handler = (e) => {
+          const err = e.reason || e.error || e.message || e;
+          if (isIgnored(err)) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return true;
+          }
         };
-        window.addEventListener("error", silentListener, true);
-        window.addEventListener("unhandledrejection", silentListener, true);
+        window.addEventListener("unhandledrejection", handler, true);
+        window.addEventListener("error", handler, true);
+        
+        // Re-patch occasionally in case of late-loading extension overrides
+        setInterval(patch, 2000);
       })();
     </script>
     <meta charset="UTF-8" />
