@@ -7,6 +7,8 @@ import "./index.css";
 // Filter annoying Chrome extension / message channel errors from console
 const IGNORED_ERRORS = [
   "A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received",
+  "message channel closed before a response was received",
+  "A listener indicated an asynchronous response",
 ];
 
 try {
@@ -38,13 +40,23 @@ try {
   }
 }
 
+window.onerror = function(message) {
+  const msg = typeof message === 'string' ? message : (message as any)?.message || "";
+  if (msg && IGNORED_ERRORS.some(err => msg.includes(err))) {
+    return true;
+  }
+};
+
 window.addEventListener("unhandledrejection", (event) => {
   const reason = event.reason;
   const message = reason?.message || (typeof reason === 'string' ? reason : "");
-  if (message && IGNORED_ERRORS.some(err => message.includes(err))) {
+  const stack = reason?.stack || "";
+  if ((message && IGNORED_ERRORS.some(err => message.includes(err))) || 
+      (stack && IGNORED_ERRORS.some(err => stack.includes(err)))) {
     event.preventDefault();
+    event.stopPropagation();
   }
-});
+}, true);
 
 // Register SW only in production. In preview/dev, clear old SW caches to avoid stale Vite/React chunks.
 if ("serviceWorker" in navigator) {
