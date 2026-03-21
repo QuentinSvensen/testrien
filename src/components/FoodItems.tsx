@@ -17,7 +17,7 @@ export { colorFromName };
 
 // ─── Types ──────────────────────────────────────────────────────────────────
 
-export type StorageType = 'frigo' | 'sec' | 'surgele' | 'toujours';
+export type StorageType = 'frigo' | 'sec' | 'surgele' | 'extras' | 'toujours';
 export type FoodType = 'feculent' | 'viande' | null;
 
 export interface FoodItem {
@@ -138,7 +138,7 @@ export function useFoodItems() {
           storage_type,
           ...(quantity ? { quantity } : {}),
           ...(grams ? { grams } : {}),
-          no_counter: !grams,
+          no_counter: storage_type === 'extras' ? true : !grams,
           ...(food_type ? { food_type } : {}),
           ...(expiration_date ? { expiration_date } : {}),
         } as any);
@@ -630,6 +630,7 @@ const STORAGE_SECTIONS: { type: StorageType; label: string; emoji: React.ReactNo
   { type: 'frigo', label: 'Frigo', emoji: <Refrigerator className="h-4 w-4 text-blue-400" /> },
   { type: 'sec', label: 'Placard sec', emoji: <Package className="h-4 w-4 text-amber-500" /> },
   { type: 'surgele', label: 'Surgelés', emoji: <Snowflake className="h-4 w-4 text-cyan-400" /> },
+  { type: 'extras', label: 'Extras', emoji: <span className="text-base">✨</span> },
   { type: 'toujours', label: 'Toujours présent', emoji: <span className="text-base">📌</span> },
 ];
 
@@ -652,7 +653,7 @@ export function FoodItems() {
   // Independent sort per section
   const [sortModes, setSortModes] = useState<Record<StorageType, SortMode>>(() => {
     const saved = localStorage.getItem('food_sort_modes');
-    return saved ? JSON.parse(saved) : { frigo: 'manual', sec: 'manual', surgele: 'manual', toujours: 'manual' };
+    return saved ? JSON.parse(saved) : { frigo: 'manual', sec: 'manual', surgele: 'manual', extras: 'manual', toujours: 'manual' };
   });
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
@@ -917,7 +918,7 @@ export function FoodItems() {
       </div>
       <div className="mt-4 flex justify-center">
         <div className="flex flex-col gap-4 w-full max-w-3xl">
-          {STORAGE_SECTIONS.filter(s => s.type === 'surgele' || s.type === 'toujours').map((section) => (
+          {STORAGE_SECTIONS.filter(s => s.type === 'surgele' || s.type === 'extras' || s.type === 'toujours').map((section) => (
             <FoodSection
               key={section.type}
               emoji={section.emoji}
@@ -965,7 +966,7 @@ function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onD
   const SortIcon = sortMode === "expiration" ? CalendarDays : ArrowUpDown;
   const sortLabel = sortMode === "expiration" ? "Péremption" : "Manuel";
   const [sectionDragOver, setSectionDragOver] = useState(false);
-  const [collapsed, setCollapsed] = useState(storageType === 'toujours');
+  const [collapsed, setCollapsed] = useState(storageType === 'toujours' || storageType === 'extras');
   const isTouchDevice = typeof window !== "undefined" && (navigator.maxTouchPoints > 0 || "ontouchstart" in window);
 
   // Touch drag & drop for mobile

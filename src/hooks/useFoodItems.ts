@@ -3,7 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 
-export type StorageType = "frigo" | "sec" | "surgele" | "toujours";
+export type StorageType = "frigo" | "sec" | "surgele" | "extras" | "toujours";
 export type FoodType = "feculent" | "viande" | null;
 
 export interface FoodItem {

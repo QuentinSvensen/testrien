@@ -204,7 +204,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
 
   // 4. Unused food items
   const unusedFoodItems = (() => {
-    const nonToujoursItems = foodItems.filter(fi => fi.storage_type !== 'toujours');
+    const nonToujoursItems = foodItems.filter(fi => fi.storage_type !== 'toujours' && fi.storage_type !== 'extras');
     const globalAvailableMeals: Meal[] = allMeals.filter(meal => {
       if (!meal.ingredients?.trim()) return false;
       const m = getMealMultiple(meal, stockMap);

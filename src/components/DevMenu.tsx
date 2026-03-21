@@ -165,7 +165,7 @@ export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingI
 
   const handleExportFoodItems = () => {
     if (!foodItems || foodItems.length === 0) { toast({ title: "Aucun aliment à exporter" }); return; }
-    const STORAGE_LABELS: Record<string, string> = { frigo: 'Frigo', sec: 'Placard sec', surgele: 'Surgelés', toujours: 'Toujours présent' };
+    const STORAGE_LABELS: Record<string, string> = { frigo: 'Frigo', sec: 'Placard sec', surgele: 'Surgelés', extras: 'Extras', toujours: 'Toujours présent' };
     const grouped: Record<string, FoodItem[]> = {};
     for (const fi of foodItems) {
       const key = fi.storage_type || 'frigo';
@@ -209,7 +209,7 @@ export function DevMenu({ onClose, getMealsByCategory, shoppingGroups, shoppingI
       if (!file.name.toLowerCase().endsWith('.txt')) { toast({ title: '❌ Format invalide', variant: 'destructive' }); return; }
       const text = await file.text();
       const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-      const LABEL_TO_STORAGE: Record<string, StorageType> = { 'Frigo': 'frigo', 'Placard sec': 'sec', 'Surgelés': 'surgele', 'Toujours présent': 'toujours' };
+      const LABEL_TO_STORAGE: Record<string, StorageType> = { 'Frigo': 'frigo', 'Placard sec': 'sec', 'Surgelés': 'surgele', 'Extras': 'extras', 'Toujours présent': 'toujours' };
       let currentStorage: StorageType = 'frigo';
       let order = 0, count = 0;
       for (const line of lines) {
