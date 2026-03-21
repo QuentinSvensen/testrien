@@ -6,57 +6,40 @@ import "./index.css";
 
 // Filter annoying Chrome extension / message channel errors from console
 const IGNORED_ERRORS = [
-  "A listener indicated an asynchronous response by returning true, but the message channel closed before a response was received",
+  "asynchronous response by returning true",
   "message channel closed before a response was received",
-  "A listener indicated an asynchronous response",
+  "asynchronous response",
 ];
 
-try {
-  const originalError = console.error;
-  Object.defineProperty(console, 'error', {
-    writable: true,
-    configurable: true,
-    value: function(...args: any[]) {
-      const msg = args[0];
-      if (typeof msg === 'string' && IGNORED_ERRORS.some(err => msg.includes(err))) {
-        return;
-      }
-      originalError.apply(console, args);
-    }
-  });
-} catch (e) {
-  // If defineProperty fails (non-configurable), try simple assignment
-  try {
-    const originalError = console.error;
-    (console as any).error = function(...args: any[]) {
-      const msg = args[0];
-      if (typeof msg === 'string' && IGNORED_ERRORS.some(err => msg.includes(err))) {
-        return;
-      }
-      originalError.apply(console, args);
-    };
-  } catch (e2) {
-    // Both failed, nothing more we can safely do for console.error
-  }
-}
-
-window.onerror = function(message) {
-  const msg = typeof message === 'string' ? message : (message as any)?.message || "";
-  if (msg && IGNORED_ERRORS.some(err => msg.includes(err))) {
-    return true;
-  }
+const isIgnored = (err: any) => {
+  if (!err) return false;
+  const str = String(err.message || err.stack || err || "").toLowerCase();
+  return IGNORED_ERRORS.some(ignored => str.includes(ignored.toLowerCase()));
 };
 
+// Silence console.error
+const originalError = console.error;
+console.error = function(...args: any[]) {
+  if (isIgnored(args[0])) return;
+  originalError.apply(console, args);
+};
+
+// Silence unhandled promise rejections (often from extensions)
 window.addEventListener("unhandledrejection", (event) => {
-  const reason = event.reason;
-  const message = reason?.message || (typeof reason === 'string' ? reason : "");
-  const stack = reason?.stack || "";
-  if ((message && IGNORED_ERRORS.some(err => message.includes(err))) || 
-      (stack && IGNORED_ERRORS.some(err => stack.includes(err)))) {
+  if (isIgnored(event.reason)) {
     event.preventDefault();
     event.stopPropagation();
   }
 }, true);
+
+// Silence general errors
+window.addEventListener("error", (event) => {
+  if (isIgnored(event.error) || isIgnored(event.message)) {
+    event.preventDefault();
+    event.stopPropagation();
+  }
+}, true);
+
 
 // Register SW only in production. In preview/dev, clear old SW caches to avoid stale Vite/React chunks.
 if ("serviceWorker" in navigator) {
