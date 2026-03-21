@@ -13,7 +13,7 @@ export default defineConfig({
   },
   server: {
     host: "::",
-    port: 8083,
+    port: 8081,
     hmr: {
       overlay: false,
     },

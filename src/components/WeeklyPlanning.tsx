@@ -266,9 +266,8 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
               ) : displayCal ? (
                 <button
                   onClick={() => { setCalValue(displayCal); setEditingCal(true); }}
-                  className={`text-xs font-black text-white px-2 py-0.5 rounded-full flex items-center gap-0.5 ${
-                    isComputedCal ? "bg-orange-500/60 hover:bg-orange-500/70" : "bg-black/30 hover:bg-black/40"
-                  }`}
+                  className={`text-xs font-black text-white px-2 py-0.5 rounded-full flex items-center gap-0.5 ${isComputedCal ? "bg-orange-500/60 hover:bg-orange-500/70" : "bg-black/30 hover:bg-black/40"
+                    }`}
                   title="Modifier les calories (temporaire)"
                 >
                   <Flame className="h-3 w-3" />
@@ -379,9 +378,8 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
             ) : displayCal ? (
               <button
                 onClick={() => { setCalValue(displayCal); setEditingCal(true); }}
-                className={`text-xs font-black text-white px-2 py-0.5 rounded-full flex items-center gap-0.5 ${
-                  isComputedCal ? "bg-orange-500/60 hover:bg-orange-500/70" : "bg-black/30 hover:bg-black/40"
-                }`}
+                className={`text-xs font-black text-white px-2 py-0.5 rounded-full flex items-center gap-0.5 ${isComputedCal ? "bg-orange-500/60 hover:bg-orange-500/70" : "bg-black/30 hover:bg-black/40"
+                  }`}
                 title="Modifier les calories (temporaire)"
               >
                 <Flame className="h-3 w-3" />
@@ -544,7 +542,7 @@ export function WeeklyPlanning() {
     if (foodItems.length === 0) return; // Wait for food items to load
     if (possibleMeals === undefined) return; // Wait for possible meals
     autoConsumeChecked.current = true;
-    
+
     const runAutoConsume = async () => {
       // Verify from DB to prevent duplicate consumption
       const { data: freshConsumedData } = await supabase.from('user_preferences')
@@ -553,14 +551,14 @@ export function WeeklyPlanning() {
 
       const todayIdx = DAY_KEY_TO_INDEX[todayKey];
       const pastDays = DAYS.filter((_, i) => i < todayIdx);
-      
+
       const toConsume: string[] = [];
       for (const day of pastDays) {
         if (autoConsumeBreakfast[day] && breakfastSelections[day] && !freshConsumed[day]) {
           toConsume.push(day);
         }
       }
-      
+
       if (toConsume.length > 0) {
         const updatedConsumed = { ...freshConsumed };
         for (const day of toConsume) {
@@ -1010,9 +1008,13 @@ export function WeeklyPlanning() {
     const userId = (await supabase.auth.getUser()).data.user?.id;
     await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: fullBackup, user_id: userId } as any, { onConflict: 'user_id,key' });
 
-    await Promise.all(possibleMeals.map(pm =>
-      (supabase as any).from("possible_meals").delete().eq("id", pm.id)
-    ));
+    await Promise.all(possibleMeals.map(pm => {
+      // If it's a breakfast card, only delete if it was planned
+      if (pm.meals?.category === 'petit_dejeuner' && !pm.day_of_week) {
+        return Promise.resolve();
+      }
+      return (supabase as any).from("possible_meals").delete().eq("id", pm.id);
+    }));
     const rMC: Record<string, number> = {}, rMP: Record<string, number> = {};
     const rEC: Record<string, number> = {}, rEP: Record<string, number> = {};
     const rBC: Record<string, number> = {}, rBP: Record<string, number> = {};
@@ -1093,11 +1095,11 @@ export function WeeklyPlanning() {
             const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
             const isAlsoMatin = possiblePdj && possiblePdj.day_of_week === day && possiblePdj.meal_time === 'matin';
             if (isAlsoMatin) {
-               baseBreakfastCals = 0;
-               baseBreakfastPro = 0;
+              baseBreakfastCals = 0;
+              baseBreakfastPro = 0;
             } else {
-               baseBreakfastCals = possiblePdj ? getCardDisplayCalories(possiblePdj, undefined, isAvailableCb) : parseCalories(breakfast.calories);
-               baseBreakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailableCb) : parseProtein(breakfast.protein);
+              baseBreakfastCals = possiblePdj ? getCardDisplayCalories(possiblePdj, undefined, isAvailableCb) : parseCalories(breakfast.calories);
+              baseBreakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailableCb) : parseProtein(breakfast.protein);
             }
           } else {
             const ingCal = computeIngredientCalories(breakfast.ingredients, isAvailableCb);
@@ -1201,7 +1203,7 @@ export function WeeklyPlanning() {
                         const isSelected = breakfastSelections[day] === mealSelId;
                         const otherDays = DAYS.filter(d => d !== day && breakfastSelections[d] === mealSelId);
                         const otherDaysLabel = otherDays.length > 0 ? otherDays.map(d => DAY_LABELS[d]?.slice(0, 3)).join(', ') : null;
-                          return (
+                        return (
                           <button key={m.id} onClick={() => {
                             if (isSelected) setBreakfastForDay(day, null);
                             else setBreakfastForDay(day, mealSelId);
@@ -1255,11 +1257,10 @@ export function WeeklyPlanning() {
                       else updated[day] = true;
                       setPreference.mutate({ key: 'planning_auto_consume_breakfast', value: updated });
                     }}
-                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
-                      autoConsumeBreakfast[day]
-                        ? 'bg-green-500/20 text-green-400 border border-green-400/50'
-                        : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
-                    }`}
+                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${autoConsumeBreakfast[day]
+                      ? 'bg-green-500/20 text-green-400 border border-green-400/50'
+                      : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                      }`}
                     title={autoConsumeBreakfast[day] ? 'Auto-consommation activée — sera déduit à 23h59 ou au prochain lancement' : 'Activer la décompte automatique du petit déj'}
                   >🔄</button>
                 )}
@@ -1276,13 +1277,12 @@ export function WeeklyPlanning() {
                       setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                       setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                     }}
-                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
-                      flashedKeys[`breakfast-${day}`]
-                        ? 'bg-green-500/30 text-green-400 border border-green-400/50'
-                        : savedSnapshots[`breakfast-${day}`]
-                          ? 'bg-primary/20 text-primary border border-primary/40'
-                          : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
-                    }`}
+                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${flashedKeys[`breakfast-${day}`]
+                      ? 'bg-green-500/30 text-green-400 border border-green-400/50'
+                      : savedSnapshots[`breakfast-${day}`]
+                        ? 'bg-primary/20 text-primary border border-primary/40'
+                        : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                      }`}
                     title={(() => {
                       const snap = savedSnapshots[`breakfast-${day}`] as any;
                       if (!snap) return 'Sauvegarder les valeurs pour le reset';
@@ -1381,7 +1381,7 @@ export function WeeklyPlanning() {
               {TIMES.map((time) => {
                 const slotKey = `${day}-${time}`;
                 const slotMeals = getMealsForSlot(day, time);
-                      const isOver = dragOverSlot === slotKey || touchHighlight === slotKey;
+                const isOver = dragOverSlot === slotKey || touchHighlight === slotKey;
                 const slotCals = slotMeals.reduce((s, p) => s + getCardDisplayCalories(p, calOverrides[p.id], isAvailableCb), 0);
                 const slotPro = slotMeals.reduce((s, p) => s + getCardDisplayProtein(p, isAvailableCb), 0);
                 return (
@@ -1404,44 +1404,43 @@ export function WeeklyPlanning() {
                           {TIME_LABELS[time]}
                         </span>
                         <button
-                        onClick={() => {
-                          const key = `${day}-${time}`;
-                          const updated = { ...drinkChecks };
-                          if (updated[key]) delete updated[key];
-                          else updated[key] = true;
-                          setPreference.mutate({ key: 'planning_drink_checks', value: updated });
-                        }}
-                        className={`flex items-center gap-0.5 text-[7px] sm:text-[8px] rounded-full px-1 py-px transition-colors ${
-                          drinkChecks[`${day}-${time}`]
+                          onClick={() => {
+                            const key = `${day}-${time}`;
+                            const updated = { ...drinkChecks };
+                            if (updated[key]) delete updated[key];
+                            else updated[key] = true;
+                            setPreference.mutate({ key: 'planning_drink_checks', value: updated });
+                          }}
+                          className={`flex items-center gap-0.5 text-[7px] sm:text-[8px] rounded-full px-1 py-px transition-colors ${drinkChecks[`${day}-${time}`]
                             ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold'
                             : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60'
-                        }`}
-                        title="+ Boisson sucrée (+150 cal)"
-                      >
-                        🥤 {drinkChecks[`${day}-${time}`] ? '+150' : ''}
-                      </button>
-                    </div>
-                    {(slotCals > 0 || slotPro > 0) && (
-                      <div className="flex items-center gap-1.5 text-[8px] sm:text-[9px] font-bold text-muted-foreground bg-muted/30 dark:bg-muted/20 px-2 py-0.5 rounded-full border border-border/40 shadow-sm">
-                        {slotCals > 0 && (
-                          <span className="flex items-center gap-0.5">
-                            <Flame className="w-2 h-2 text-orange-500/60" />
-                            {Math.round(slotCals)}
-                          </span>
-                        )}
-                        {slotCals > 0 && slotPro > 0 && <span className="opacity-30">•</span>}
-                        {slotPro > 0 && (
-                          <span className="flex items-center gap-0.5">
-                            <span className="text-[9px] opacity-60">🍗</span>
-                            {Math.round(slotPro)}
-                          </span>
-                        )}
+                            }`}
+                          title="+ Boisson sucrée (+150 cal)"
+                        >
+                          🥤 {drinkChecks[`${day}-${time}`] ? '+150' : ''}
+                        </button>
                       </div>
-                    )}
-                  </div>
-                  <div className="mt-0.5 space-y-1">
+                      {(slotCals > 0 || slotPro > 0) && (
+                        <div className="flex items-center gap-1.5 text-[8px] sm:text-[9px] font-bold text-muted-foreground bg-muted/30 dark:bg-muted/20 px-2 py-0.5 rounded-full border border-border/40 shadow-sm">
+                          {slotCals > 0 && (
+                            <span className="flex items-center gap-0.5">
+                              <Flame className="w-2 h-2 text-orange-500/60" />
+                              {Math.round(slotCals)}
+                            </span>
+                          )}
+                          {slotCals > 0 && slotPro > 0 && <span className="opacity-30">•</span>}
+                          {slotPro > 0 && (
+                            <span className="flex items-center gap-0.5">
+                              <span className="text-[9px] opacity-60">🍗</span>
+                              {Math.round(slotPro)}
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    <div className="mt-0.5 space-y-1">
                       {slotMeals.length === 0 ? (
-                      <div className="flex flex-col items-start gap-0.5">
+                        <div className="flex flex-col items-start gap-0.5">
                           <PlanningInput
                             storageKey={`manual-${day}-${time}`}
                             currentValue={manualCalories[`${day}-${time}`] || 0}
@@ -1479,13 +1478,12 @@ export function WeeklyPlanning() {
                                 setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                                 setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                               }}
-                              className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
-                                flashedKeys[`manual-${day}-${time}`]
-                                  ? 'bg-green-500/30 text-green-400 border border-green-400/50'
-                                  : savedSnapshots[`manual-${day}-${time}`]
-                                    ? 'bg-primary/20 text-primary border border-primary/40'
-                                    : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
-                              }`}
+                              className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${flashedKeys[`manual-${day}-${time}`]
+                                ? 'bg-green-500/30 text-green-400 border border-green-400/50'
+                                : savedSnapshots[`manual-${day}-${time}`]
+                                  ? 'bg-primary/20 text-primary border border-primary/40'
+                                  : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                                }`}
                               title={savedSnapshots[`manual-${day}-${time}`] ? `Sauvegardé: ${savedSnapshots[`manual-${day}-${time}`].cal || 0} kcal / ${savedSnapshots[`manual-${day}-${time}`].prot || 0} prot` : 'Sauvegarder les valeurs pour le reset'}
                             >💾</button>
                           </div>
@@ -1535,13 +1533,12 @@ export function WeeklyPlanning() {
                       setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                       setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                     }}
-                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
-                      flashedKeys[`extra-${day}`]
-                        ? 'bg-green-500/30 text-green-400 border border-green-400/50'
-                        : savedSnapshots[`extra-${day}`]
-                          ? 'bg-primary/20 text-primary border border-primary/40'
-                          : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
-                    }`}
+                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${flashedKeys[`extra-${day}`]
+                      ? 'bg-green-500/30 text-green-400 border border-green-400/50'
+                      : savedSnapshots[`extra-${day}`]
+                        ? 'bg-primary/20 text-primary border border-primary/40'
+                        : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                      }`}
                     title={savedSnapshots[`extra-${day}`] ? `Sauvegardé: ${savedSnapshots[`extra-${day}`].cal || 0} kcal / ${savedSnapshots[`extra-${day}`].prot || 0} prot` : 'Sauvegarder les valeurs pour le reset'}
                   >💾</button>
                 </div>
@@ -1770,8 +1767,8 @@ function renderIngredientDisplayPlanning(
 
     const cls = isExpired ? 'bg-red-500/40 text-red-100 px-0.5 rounded font-semibold'
       : isSoon ? 'ring-1 ring-red-500/60 font-semibold px-0.5 rounded'
-      : isOpt ? 'italic text-white/40'
-      : '';
+        : isOpt ? 'italic text-white/40'
+          : '';
 
     elements.push(
       <span key={gi} className={cls}>

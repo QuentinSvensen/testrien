@@ -61,9 +61,13 @@ export function useMealTransfers(foodItems: FoodItem[]) {
 
     for (const group of groups) {
       // Skip optional ingredient groups — they are not consumed on move to possible
-      if (group.every(alt => alt.optional)) continue;
+      if (group.every(alt => alt.optional)) {
+        continue;
+      }
       const alt = pickBestAlternative(group, stockMap);
-      if (!alt) continue;
+      if (!alt) {
+        continue;
+      }
       const { qty: neededGrams, count: neededCount, name } = alt;
       const key = findStockKey(stockMap, name);
       if (!key) continue;
@@ -71,7 +75,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
       if (!stockInfo || stockInfo.infinite) continue;
 
       const matchingItems = foodItems
-        .filter((fi) => strictNameMatch(fi.name, key) && !fi.is_infinite)
+        .filter((fi) => strictNameMatch(fi.name, name) && !fi.is_infinite)
         .sort(sortStockDeductionPriority);
 
       if (neededCount > 0) {
@@ -108,7 +112,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
               updatesById.set(fi.id, { id: fi.id, quantity: fullUnits, grams: formatNumeric(perUnit), ...(fi.counter_start_date ? { counter_start_date: null } : {}) });
             } else { updatesById.set(fi.id, { id: fi.id, delete: true }); }
           } else {
-            const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
+            const shouldStartCounter = remaining > 0 && remaining < parseQty(fi.grams) && !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
             updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
           }
         }
