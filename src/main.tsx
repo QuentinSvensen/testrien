@@ -17,12 +17,30 @@ const isIgnored = (err: any) => {
   return IGNORED_ERRORS.some(ignored => str.includes(ignored.toLowerCase()));
 };
 
-// Silence console.error
-const originalError = console.error;
-console.error = function(...args: any[]) {
-  if (isIgnored(args[0])) return;
-  originalError.apply(console, args);
-};
+// Silence console.error safely
+try {
+  const originalError = console.error;
+  Object.defineProperty(console, 'error', {
+    configurable: true,
+    enumerable: true,
+    writable: true,
+    value: function(...args: any[]) {
+      if (isIgnored(args[0])) return;
+      originalError.apply(console, args);
+    }
+  });
+} catch (e) {
+  // If we can't redefine it (e.g. read-only/non-configurable), try simple assignment as fallback
+  try {
+    const originalError = console.error;
+    (console as any).error = function(...args: any[]) {
+      if (isIgnored(args[0])) return;
+      originalError.apply(console, args);
+    };
+  } catch (e2) {
+    // Both failed, skip console.error monkey-patching
+  }
+}
 
 // Silence unhandled promise rejections (often from extensions)
 window.addEventListener("unhandledrejection", (event) => {
