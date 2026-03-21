@@ -2,6 +2,8 @@ import { createRoot } from "react-dom/client";
 import App from "./App.tsx";
 import "./index.css";
 
+import "./index.css";
+
 // Register SW only in production. In preview/dev, clear old SW caches to avoid stale Vite/React chunks.
 if ("serviceWorker" in navigator) {
   if (import.meta.env.PROD) {

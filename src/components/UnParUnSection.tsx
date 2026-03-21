@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from "react";
-import { ChevronDown, ChevronRight, Drumstick, Wheat, ArrowUpDown, CalendarDays, Timer } from "lucide-react";
+import { ChevronDown, ChevronRight, Drumstick, Wheat, ArrowUpDown, CalendarDays, Timer, Flame } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePreferences } from "@/hooks/usePreferences";
@@ -258,7 +258,7 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
                 <>
                   {calDisplay && (
                     <span className="text-[10px] font-bold text-white bg-orange-500/50 px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0">
-                      🔥{calDisplay}
+                      <Flame className="w-2.5 h-2.5" />{calDisplay}
                     </span>
                   )}
                    {proDisplay && (

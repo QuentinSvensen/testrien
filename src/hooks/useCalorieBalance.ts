@@ -179,8 +179,8 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
   };
 
   const getDayCalories = (day: string): number => {
-    // Sum displayed card calories for each slot
-    const mealCals = TIMES.reduce((total, time) => {
+    // Sum displayed card calories for each slot (including matin for possible meals)
+    const mealCals = (['matin', ...TIMES] as string[]).reduce((total, time) => {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) =>
@@ -199,7 +199,12 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
       if (selId?.startsWith('pm:')) {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        breakfastCal = possiblePdj ? getCardDisplayCalories(possiblePdj, undefined, isAvailable) : parseCalories(breakfast.calories);
+        if (possiblePdj && possiblePdj.day_of_week === day && possiblePdj.meal_time === 'matin') {
+          // Already counted in mealCals via 'matin' slot calculations!
+          breakfastCal = 0;
+        } else {
+          breakfastCal = possiblePdj ? getCardDisplayCalories(possiblePdj, undefined, isAvailable) : parseCalories(breakfast.calories);
+        }
       } else {
         // Use ingredient-computed calories (consistent with picker display), fallback to meal.calories
         const ingCal = computeIngredientCalories(breakfast.ingredients, isAvailable);
@@ -214,7 +219,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
   };
 
   const getDayProtein = (day: string): number => {
-    const mealPro = TIMES.reduce((total, time) => {
+    const mealPro = (['matin', ...TIMES] as string[]).reduce((total, time) => {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) => {
@@ -233,7 +238,12 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
       if (selId?.startsWith('pm:')) {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailable) : parseCalories(breakfast.protein);
+        if (possiblePdj && possiblePdj.day_of_week === day && possiblePdj.meal_time === 'matin') {
+          // Already counted in mealPro via 'matin' slot calculations!
+          breakfastPro = 0;
+        } else {
+          breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailable) : parseCalories(breakfast.protein);
+        }
       } else {
         const ingPro = computeIngredientProtein(breakfast.ingredients, isAvailable);
         breakfastPro = ingPro !== null ? ingPro : parseCalories(breakfast.protein);

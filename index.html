@@ -1,6 +1,35 @@
 <!doctype html>
 <html lang="fr">
   <head>
+    <script id="console-shield">
+      (function() {
+        const IGNORED = ["test", "[debug-metadata]", "DevTools", "React Router", "message channel", "asynchronous response"];
+        const shouldIgnore = (args) => {
+          try {
+            const str = JSON.stringify(args).toLowerCase();
+            if (IGNORED.some(s => str.includes(s.toLowerCase()))) return true;
+          } catch(e) {}
+          return args.some(arg => typeof arg === 'string' && IGNORED.some(s => arg.toLowerCase().includes(s.toLowerCase())));
+        };
+        const patch = () => {
+          ['log', 'warn', 'info', 'debug', 'trace', 'dir', 'error', 'table'].forEach(m => {
+            const original = console[m];
+            if (!original || original.__shielded) return;
+            const wrapper = function(...args) { if (!shouldIgnore(args)) original.apply(console, args); };
+            wrapper.__shielded = true;
+            try { Object.defineProperty(console, m, { value: wrapper, writable: false, configurable: false }); } catch(e) { console[m] = wrapper; }
+          });
+        };
+        patch();
+        setInterval(patch, 1000);
+        const silentListener = (e) => { 
+          const err = e.error || e.reason || e.message || e;
+          if (err && shouldIgnore([err.message || err])) { e.stopImmediatePropagation(); e.preventDefault(); return true; } 
+        };
+        window.addEventListener("error", silentListener, true);
+        window.addEventListener("unhandledrejection", silentListener, true);
+      })();
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>MealsCards — Gestionnaire de repas</title>

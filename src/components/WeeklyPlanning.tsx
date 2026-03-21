@@ -3,7 +3,7 @@ import { useMeals, DAYS, TIMES, type PossibleMeal, type Meal } from "@/hooks/use
 import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
-import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein } from "@/hooks/useCalorieBalance";
+import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein, getCardDisplayCalories } from "@/hooks/useCalorieBalance";
 import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer } from "lucide-react";
 import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, hasNegativeMetric, getMealColor } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
@@ -454,8 +454,27 @@ export function WeeklyPlanning() {
 
   const setBreakfastForDay = (day: string, selId: string | null) => {
     const updated = { ...breakfastSelections };
-    if (selId) updated[day] = selId;
-    else delete updated[day];
+    const oldSelId = breakfastSelections[day];
+
+    // Clear old planning if it was a PossibleMeal
+    if (oldSelId?.startsWith('pm:')) {
+      const oldPmId = oldSelId.slice(3);
+      // Only clear if the new selection is different
+      if (selId !== oldSelId) {
+        updatePlanning.mutate({ id: oldPmId, day_of_week: null, meal_time: null });
+      }
+    }
+
+    if (selId) {
+      updated[day] = selId;
+      // Update DB if it's a PossibleMeal
+      if (selId.startsWith('pm:')) {
+        const pmId = selId.slice(3);
+        updatePlanning.mutate({ id: pmId, day_of_week: day, meal_time: 'matin' });
+      }
+    } else {
+      delete updated[day];
+    }
     setPreference.mutate({ key: 'planning_breakfast', value: updated });
 
     // Auto-enable auto-consume for "Dèj choco", disable on other changes
@@ -627,7 +646,7 @@ export function WeeklyPlanning() {
   const autoConsumeBreakfast = getPreference<Record<string, boolean>>('planning_auto_consume_breakfast', {});
 
   const getDayProtein = (day: string): number => {
-    const mealProt = TIMES.reduce((total, time) => {
+    const mealProt = (['matin', ...TIMES] as string[]).reduce((total, time) => {
       const slotMeals = getMealsForSlot(day, time);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) => {
@@ -645,7 +664,12 @@ export function WeeklyPlanning() {
       if (selId?.startsWith('pm:')) {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        breakfastProt = possiblePdj ? getCardDisplayProtein(possiblePdj) : parseProtein(breakfast.protein);
+        if (possiblePdj && possiblePdj.day_of_week === day && possiblePdj.meal_time === 'matin') {
+          // Already counted in mealProt via 'matin' slot calculations!
+          breakfastProt = 0;
+        } else {
+          breakfastProt = possiblePdj ? getCardDisplayProtein(possiblePdj) : parseProtein(breakfast.protein);
+        }
       } else {
         const ingPro = computeIngredientProtein(breakfast.ingredients);
         breakfastProt = ingPro !== null ? ingPro : parseProtein(breakfast.protein);
@@ -1055,6 +1079,40 @@ export function WeeklyPlanning() {
       {DAYS.map((day) => {
         const isToday_ = day === todayKey;
         const dayCalories = getDayCalories(day);
+        const matinMeals = getMealsForSlot(day, 'matin');
+        const matinCals = matinMeals.reduce((s, pm) => s + getCardDisplayCalories(pm, calOverrides[pm.id], isAvailableCb), 0);
+        const matinPro = matinMeals.reduce((s, pm) => s + getCardDisplayProtein(pm, isAvailableCb), 0);
+
+        const breakfast = getBreakfastForDay(day);
+        let baseBreakfastCals = 0;
+        let baseBreakfastPro = 0;
+        if (breakfast) {
+          const selId = breakfastSelections[day];
+          if (selId?.startsWith('pm:')) {
+            const pmId = selId.slice(3);
+            const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
+            const isAlsoMatin = possiblePdj && possiblePdj.day_of_week === day && possiblePdj.meal_time === 'matin';
+            if (isAlsoMatin) {
+               baseBreakfastCals = 0;
+               baseBreakfastPro = 0;
+            } else {
+               baseBreakfastCals = possiblePdj ? getCardDisplayCalories(possiblePdj, undefined, isAvailableCb) : parseCalories(breakfast.calories);
+               baseBreakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailableCb) : parseProtein(breakfast.protein);
+            }
+          } else {
+            const ingCal = computeIngredientCalories(breakfast.ingredients, isAvailableCb);
+            baseBreakfastCals = ingCal !== null ? ingCal : parseCalories(breakfast.calories);
+            const ingPro = computeIngredientProtein(breakfast.ingredients, isAvailableCb);
+            baseBreakfastPro = ingPro !== null ? ingPro : parseProtein(breakfast.protein);
+          }
+        } else {
+          baseBreakfastCals = breakfastManualCalories[day] || 0;
+          baseBreakfastPro = breakfastManualProteins[day] || 0;
+        }
+
+        const breakfastTotalCals = baseBreakfastCals + matinCals;
+        const breakfastTotalPro = baseBreakfastPro + matinPro;
+
         return (
           <div
             key={day}
@@ -1083,7 +1141,15 @@ export function WeeklyPlanning() {
                         if (bm) setPopupBreakfast({ meal: bm, day });
                       }}
                     >
-                      {getBreakfastForDay(day)?.name || '🥐 Petit déj'}
+                      {(() => {
+                        const count = matinMeals.length + (getBreakfastForDay(day) ? 1 : 0);
+                        if (count > 1) return 'Plusieurs petits déj';
+                        if (count === 1) {
+                          if (matinMeals.length === 1) return matinMeals[0].meals?.name || '🥐 Petit déj';
+                          return getBreakfastForDay(day)?.name || '🥐 Petit déj';
+                        }
+                        return '🥐 Petit déj';
+                      })()}
                     </button>
                   </PopoverTrigger>
                   <PopoverContent className="w-52 p-2" align="start">
@@ -1102,13 +1168,23 @@ export function WeeklyPlanning() {
                             const ingPro = computeIngredientProtein(displayIng, isAvailableCb);
                             const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
                             const pmSelId = `pm:${pm.id}`;
+                            const isMatinSelected = pm.day_of_week === day && pm.meal_time === 'matin';
+                            const isDropdownSelected = breakfastSelections[day] === pmSelId;
+                            const isSelected = isMatinSelected || isDropdownSelected;
                             // Find other days where this possible breakfast is selected
-                            const otherDays = DAYS.filter(d => d !== day && breakfastSelections[d] === pmSelId);
+                            const otherDays = DAYS.filter(d => d !== day && (breakfastSelections[d] === pmSelId || (pm.day_of_week === d && pm.meal_time === 'matin')));
                             const otherDaysLabel = otherDays.length > 0 ? otherDays.map(d => DAY_LABELS[d]?.slice(0, 3)).join(', ') : null;
                             return (
-                              <button key={pm.id} onClick={() => setBreakfastForDay(day, pmSelId)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === pmSelId ? 'bg-primary/10 font-bold' : otherDaysLabel ? 'bg-primary/5' : ''}`}>
-                                {pm.meals?.name} {pm.ingredients_override ? '✏️' : ''} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
-                                {otherDaysLabel && <span className="ml-1 text-[9px] text-amber-500 font-medium">📅 {otherDaysLabel}</span>}
+                              <button key={pm.id} onClick={() => {
+                                if (isDropdownSelected) setBreakfastForDay(day, null);
+                                if (isSelected) {
+                                  updatePlanning.mutate({ id: pm.id, day_of_week: null, meal_time: null });
+                                } else {
+                                  updatePlanning.mutate({ id: pm.id, day_of_week: day, meal_time: 'matin' });
+                                }
+                              }} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${isSelected ? 'bg-primary/10 font-bold' : otherDaysLabel ? 'bg-amber-100/40 text-amber-900 dark:text-amber-100' : ''}`}>
+                                {pm.meals?.name} {pm.ingredients_override ? '✏️' : ''} {(calDisplay || proDisplay) ? <span className="inline-flex items-center gap-0.5 ml-1 text-muted-foreground">({calDisplay ? <><Flame className="w-2.5 h-2.5 text-orange-500" />{calDisplay}</> : ''}{calDisplay && proDisplay ? ' · ' : ''}{proDisplay ? `🍗${proDisplay}` : ''})</span> : ''}
+                                {otherDaysLabel && <span className="ml-1 text-[9px] text-amber-600 dark:text-amber-400 font-bold">📅 {otherDaysLabel}</span>}
                               </button>
                             );
                           })}
@@ -1122,9 +1198,16 @@ export function WeeklyPlanning() {
                         const ingPro = computeIngredientProtein(m.ingredients, isAvailableCb);
                         const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
                         const mealSelId = `meal:${m.id}`;
+                        const isSelected = breakfastSelections[day] === mealSelId;
+                        const otherDays = DAYS.filter(d => d !== day && breakfastSelections[d] === mealSelId);
+                        const otherDaysLabel = otherDays.length > 0 ? otherDays.map(d => DAY_LABELS[d]?.slice(0, 3)).join(', ') : null;
                           return (
-                          <button key={m.id} onClick={() => setBreakfastForDay(day, mealSelId)} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${breakfastSelections[day] === mealSelId ? 'bg-primary/10 font-bold' : ''}`}>
-                            {m.name} {(calDisplay || proDisplay) ? `(${calDisplay ? `🔥${calDisplay}` : ''}${calDisplay && proDisplay ? ' · ' : ''}${proDisplay ? `🍗${proDisplay}` : ''})` : ''}
+                          <button key={m.id} onClick={() => {
+                            if (isSelected) setBreakfastForDay(day, null);
+                            else setBreakfastForDay(day, mealSelId);
+                          }} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${isSelected ? 'bg-primary/10 font-bold' : otherDaysLabel ? 'bg-amber-100/40 text-amber-900 dark:text-amber-100' : ''}`}>
+                            {m.name} {(calDisplay || proDisplay) ? <span className="inline-flex items-center gap-0.5 ml-1 text-muted-foreground">({calDisplay ? <><Flame className="w-2.5 h-2.5 text-orange-500" />{calDisplay}</> : ''}{calDisplay && proDisplay ? ' · ' : ''}{proDisplay ? `🍗${proDisplay}` : ''})</span> : ''}
+                            {otherDaysLabel && <span className="ml-1 text-[9px] text-amber-600 dark:text-amber-400 font-bold">📅 {otherDaysLabel}</span>}
                           </button>
                         );
                       })}
@@ -1135,7 +1218,7 @@ export function WeeklyPlanning() {
                   </PopoverContent>
                 </Popover>
                 {/* Manual calorie input when no breakfast selected */}
-                {!getBreakfastForDay(day) && (
+                {!getBreakfastForDay(day) && matinMeals.length === 0 && (
                   <>
                     <PlanningInput
                       storageKey={`breakfast-cal-${day}`}
@@ -1180,33 +1263,52 @@ export function WeeklyPlanning() {
                     title={autoConsumeBreakfast[day] ? 'Auto-consommation activée — sera déduit à 23h59 ou au prochain lancement' : 'Activer la décompte automatique du petit déj'}
                   >🔄</button>
                 )}
-                <button
-                  onClick={() => {
-                    const snapKey = `breakfast-${day}`;
-                    const cal = breakfastManualCalories[day] || 0;
-                    const prot = breakfastManualProteins[day] || 0;
-                    const breakfast = getBreakfastForDay(day);
-                    const mealId = breakfastSelections[day] || undefined;
-                    const updated = { ...savedSnapshots, [snapKey]: { cal, prot, name: breakfast?.name, mealId } };
-                    setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
-                    setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
-                    setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
-                  }}
-                  className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
-                    flashedKeys[`breakfast-${day}`]
-                      ? 'bg-green-500/30 text-green-400 border border-green-400/50'
-                      : savedSnapshots[`breakfast-${day}`]
-                        ? 'bg-primary/20 text-primary border border-primary/40'
-                        : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
-                  }`}
-                  title={(() => {
-                    const snap = savedSnapshots[`breakfast-${day}`] as any;
-                    if (!snap) return 'Sauvegarder les valeurs pour le reset';
-                    if (snap.name) return `Sauvegardé: ${snap.name}`;
-                    return `Sauvegardé: ${snap.cal || 0} kcal / ${snap.prot || 0} prot`;
-                  })()}
-                >💾</button>
+                {!(matinMeals.length > 0 || breakfastSelections[day]?.startsWith('pm:')) && (
+                  <button
+                    onClick={() => {
+                      const snapKey = `breakfast-${day}`;
+                      const cal = breakfastManualCalories[day] || 0;
+                      const prot = breakfastManualProteins[day] || 0;
+                      const breakfast = getBreakfastForDay(day);
+                      const mealId = breakfastSelections[day] || undefined;
+                      const updated = { ...savedSnapshots, [snapKey]: { cal, prot, name: breakfast?.name, mealId } };
+                      setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
+                      setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
+                      setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
+                    }}
+                    className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${
+                      flashedKeys[`breakfast-${day}`]
+                        ? 'bg-green-500/30 text-green-400 border border-green-400/50'
+                        : savedSnapshots[`breakfast-${day}`]
+                          ? 'bg-primary/20 text-primary border border-primary/40'
+                          : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
+                    }`}
+                    title={(() => {
+                      const snap = savedSnapshots[`breakfast-${day}`] as any;
+                      if (!snap) return 'Sauvegarder les valeurs pour le reset';
+                      if (snap.name) return `Sauvegardé: ${snap.name}`;
+                      return `Sauvegardé: ${snap.cal || 0} kcal / ${snap.prot || 0} prot`;
+                    })()}
+                  >💾</button>
+                )}
               </div>
+              {(breakfastTotalCals > 0 || breakfastTotalPro > 0) && (
+                <div className="flex items-center gap-1.5 text-[9px] sm:text-[10px] font-bold text-muted-foreground bg-muted/30 dark:bg-muted/20 px-2 py-0.5 rounded-full ml-2 border border-border/40 shadow-sm">
+                  {breakfastTotalCals > 0 && (
+                    <span className="flex items-center gap-1">
+                      <Flame className="w-2.5 h-2.5 text-orange-500/60" />
+                      {Math.round(breakfastTotalCals)}
+                    </span>
+                  )}
+                  {breakfastTotalCals > 0 && breakfastTotalPro > 0 && <span className="opacity-30">•</span>}
+                  {breakfastTotalPro > 0 && (
+                    <span className="flex items-center gap-0.5">
+                      <span className="text-[10px] opacity-60">🍗</span>
+                      {Math.round(breakfastTotalPro)}
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="flex-1" />
               <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap justify-end">
                 <button
@@ -1279,7 +1381,9 @@ export function WeeklyPlanning() {
               {TIMES.map((time) => {
                 const slotKey = `${day}-${time}`;
                 const slotMeals = getMealsForSlot(day, time);
-                const isOver = dragOverSlot === slotKey || touchHighlight === slotKey;
+                      const isOver = dragOverSlot === slotKey || touchHighlight === slotKey;
+                const slotCals = slotMeals.reduce((s, p) => s + getCardDisplayCalories(p, calOverrides[p.id], isAvailableCb), 0);
+                const slotPro = slotMeals.reduce((s, p) => s + getCardDisplayProtein(p, isAvailableCb), 0);
                 return (
                   <div
                     key={time}
@@ -1294,11 +1398,12 @@ export function WeeklyPlanning() {
                     onDrop={(e) => handleDrop(e, day, time)}
                     className={`min-h-[44px] sm:min-h-[52px] rounded-xl border border-dashed p-1 sm:p-1.5 transition-colors ${isOver ? "border-primary/60 bg-primary/5" : "border-border/40 hover:border-primary/40"}`}
                   >
-                    <div className="flex items-center gap-1 mb-0.5">
-                      <span className="text-[8px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
-                        {TIME_LABELS[time]}
-                      </span>
-                      <button
+                    <div className="flex items-center justify-between mb-0.5">
+                      <div className="flex items-center gap-1">
+                        <span className="text-[8px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">
+                          {TIME_LABELS[time]}
+                        </span>
+                        <button
                         onClick={() => {
                           const key = `${day}-${time}`;
                           const updated = { ...drinkChecks };
@@ -1316,7 +1421,25 @@ export function WeeklyPlanning() {
                         🥤 {drinkChecks[`${day}-${time}`] ? '+150' : ''}
                       </button>
                     </div>
-                    <div className="mt-0.5 space-y-1">
+                    {(slotCals > 0 || slotPro > 0) && (
+                      <div className="flex items-center gap-1.5 text-[8px] sm:text-[9px] font-bold text-muted-foreground bg-muted/30 dark:bg-muted/20 px-2 py-0.5 rounded-full border border-border/40 shadow-sm">
+                        {slotCals > 0 && (
+                          <span className="flex items-center gap-0.5">
+                            <Flame className="w-2 h-2 text-orange-500/60" />
+                            {Math.round(slotCals)}
+                          </span>
+                        )}
+                        {slotCals > 0 && slotPro > 0 && <span className="opacity-30">•</span>}
+                        {slotPro > 0 && (
+                          <span className="flex items-center gap-0.5">
+                            <span className="text-[9px] opacity-60">🍗</span>
+                            {Math.round(slotPro)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  <div className="mt-0.5 space-y-1">
                       {slotMeals.length === 0 ? (
                       <div className="flex flex-col items-start gap-0.5">
                           <PlanningInput

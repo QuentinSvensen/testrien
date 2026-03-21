@@ -71,26 +71,26 @@ function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, 
   if (!startDate) return null;
   const start = parseISO(startDate);
   const created = createdAt ? parseISO(createdAt) : new Date();
-  
+
   const refDate = start > created ? new Date() : created;
   const baseDays = differenceInCalendarDays(refDate, start);
-  
+
   if (!dayKey) return Math.max(0, baseDays);
-  
+
   const targetDate = getDateForDayKey(dayKey);
   const dayOffset = differenceInCalendarDays(targetDate, startOfDay(new Date()));
-  
+
   return Math.max(0, baseDays + dayOffset);
 }
 
 // Ingredient parsing utilities imported from @/lib/ingredientUtils
 
-export function PossibleMealCard({ 
-  pm, stockMap, onRemove, onReturnWithoutDeduction, onReturnWithoutDeductionLabel, 
-  onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, 
-  onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateQuantity, 
-  onUpdateIngredients, onUpdatePossibleIngredients, onDragStart, onDragOver, 
-  onDrop, isHighlighted, expiredIngredientNames, expiringSoonIngredientNames 
+export function PossibleMealCard({
+  pm, stockMap, onRemove, onReturnWithoutDeduction, onReturnWithoutDeductionLabel,
+  onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning,
+  onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateQuantity,
+  onUpdateIngredients, onUpdatePossibleIngredients, onDragStart, onDragOver,
+  onDrop, isHighlighted, expiredIngredientNames, expiringSoonIngredientNames
 }: PossibleMealCardProps) {
   const parseIngredientLine = parseIngredientLineDisplay;
   const formatQty = formatQtyDisplay;
@@ -122,9 +122,9 @@ export function PossibleMealCard({
     const baseIngStr = meal.ingredients
       ? meal.ingredients
       : (() => {
-          const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
-          return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
-        })();
+        const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+        return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
+      })();
     const origGroups = baseIngStr.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
     const overGroups = pm.ingredients_override.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
     if (origGroups.length === 0) return null;
@@ -176,7 +176,7 @@ export function PossibleMealCard({
     return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   })() : false;
   const counterDays = getAdaptedCounterDays(pm.counter_start_date, pm.day_of_week, pm.created_at);
-  
+
   // Stop blinking if the meal's day is in the past!
   let isPast = false;
   if (pm.day_of_week) {
@@ -185,7 +185,7 @@ export function PossibleMealCard({
     const target = getDateForDayKey(pm.day_of_week);
     isPast = target.getTime() < today.getTime();
   }
-  
+
   const counterUrgent = counterDays !== null && counterDays >= 3;
   const animateUrgent = counterUrgent && !isPast;
 
@@ -214,15 +214,15 @@ export function PossibleMealCard({
           : meal.ingredients
             ? meal.ingredients
             : (() => {
-                const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
-                return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
-              })();
+              const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
+              return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
+            })();
         const scaledIngredients = scaleIngredientStringExact(baseIng, ratio);
         onUpdatePossibleIngredients(scaledIngredients);
       }
-        // NOTE: Do NOT call onUpdateGrams or onUpdateCalories here — those modify the MASTER meal.
-        // The scaled values are derived from ingredients_override (for ingredient-based calories)
-        // and visible via the detectedRatio badge for grams display.
+      // NOTE: Do NOT call onUpdateGrams or onUpdateCalories here — those modify the MASTER meal.
+      // The scaled values are derived from ingredients_override (for ingredient-based calories)
+      // and visible via the detectedRatio badge for grams display.
     }
     setEditing(null);
   };
@@ -239,6 +239,7 @@ export function PossibleMealCard({
     } else {
       onUpdateIngredients(serialized);
     }
+    setEditingIngredients(false);
   };
 
   const todayDow = new Date().getDay();
@@ -253,9 +254,8 @@ export function PossibleMealCard({
       <Popover open={calOpen} onOpenChange={setCalOpen}>
         <PopoverTrigger asChild>
           <button
-            className={`h-5 min-w-[88px] border bg-white/10 text-white text-[10px] px-1.5 rounded-md flex items-center hover:bg-white/20 transition-colors ${
-              expIsToday ? 'border-red-500 ring-1 ring-red-500 text-red-200' : isExpired ? 'border-white/20 text-red-200' : 'border-white/20'
-            }`}
+            className={`h-5 min-w-[88px] border bg-white/10 text-white text-[10px] px-1.5 rounded-md flex items-center hover:bg-white/20 transition-colors ${expIsToday ? 'border-red-500 ring-1 ring-red-500 text-red-200' : isExpired ? 'border-white/20 text-red-200' : 'border-white/20'
+              }`}
           >
             {pm.expiration_date
               ? format(parseISO(pm.expiration_date), 'd MMM yy', { locale: fr })
@@ -309,6 +309,7 @@ export function PossibleMealCard({
         </SelectTrigger>
         <SelectContent>
           <SelectItem value="none">—</SelectItem>
+          {meal.category === "petit_dejeuner" && <SelectItem value="matin">Matin</SelectItem>}
           {TIMES.map((t) => (
             <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
           ))}
@@ -334,7 +335,7 @@ export function PossibleMealCard({
           </button>
         </div>
       )}
-      
+
       {/* Row 1: name + actions + desktop dates */}
       <div className="flex items-start justify-between gap-1.5 min-w-0">
         <div className="flex items-start gap-1.5 min-w-0 flex-1">
@@ -345,7 +346,7 @@ export function PossibleMealCard({
             {meal.name}
           </span>
         </div>
-        
+
         {/* Desktop-only dates (top right) */}
         <div className="hidden md:flex items-center shrink-0 mt-0.5">
           {datesSection}
@@ -366,27 +367,26 @@ export function PossibleMealCard({
 
       {/* Row 2: Dates/Options (Right-aligned) */}
       <div className="flex flex-wrap items-center justify-end gap-y-1.5 gap-x-2 w-full mt-1.5 mt-auto">
-        
+
         {/* Dates - Mobile only */}
         <div className="md:hidden flex items-center gap-1 flex-wrap shrink-0">
           {datesSection}
         </div>
 
-          {/* Options */}
-          <div className="ml-auto flex items-center justify-end gap-1.5 shrink-0 flex-wrap">
+        {/* Options */}
+        <div className="ml-auto flex items-center justify-end gap-1.5 shrink-0 flex-wrap">
           {counterDays !== null && counterDays >= 1 && (
-          <button
-            onClick={() => onUpdateCounter(null)}
-            className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-all shrink-0 ${
-              counterUrgent
-                ? animateUrgent 
-                  ? 'bg-red-500/80 text-white animate-pulse shadow-lg shadow-red-500/30'
-                  : 'bg-red-500/80 text-white shadow-lg shadow-red-500/30' // Frozen past urgent
-                : 'bg-white/25 text-white'
-            }`}
-          >
-            <Timer className="h-3 w-3" /> {counterDays}j
-          </button>
+            <button
+              onClick={() => onUpdateCounter(null)}
+              className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-all shrink-0 ${counterUrgent
+                  ? animateUrgent
+                    ? 'bg-red-500/80 text-white animate-pulse shadow-lg shadow-red-500/30'
+                    : 'bg-red-500/80 text-white shadow-lg shadow-red-500/30' // Frozen past urgent
+                  : 'bg-white/25 text-white'
+                }`}
+            >
+              <Timer className="h-3 w-3" /> {counterDays}j
+            </button>
           )}
 
           {(pm.quantity > 1 || onUpdateQuantity) && (
@@ -422,9 +422,8 @@ export function PossibleMealCard({
               if (raw > 0) displayCal = String(Math.round(raw * detectedRatio));
             }
             return displayCal ? (
-              <button onClick={() => { setEditValue(meal.calories || ""); setEditing("calories"); }} className={`text-[10px] text-white px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 ${
-                isComputed ? 'bg-orange-500/50 font-bold hover:bg-orange-500/60' : 'bg-black/30 text-white/90 hover:bg-black/40'
-              }`}>
+              <button onClick={() => { setEditValue(meal.calories || ""); setEditing("calories"); }} className={`text-[10px] text-white px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 ${isComputed ? 'bg-orange-500/50 font-bold hover:bg-orange-500/60' : 'bg-black/30 text-white/90 hover:bg-black/40'
+                }`}>
                 <Flame className="h-2.5 w-2.5" />{displayCal}
               </button>
             ) : null;
@@ -441,9 +440,8 @@ export function PossibleMealCard({
             // Round display value visually
             const displayPro = rawPro ? String(Math.round(parseFloat(rawPro.replace(',', '.').replace(/[^0-9.-]/g, '')) || 0)) : null;
             return displayPro && displayPro !== '0' ? (
-              <span className={`text-[10px] px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-semibold ${
-                isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/90 bg-blue-500/40'
-              }`}>
+              <span className={`text-[10px] px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-semibold ${isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/90 bg-blue-500/40'
+                }`}>
                 🍗 {displayPro}
               </span>
             ) : null;
@@ -553,8 +551,8 @@ function renderIngredientDisplayCompact(
 
     const cls = isExpired ? 'bg-red-500/40 text-red-100 px-0.5 rounded font-semibold'
       : isSoon ? 'ring-1 ring-red-500/60 font-semibold px-0.5 rounded'
-      : isOpt ? 'italic text-white/40'
-      : '';
+        : isOpt ? 'italic text-white/40'
+          : '';
 
     elements.push(
       <span key={gi} className={cls}>

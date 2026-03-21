@@ -623,9 +623,13 @@ export function useMeals(options?: { enabled?: boolean }) {
       const dayA = a.day_of_week ? (DAY_INDEX[a.day_of_week] ?? 99) : 99;
       const dayB = b.day_of_week ? (DAY_INDEX[b.day_of_week] ?? 99) : 99;
       if (dayA !== dayB) return dayA - dayB;
-      const timeA = a.meal_time === 'midi' ? 0 : a.meal_time === 'soir' ? 1 : 2;
-      const timeB = b.meal_time === 'midi' ? 0 : b.meal_time === 'soir' ? 1 : 2;
-      return timeA - timeB;
+      const getTimeIndex = (time?: string | null) => {
+        if (time === 'matin') return 0;
+        if (time === 'midi') return 1;
+        if (time === 'soir') return 2;
+        return 3;
+      };
+      return getTimeIndex(a.meal_time) - getTimeIndex(b.meal_time);
     });
 
   const getRandomPossible = (cat: string): PossibleMeal | null => {
