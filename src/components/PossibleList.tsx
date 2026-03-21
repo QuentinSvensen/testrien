@@ -1,13 +1,89 @@
 import React, { useMemo, useState } from "react";
-import { Plus, Dice5, ArrowUpDown, CalendarDays, CalendarClock } from "lucide-react";
+import { Plus, Dice5, ArrowUpDown, CalendarDays, CalendarClock, Flame, Weight, Timer, Thermometer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { MealList } from "@/components/MealList";
 import { PossibleMealCard } from "@/components/PossibleMealCard";
 import type { PossibleMeal } from "@/hooks/useMeals";
-import { computeIngredientCalories } from "@/lib/ingredientUtils";
-import { buildStockMap, analyzeMealIngredients, getDisplayedPMCalories } from "@/lib/stockUtils";
+import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, getMealColor, normalizeKey, hasNegativeMetric } from "@/lib/ingredientUtils";
+import { buildStockMap, analyzeMealIngredients, getDisplayedPMCalories, findStockKey } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
 import type { FoodItem } from "@/components/FoodItems";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { format, parseISO } from "date-fns";
+import { fr } from "date-fns/locale";
+
+const DAY_LABELS_FULL: Record<string, string> = {
+  lundi: 'Lundi', mardi: 'Mardi', mercredi: 'Mercredi', jeudi: 'Jeudi',
+  vendredi: 'Vendredi', samedi: 'Samedi', dimanche: 'Dimanche',
+};
+
+const TIME_LABELS: Record<string, string> = {
+  matin: 'Petit déj', midi: 'Midi', soir: 'Soir',
+};
+
+function getCategoryEmoji(cat?: string) {
+  if (cat === "petit_dejeuner") return "🥐";
+  if (cat === "plat") return "🍲";
+  if (cat === "dessert") return "🍰";
+  if (cat === "collation") return "🥨";
+  return "🍴";
+}
+
+function renderIngredientDisplayPossible(
+  ingredients: string,
+  stockMap?: Map<string, StockInfo>,
+  noStrikeThrough?: boolean,
+) {
+  const rawGroups = ingredients.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+  const filteredRaw = rawGroups.filter(g => !g.split(/\|/).some(alt => hasNegativeMetric(alt.trim())));
+  const cleaned = cleanIngredientText(filteredRaw.join(", "));
+  const groups = cleaned.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
+  const elements: React.ReactNode[] = [];
+
+  const isAvailable = (name: string) => {
+    if (!stockMap) return false;
+    const stripped = name.replace(/^\d+(?:[.,]\d+)?(?:g|ml|kg|cl|l|x| unit)?\s+/i, "").trim();
+    if (!stripped) return false;
+    const stockKey = findStockKey(stockMap, stripped);
+    if (!stockKey) return false;
+    const stock = stockMap.get(stockKey);
+    if (!stock) return false;
+    return stock.infinite || stock.grams > 0 || stock.count > 0;
+  };
+
+  groups.forEach((group, gi) => {
+    const isOpt = group.startsWith("?");
+    const display = isOpt ? group.slice(1).trim() : group;
+
+    const alternatives = display.split(/\s*\|\s*/);
+    if (alternatives.length > 1 && stockMap) {
+      const altElements = alternatives.map((alt, ai) => {
+        const available = isAvailable(alt);
+        return (
+          <span key={ai} className={available ? '' : (noStrikeThrough ? 'opacity-40' : 'line-through opacity-40')}>
+            {alt}{ai < alternatives.length - 1 ? <span className="opacity-60"> ou </span> : ''}
+          </span>
+        );
+      });
+      elements.push(
+        <span key={gi}>
+          {isOpt ? '?' : ''}{altElements}{gi < groups.length - 1 ? ' •' : ''}
+        </span>
+      );
+      return;
+    }
+
+    const cls = isOpt ? 'italic text-white/40' : '';
+
+    elements.push(
+      <span key={gi} className={cls}>
+        {isOpt ? '?' : ''}{display}{gi < groups.length - 1 ? ' •' : ''}
+      </span>
+    );
+  });
+
+  return elements;
+}
 
 const MemoizedPossibleMealCard = React.memo(
   PossibleMealCard,
@@ -60,6 +136,7 @@ interface PossibleListProps {
 
 export function PossibleList({ category, items, sortMode, stockMap, onToggleSort, onRandomPick, onRemove, onReturnWithoutDeduction, onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onUpdatePossibleIngredients, onUpdateQuantity, onSplitQuantity, onReorder, onExternalDrop, highlightedId, foodItems, onAddDirectly, masterSourcePmIds, unParUnSourcePmIds }: PossibleListProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
+  const [popupPm, setPopupPm] = useState<PossibleMeal | null>(null);
   const sortLabel = sortMode === "manual" ? "Manuel" : sortMode === "expiration" ? "Péremption" : "Planning";
   const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "planning" ? CalendarClock : ArrowUpDown;
 
@@ -146,9 +223,87 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
               }
               setDragIndex(null);
             }}
+            onDoubleClick={() => setPopupPm(pm)}
             isHighlighted={highlightedId === pm.id} />
         );
       })}
+
+      <Dialog open={!!popupPm} onOpenChange={(open) => { if (!open) setPopupPm(null); }}>
+        <DialogContent className="max-w-md p-0 overflow-hidden" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">Détails du repas</DialogTitle>
+          {popupPm && popupPm.meals && (() => {
+            const meal = popupPm.meals;
+            const displayIngredients = popupPm.ingredients_override ?? meal.ingredients;
+            const ingCal = computeIngredientCalories(displayIngredients);
+            const ingPro = computeIngredientProtein(displayIngredients);
+            const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
+            const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
+
+            // Compute counter days
+            let counterDays: number | null = null;
+            if (popupPm.counter_start_date) {
+              const refTime = popupPm.created_at ? new Date(popupPm.created_at).getTime() : Date.now();
+              counterDays = Math.floor((refTime - new Date(popupPm.counter_start_date).getTime()) / 86400000);
+              if (counterDays < 0) counterDays = null;
+            }
+
+            const expired = popupPm.expiration_date && new Date(popupPm.expiration_date) < new Date();
+
+            return (
+              <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: getMealColor(displayIngredients, meal.name) }}>
+                <h3 className="text-lg font-bold mb-2">{getCategoryEmoji(meal.category)} {meal.name}</h3>
+                <div className="flex flex-wrap gap-2 mb-3">
+                  {displayCal && (
+                    <span className="text-sm font-bold bg-black/30 px-2.5 py-1 rounded-full flex items-center gap-1" title="Calories">
+                      <Flame className="h-3.5 w-3.5" /> {displayCal} kcal
+                    </span>
+                  )}
+                  {displayPro && (
+                    <span className="text-sm font-bold bg-blue-600/50 px-2.5 py-1 rounded-full flex items-center gap-1" title="Protéines">
+                      🍗 {displayPro}g
+                    </span>
+                  )}
+                  {meal.grams && (
+                    <span className="text-sm bg-white/20 px-2.5 py-1 rounded-full flex items-center gap-1" title="Grammes">
+                      <Weight className="h-3.5 w-3.5" /> {meal.grams}
+                    </span>
+                  )}
+                  {counterDays !== null && (
+                    <span className={`text-sm font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${counterDays >= 3 ? 'bg-red-600' : 'bg-black/40'}`} title="Jours depuis ouverture/achat">
+                      <Timer className="h-3.5 w-3.5" /> {counterDays}j
+                    </span>
+                  )}
+                </div>
+                {popupPm.expiration_date && (
+                  <p className={`text-sm mb-2 ${expired ? 'text-red-200 font-bold' : 'text-white/70'}`}>
+                    📅 {format(parseISO(popupPm.expiration_date), "d MMMM yyyy", { locale: fr })}
+                  </p>
+                )}
+                {displayIngredients && (
+                  <div className="bg-black/20 rounded-xl p-3 mt-1">
+                    <p className="text-xs font-semibold text-white/60 mb-1 uppercase tracking-wide">Ingrédients</p>
+                    <div className="text-sm text-white/90 space-y-0.5">
+                      {renderIngredientDisplayPossible(displayIngredients, stockMap, true).map((el, i) => (
+                        <p key={i}>{el}</p>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {(meal.oven_temp || meal.oven_minutes) && (
+                  <p className="text-sm text-white/80 mt-2 flex items-center gap-1">
+                    <Thermometer className="h-3.5 w-3.5" /> {meal.oven_temp && `${meal.oven_temp}°C`}{meal.oven_temp && meal.oven_minutes && ' · '}{meal.oven_minutes && `${meal.oven_minutes} min`}
+                  </p>
+                )}
+                {popupPm.day_of_week && popupPm.meal_time && (
+                  <p className="text-xs text-white/50 mt-3">
+                    {DAY_LABELS_FULL[popupPm.day_of_week]} — {TIME_LABELS[popupPm.meal_time]}
+                  </p>
+                )}
+              </div>
+            );
+          })()}
+        </DialogContent>
+      </Dialog>
     </MealList>
   );
 }

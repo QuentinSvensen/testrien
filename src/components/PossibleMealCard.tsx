@@ -46,6 +46,7 @@ interface PossibleMealCardProps {
   stockMap?: Map<string, StockInfo>;
   expiredIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
+  onDoubleClick?: () => void;
 }
 
 const DAY_LABELS: Record<string, string> = {
@@ -91,7 +92,7 @@ export function PossibleMealCard({
   onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning,
   onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateQuantity,
   onUpdateIngredients, onUpdatePossibleIngredients, onDragStart, onDragOver,
-  onDrop, isHighlighted, expiredIngredientNames, expiringSoonIngredientNames, onSplitQuantity
+  onDrop, isHighlighted, expiredIngredientNames, expiringSoonIngredientNames, onSplitQuantity, onDoubleClick
 }: PossibleMealCardProps) {
   const parseIngredientLine = parseIngredientLineDisplay;
   const formatQty = formatQtyDisplay;
@@ -217,12 +218,12 @@ export function PossibleMealCard({
               const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
               return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
             })();
-            
+
         // The user input (ratio) is intended to be the absolute multiplier (e.g., "x3" means 3x the original base).
         // If the card is already multiplied by a known ratio (detectedRatio), we calculate the relative 
         // difference needed to reach the target ratio safely from the current ingredients.
         const effectiveRatio = detectedRatio ? (ratio / detectedRatio) : ratio;
-        
+
         const scaledIngredients = scaleIngredientStringExact(currentIng, effectiveRatio);
         onUpdatePossibleIngredients(scaledIngredients);
       }
@@ -330,6 +331,7 @@ export function PossibleMealCard({
       onDragStart={onDragStart}
       onDragOver={onDragOver}
       onDrop={onDrop}
+      onDoubleClick={onDoubleClick}
       className={`group relative flex flex-col rounded-2xl px-3 py-2.5 shadow-md cursor-grab active:cursor-grabbing transition-all hover:scale-[1.02] hover:shadow-lg ${isHighlighted ? 'ring-4 ring-yellow-400 scale-105' : expIsToday ? 'ring-2 ring-red-500' : isExpired ? 'ring-2 ring-red-500' : ''}`}
       style={{ backgroundColor: getMealColor(displayIngredients, meal.name) }}
     >
@@ -385,10 +387,10 @@ export function PossibleMealCard({
             <button
               onClick={() => onUpdateCounter(null)}
               className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-all shrink-0 ${counterUrgent
-                  ? animateUrgent
-                    ? 'bg-red-500/80 text-white animate-pulse shadow-lg shadow-red-500/30'
-                    : 'bg-red-500/80 text-white shadow-lg shadow-red-500/30' // Frozen past urgent
-                  : 'bg-white/25 text-white'
+                ? animateUrgent
+                  ? 'bg-red-500/80 text-white animate-pulse shadow-lg shadow-red-500/30'
+                  : 'bg-red-500/80 text-white shadow-lg shadow-red-500/30' // Frozen past urgent
+                : 'bg-white/25 text-white'
                 }`}
             >
               <Timer className="h-3 w-3" /> {counterDays}j

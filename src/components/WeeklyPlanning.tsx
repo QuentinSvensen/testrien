@@ -1638,7 +1638,7 @@ export function WeeklyPlanning() {
                   <div className="bg-black/20 rounded-xl p-3 mt-1">
                     <p className="text-xs font-semibold text-white/60 mb-1 uppercase tracking-wide">Ingrédients</p>
                     <div className="text-sm text-white/90 space-y-0.5">
-                      {renderIngredientDisplayPlanning(displayIngredients, undefined, undefined, stockMap).map((el, i) => (
+                      {renderIngredientDisplayPlanning(displayIngredients, undefined, undefined, stockMap, true).map((el, i) => (
                         <p key={i}>{el}</p>
                       ))}
                     </div>
@@ -1719,6 +1719,7 @@ function renderIngredientDisplayPlanning(
   expiredIngredientNames?: Set<string>,
   expiringSoonIngredientNames?: Set<string>,
   stockMap?: Map<string, StockInfo>,
+  noStrikeThrough?: boolean,
 ) {
   // Split raw ingredients first, filter out negative-metric groups, then clean for display
   const rawGroups = ingredients.split(/[,\n]+/).map(s => s.trim()).filter(Boolean);
@@ -1748,7 +1749,7 @@ function renderIngredientDisplayPlanning(
       const altElements = alternatives.map((alt, ai) => {
         const available = isAvailable(alt);
         return (
-          <span key={ai} className={available ? '' : 'line-through opacity-40'}>
+          <span key={ai} className={available ? '' : (noStrikeThrough ? 'opacity-40' : 'line-through opacity-40')}>
             {alt}{ai < alternatives.length - 1 ? <span className="opacity-60"> ou </span> : ''}
           </span>
         );
