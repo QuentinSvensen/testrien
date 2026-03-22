@@ -79,8 +79,13 @@ function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, 
 
   if (!dayKey) return Math.max(0, baseDays);
 
-  const targetDate = getDateForDayKey(dayKey);
-  const dayOffset = differenceInCalendarDays(targetDate, startOfDay(new Date()));
+  // We use the day the card was "created" (moved to Possible) as the reference for planning offset.
+  // This ensures the counter stays stable as days pass.
+  const refBase = startOfDay(created);
+  const createdDow = refBase.getDay(); // 0=Sun
+  const createdIdx = createdDow === 0 ? 6 : createdDow - 1; // Mon=0
+  const targetIdx = DAY_KEY_TO_INDEX[dayKey] ?? 0;
+  const dayOffset = targetIdx - createdIdx;
 
   return Math.max(0, baseDays + dayOffset);
 }

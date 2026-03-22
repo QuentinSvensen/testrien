@@ -596,11 +596,25 @@ export function useMeals(options?: { enabled?: boolean }) {
 
   const sortByExpiration = (items: PossibleMeal[]) =>
     [...items].sort((a, b) => {
-      // Freeze counter at created_at time (not Date.now()) so it doesn't increase day by day
-      const aRef = a.created_at ? new Date(a.created_at).getTime() : Date.now();
-      const bRef = b.created_at ? new Date(b.created_at).getTime() : Date.now();
-      const aCounter = a.counter_start_date ? Math.floor((aRef - new Date(a.counter_start_date).getTime()) / 86400000) : null;
-      const bCounter = b.counter_start_date ? Math.floor((bRef - new Date(b.counter_start_date).getTime()) / 86400000) : null;
+      const getStableCounter = (pm: PossibleMeal) => {
+        if (!pm.counter_start_date) return null;
+        const start = new Date(pm.counter_start_date).getTime();
+        const created = pm.created_at ? new Date(pm.created_at) : new Date();
+        const ref = start > created.getTime() ? Date.now() : created.getTime();
+        const baseDays = Math.floor((ref - start) / 86400000);
+
+        if (!pm.day_of_week) return baseDays;
+
+        const createdDow = created.getDay();
+        const createdIdx = createdDow === 0 ? 6 : createdDow - 1;
+        const targetIdx = DAY_INDEX[pm.day_of_week] ?? 0;
+        const dayOffset = targetIdx - createdIdx;
+
+        return Math.max(0, baseDays + dayOffset);
+      };
+
+      const aCounter = getStableCounter(a);
+      const bCounter = getStableCounter(b);
       const aHasDate = !!a.expiration_date;
       const bHasDate = !!b.expiration_date;
       const aHasCounter = aCounter !== null;
