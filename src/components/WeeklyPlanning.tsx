@@ -5,7 +5,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein, getCardDisplayCalories } from "@/hooks/useCalorieBalance";
 import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer, Sparkles, Zap } from "lucide-react";
-import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, hasNegativeMetric, getMealColor } from "@/lib/ingredientUtils";
+import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, hasNegativeMetric, getMealColor, getAdaptedCounterDays } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
@@ -148,23 +148,6 @@ function getCounterDays(startDate: string | null): number | null {
   return differenceInCalendarDays(new Date(), parseISO(startDate));
 }
 
-/** Counter days adapted: adds offset based on the difference between target day and today */
-function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
-  if (!startDate) return null;
-  const start = parseISO(startDate);
-  const created = createdAt ? parseISO(createdAt) : new Date();
-
-  // If counter started after card was created, use real time (don't "stabilize")
-  const refDate = start > created ? new Date() : created;
-  const baseDays = differenceInCalendarDays(refDate, start);
-
-  if (!dayKey) return baseDays;
-  const targetDate = getDateForDayKey(dayKey);
-  const today = new Date();
-  today.setHours(0, 0, 0, 0);
-  const dayOffset = differenceInCalendarDays(targetDate, today);
-  return Math.max(0, baseDays + dayOffset);
-}
 
 function isExpiredDate(d: string | null) {
   if (!d) return false;

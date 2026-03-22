@@ -6,9 +6,13 @@
 import type { FoodItem } from "@/components/FoodItems";
 import { colorFromName } from "./foodColors";
 
-import { differenceInCalendarDays, parseISO } from "date-fns";
+import { differenceInCalendarDays, parseISO, startOfDay } from "date-fns";
 
 // ─── Counter Utility ────────────────────────────────────────────────────────
+
+export const DAY_KEY_TO_INDEX: Record<string, number> = {
+  lundi: 0, mardi: 1, mercredi: 2, jeudi: 3, vendredi: 4, samedi: 5, dimanche: 6,
+};
 
 /** Compute counter days from counter_start_date. Returns null if no counter or if counter is in the future (scheduled). */
 export function computeCounterDays(counterStartDate: string | null | undefined): number | null {
@@ -17,6 +21,37 @@ export function computeCounterDays(counterStartDate: string | null | undefined):
   const now = new Date();
   const days = differenceInCalendarDays(now, start);
   return days < 0 ? null : days;
+}
+
+/** Get a stable Date for a given day Key relative to a reference Date (e.g. card creation date) */
+export function getDateForDayKey(dayKey: string, ref: Date): Date {
+  const d = startOfDay(ref);
+  const refDow = d.getDay(); // 0=Sun
+  const refIdx = refDow === 0 ? 6 : refDow - 1; // 0=Mon
+  const targetIdx = DAY_KEY_TO_INDEX[dayKey] ?? 0;
+  const diff = targetIdx - refIdx;
+  const target = new Date(d);
+  target.setDate(d.getDate() + diff);
+  return target;
+}
+
+/** 
+ * Calculate aging counter (days since start) adapted for planning stability.
+ * Anchors the counter to the creation day and target day to ensure it never changes "tout seul".
+ */
+export function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
+  if (!startDate) return null;
+  const start = parseISO(startDate);
+  const created = createdAt ? parseISO(createdAt) : new Date();
+
+  if (!dayKey) {
+    // For unplanned meals, show age on the day it was moved to Possible.
+    return Math.max(0, differenceInCalendarDays(created, start));
+  }
+
+  // For planned meals, show age on the planned day of the week it was moved (Stable Consumption Age)
+  const targetDate = getDateForDayKey(dayKey, created);
+  return Math.max(0, differenceInCalendarDays(targetDate, start));
 }
 
 // ─── Text Normalization (with LRU cache) ────────────────────────────────────

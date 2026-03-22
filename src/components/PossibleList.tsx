@@ -10,6 +10,7 @@ import type { StockInfo } from "@/lib/stockUtils";
 import type { FoodItem } from "@/components/FoodItems";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { format, parseISO, differenceInCalendarDays } from "date-fns";
+import { getAdaptedCounterDays } from "@/lib/ingredientUtils";
 import { fr } from "date-fns/locale";
 
 const DAY_LABELS_FULL: Record<string, string> = {
@@ -140,20 +141,13 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
   const sortLabel = sortMode === "manual" ? "Manuel" : sortMode === "expiration" ? "Péremption" : "Planning";
   const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "planning" ? CalendarClock : ArrowUpDown;
 
-  const getCounterDays = (startDate: string | null, pm?: PossibleMeal): number | null => {
-    if (!startDate) return null;
-    const start = parseISO(startDate);
-    const created = pm?.created_at ? parseISO(pm.created_at) : new Date();
-    const refDate = start > created ? new Date() : created;
-    return differenceInCalendarDays(refDate, start);
-  };
 
   const displayItems = useMemo(() => {
     if (sortMode !== "expiration") return items;
 
     return [...items].sort((a, b) => {
-      const aCounter = getCounterDays(a.counter_start_date, a);
-      const bCounter = getCounterDays(b.counter_start_date, b);
+      const aCounter = getAdaptedCounterDays(a.counter_start_date, null, a.created_at);
+      const bCounter = getAdaptedCounterDays(b.counter_start_date, null, b.created_at);
       // Only re-sort items with same non-null, non-zero counter
       if (aCounter === null || bCounter === null || aCounter !== bCounter) return 0;
 
@@ -242,14 +236,7 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
             const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
 
             // Compute counter days
-            let counterDays: number | null = null;
-            if (popupPm.counter_start_date) {
-              const start = parseISO(popupPm.counter_start_date);
-              const created = popupPm.created_at ? parseISO(popupPm.created_at) : new Date();
-              const refDate = start > created ? new Date() : created;
-              counterDays = differenceInCalendarDays(refDate, start);
-              if (counterDays < 0) counterDays = null;
-            }
+            const counterDays = getAdaptedCounterDays(popupPm.counter_start_date, popupPm.day_of_week, popupPm.created_at);
 
             const expired = popupPm.expiration_date && new Date(popupPm.expiration_date) < new Date();
 

@@ -11,12 +11,12 @@ import {
 } from "@/components/ui/dropdown-menu";
 import type { PossibleMeal } from "@/hooks/useMeals";
 import { DAYS, TIMES } from "@/hooks/useMeals";
-import { format, parseISO, differenceInCalendarDays, startOfDay } from "date-fns";
+import { format, parseISO } from "date-fns";
 import {
   type IngLine, parseIngredientLineDisplay, formatQtyDisplay,
   parseIngredientsToLines, serializeIngredients, computeIngredientCalories,
   computeIngredientProtein, cleanIngredientText, normalizeKey,
-  hasNegativeMetric, getMealColor
+  hasNegativeMetric, getMealColor, getAdaptedCounterDays, getDateForDayKey
 } from "@/lib/ingredientUtils";
 import { scaleIngredientStringExact, findStockKey } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
@@ -53,42 +53,6 @@ const DAY_LABELS: Record<string, string> = {
   lundi: 'Lun', mardi: 'Mar', mercredi: 'Mer', jeudi: 'Jeu',
   vendredi: 'Ven', samedi: 'Sam', dimanche: 'Dim',
 };
-
-const DAY_KEY_TO_INDEX: Record<string, number> = {
-  lundi: 0, mardi: 1, mercredi: 2, jeudi: 3, vendredi: 4, samedi: 5, dimanche: 6,
-};
-
-function getDateForDayKey(dayKey: string): Date {
-  const today = startOfDay(new Date());
-  const todayDow = today.getDay(); // 0=Sun
-  const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Mon
-  const targetIdx = DAY_KEY_TO_INDEX[dayKey] ?? 0;
-  const diff = targetIdx - todayIdx;
-  const d = new Date(today);
-  d.setDate(d.getDate() + diff);
-  return d;
-}
-
-function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
-  if (!startDate) return null;
-  const start = parseISO(startDate);
-  const created = createdAt ? parseISO(createdAt) : new Date();
-
-  const refDate = start > created ? new Date() : created;
-  const baseDays = differenceInCalendarDays(refDate, start);
-
-  if (!dayKey) return Math.max(0, baseDays);
-
-  // We use the day the card was "created" (moved to Possible) as the reference for planning offset.
-  // This ensures the counter stays stable as days pass.
-  const refBase = startOfDay(created);
-  const createdDow = refBase.getDay(); // 0=Sun
-  const createdIdx = createdDow === 0 ? 6 : createdDow - 1; // Mon=0
-  const targetIdx = DAY_KEY_TO_INDEX[dayKey] ?? 0;
-  const dayOffset = targetIdx - createdIdx;
-
-  return Math.max(0, baseDays + dayOffset);
-}
 
 // Ingredient parsing utilities imported from @/lib/ingredientUtils
 
