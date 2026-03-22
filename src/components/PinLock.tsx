@@ -1,14 +1,52 @@
-import { useState, forwardRef } from "react";
+import { useState, forwardRef, useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Lock, Loader2 } from "lucide-react";
+import { Lock, Loader2, RefreshCw } from "lucide-react";
 
 export const PinLock = forwardRef<HTMLDivElement, { onUnlock: () => void }>(function PinLock({ onUnlock }, _ref) {
   const [pin, setPin] = useState("");
   const [error, setError] = useState(false);
   const [errorMsg, setErrorMsg] = useState("Code incorrect");
   const [loading, setLoading] = useState(false);
+  const [checkingUpdate, setCheckingUpdate] = useState(false);
+
+  useEffect(() => {
+    if (!("serviceWorker" in navigator) || !navigator.serviceWorker) return;
+
+    // Force check for app update whenever PIN page appears
+    const checkForUpdate = async () => {
+      setCheckingUpdate(true);
+      try {
+        // 1. Ask SW to check for updates in background
+        const reg = await navigator.serviceWorker.getRegistration();
+        if (reg) await reg.update();
+
+        // 2. Active version check: bypass SW cache for manifest.json
+        const [remote, local] = await Promise.all([
+          fetch("/manifest.json", { cache: "no-store" }).then(r => r.json()).catch(() => null),
+          fetch("/manifest.json").then(r => r.json()).catch(() => null)
+        ]);
+
+        if (remote?.version && local?.version && remote.version !== local.version) {
+          console.log("New version detected:", remote.version, "vs local:", local.version);
+          window.location.reload();
+          return;
+        }
+      } catch (err) {
+        console.warn("Update check failed:", err);
+      } finally {
+        setCheckingUpdate(false);
+      }
+    };
+
+    checkForUpdate();
+
+    // Fast-reload if a new Service Worker activates while we are on this page
+    const handleControllerChange = () => window.location.reload();
+    navigator.serviceWorker.addEventListener("controllerchange", handleControllerChange);
+    return () => navigator.serviceWorker.removeEventListener("controllerchange", handleControllerChange);
+  }, []);
 
   const showError = (msg = "Code incorrect") => {
     setErrorMsg(msg);
@@ -69,9 +107,16 @@ export const PinLock = forwardRef<HTMLDivElement, { onUnlock: () => void }>(func
           autoFocus
           disabled={loading}
         />
-        <Button onClick={handleSubmit} disabled={pin.length !== 4 || loading} className="w-32 rounded-xl">
-          {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrer"}
-        </Button>
+        <div className="flex flex-col items-center gap-2">
+          <Button onClick={handleSubmit} disabled={pin.length !== 4 || loading} className="w-32 rounded-xl">
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : "Entrer"}
+          </Button>
+          {checkingUpdate && (
+            <div className="flex items-center gap-1.5 text-[10px] text-muted-foreground animate-pulse">
+              <RefreshCw className="h-3 w-3 animate-spin" /> Vérification de version...
+            </div>
+          )}
+        </div>
       </div>
     </div>
   );

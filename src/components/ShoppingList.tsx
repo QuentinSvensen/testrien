@@ -685,29 +685,35 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
         />
       </div>
       {/* Ungrouped items */}
-      <div
-        draggable
-        className={`bg-card/80 backdrop-blur-sm rounded-2xl p-3 cursor-grab active:cursor-grabbing ${dragOverKey === 'ungrouped' ? 'ring-2 ring-primary/60' : ''}`}
-        onDragStart={(e) => { dragPayload.current = { kind: "group", id: "__ungrouped" }; e.dataTransfer.effectAllowed = "move"; }}
-        onDragOver={(e) => { e.preventDefault(); setDragOverKey('ungrouped'); }}
-        onDragLeave={() => setDragOverKey(null)}
-        onDrop={(e) => handleDropOnGroup(e, null)}
-      >
-        <button onClick={() => toggleCollapse("__ungrouped")} className="flex items-center gap-2 w-full text-left mb-1.5">
-          {collapsedGroups.has("__ungrouped") ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
-          <h3 className="text-xs font-extrabold text-foreground/60 uppercase tracking-widest">Articles</h3>
-          <span className="text-[10px] font-bold text-foreground bg-foreground/10 rounded-full px-2 py-0.5 shrink-0">{ungroupedItems.filter(matchesSearch).length}</span>
-        </button>
-        {collapsedGroups.has("__ungrouped")
-          ? ungroupedItems.filter(matchesSearch).filter(i => i.checked).map(renderItem)
-          : ungroupedItems.filter(matchesSearch).map(renderItem)
-        }
-        {!collapsedGroups.has("__ungrouped") && renderAddInput(null)}
-      </div>
+      {(!searchQuery.trim() || ungroupedItems.some(matchesSearch)) && (
+        <div
+          draggable
+          className={`bg-card/80 backdrop-blur-sm rounded-2xl p-3 cursor-grab active:cursor-grabbing ${dragOverKey === 'ungrouped' ? 'ring-2 ring-primary/60' : ''}`}
+          onDragStart={(e) => { dragPayload.current = { kind: "group", id: "__ungrouped" }; e.dataTransfer.effectAllowed = "move"; }}
+          onDragOver={(e) => { e.preventDefault(); setDragOverKey('ungrouped'); }}
+          onDragLeave={() => setDragOverKey(null)}
+          onDrop={(e) => handleDropOnGroup(e, null)}
+        >
+          <button onClick={() => toggleCollapse("__ungrouped")} className="flex items-center gap-2 w-full text-left mb-1.5">
+            {collapsedGroups.has("__ungrouped") ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+            <h3 className="text-xs font-extrabold text-foreground/60 uppercase tracking-widest">Articles</h3>
+            <span className="text-[10px] font-bold text-foreground bg-foreground/10 rounded-full px-2 py-0.5 shrink-0">{ungroupedItems.filter(matchesSearch).length}</span>
+          </button>
+          {collapsedGroups.has("__ungrouped")
+            ? ungroupedItems.filter(matchesSearch).filter(i => i.checked).map(renderItem)
+            : ungroupedItems.filter(matchesSearch).map(renderItem)
+          }
+          {!collapsedGroups.has("__ungrouped") && renderAddInput(null)}
+        </div>
+      )}
 
       {/* Groups */}
       {groups.map((group) => {
         const groupItems = getItemsByGroup(group.id).filter(matchesSearch);
+        const groupMatchesName = searchQuery.trim() && normalizeSearch(group.name).includes(normalizeSearch(searchQuery));
+        
+        if (searchQuery.trim() && !groupMatchesName && groupItems.length === 0) return null;
+
         const isCollapsed = collapsedGroups.has(group.id);
         const isGroupOver = dragOverKey === `group:${group.id}`;
         return (
