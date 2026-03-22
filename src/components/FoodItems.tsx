@@ -11,7 +11,7 @@ import { fr } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { colorFromName } from "@/lib/foodColors";
+import { colorFromName, computeCounterDays } from "@/lib/ingredientUtils";
 
 export { colorFromName };
 
@@ -44,12 +44,7 @@ export interface FoodItem {
 
 // colorFromName is now imported and re-exported above
 
-function getCounterDays(startDate: string | null): number | null {
-  if (!startDate) return null;
-  const days = Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
-  // Hide counter if it's negative or zero (future/today start date)
-  return days >= 1 ? days : null;
-}
+// getCounterDays is now imported from ingredientUtils.ts
 
 function formatNumeric(n: number): string {
   const rounded = Math.round(n * 10) / 10;
@@ -234,7 +229,7 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
     const today = new Date();
     return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   })() : false;
-  const counterDays = getCounterDays(item.counter_start_date);
+  const counterDays = computeCounterDays(item.counter_start_date);
   const counterUrgent = counterDays !== null && counterDays >= 3;
   const gramsData = parseStoredGrams(item.grams);
   const displayDefaultGrams = gramsData.unit !== null ? `${formatNumeric(gramsData.unit)}g` : item.grams;
@@ -682,8 +677,8 @@ export function FoodItems() {
 
         const aExpired = isExpiredDate(a.expiration_date);
         const bExpired = isExpiredDate(b.expiration_date);
-        const aCounter = getCounterDays(a.counter_start_date);
-        const bCounter = getCounterDays(b.counter_start_date);
+        const aCounter = computeCounterDays(a.counter_start_date);
+        const bCounter = computeCounterDays(b.counter_start_date);
 
         const parseCal = (fi: FoodItem): number => {
           if (!fi.calories) return 0;

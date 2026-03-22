@@ -5,6 +5,7 @@
 
 import type { FoodItem } from "@/components/FoodItems";
 import { colorFromName } from "./foodColors";
+export { colorFromName };
 
 import { differenceInCalendarDays, parseISO, startOfDay } from "date-fns";
 
@@ -20,7 +21,7 @@ export function computeCounterDays(counterStartDate: string | null | undefined):
   const start = parseISO(counterStartDate);
   const now = new Date();
   const days = differenceInCalendarDays(now, start);
-  return days < 0 ? null : days;
+  return days < 1 ? null : days;
 }
 
 /** Get a stable Date for a given day Key relative to a reference Date (e.g. card creation date) */
@@ -43,15 +44,16 @@ export function getAdaptedCounterDays(startDate: string | null, dayKey: string |
   if (!startDate) return null;
   const start = parseISO(startDate);
   const created = createdAt ? parseISO(createdAt) : new Date();
-
   if (!dayKey) {
     // For unplanned meals, show age on the day it was moved to Possible.
-    return Math.max(0, differenceInCalendarDays(created, start));
+    const days = differenceInCalendarDays(created, start);
+    return days < 1 ? null : days;
   }
 
   // For planned meals, show age on the planned day of the week it was moved (Stable Consumption Age)
   const targetDate = getDateForDayKey(dayKey, created);
-  return Math.max(0, differenceInCalendarDays(targetDate, start));
+  const days = differenceInCalendarDays(targetDate, start);
+  return days < 1 ? null : days;
 }
 
 // ─── Text Normalization (with LRU cache) ────────────────────────────────────
