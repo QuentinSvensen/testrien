@@ -58,7 +58,7 @@ export function useMeals(options?: { enabled?: boolean }) {
 
   // Optimistic helpers for possible_meals
   const withPMOptimistic = (field: string) => ({
-    onMutate: async (vars: { id: string; [key: string]: any }) => {
+    onMutate: async (vars: { id: string;[key: string]: any }) => {
       await qc.cancelQueries({ queryKey: ["possible_meals"] });
       const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
       qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
@@ -82,7 +82,7 @@ export function useMeals(options?: { enabled?: boolean }) {
   };
 
   const withMealOptimistic = (field: string) => ({
-    onMutate: async (vars: { id: string; [key: string]: any }) => {
+    onMutate: async (vars: { id: string;[key: string]: any }) => {
       await qc.cancelQueries({ queryKey: ["meals"] });
       await qc.cancelQueries({ queryKey: ["possible_meals"] });
       const prevMeals = qc.getQueryData<Meal[]>(["meals"]);
@@ -361,7 +361,7 @@ export function useMeals(options?: { enabled?: boolean }) {
           meal_time: pm.meal_time,
         });
       }
-      
+
       if (copiesToInsert.length > 0) {
         const { error: insertError } = await supabase
           .from("possible_meals")

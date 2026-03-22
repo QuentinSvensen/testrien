@@ -110,13 +110,12 @@ const DAY_KEY_TO_INDEX: Record<string, number> = {
 };
 
 /** Get the date for a given day key in the current week (Mon-Sun) */
-function getDateForDayKey(dayKey: string): Date {
-  const today = new Date();
-  const todayDow = today.getDay(); // 0=Sun
+function getDateForDayKey(dayKey: string, refDate: Date = new Date()): Date {
+  const todayDow = refDate.getDay(); // 0=Sun
   const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Mon
   const targetIdx = DAY_KEY_TO_INDEX[dayKey] ?? 0;
   const diff = targetIdx - todayIdx;
-  const d = new Date(today);
+  const d = new Date(refDate);
   d.setDate(d.getDate() + diff);
   d.setHours(0, 0, 0, 0);
   return d;
@@ -1285,6 +1284,12 @@ export function WeeklyPlanning() {
                       setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                       setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                     }}
+                    onDoubleClick={() => {
+                      const snapKey = `breakfast-${day}`;
+                      const updated = { ...savedSnapshots };
+                      delete updated[snapKey];
+                      setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
+                    }}
                     className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${flashedKeys[`breakfast-${day}`]
                       ? 'bg-green-500/30 text-green-400 border border-green-400/50'
                       : savedSnapshots[`breakfast-${day}`]
@@ -1293,9 +1298,9 @@ export function WeeklyPlanning() {
                       }`}
                     title={(() => {
                       const snap = savedSnapshots[`breakfast-${day}`] as any;
-                      if (!snap) return 'Sauvegarder les valeurs pour le reset';
-                      if (snap.name) return `Sauvegardé: ${snap.name}`;
-                      return `Sauvegardé: ${snap.cal || 0} kcal / ${snap.prot || 0} prot`;
+                      if (!snap) return 'Sauvegarder les valeurs pour le reset (Double-clic pour oublier)';
+                      if (snap.name) return `Sauvegardé: ${snap.name} (Double-clic pour oublier)`;
+                      return `Sauvegardé: ${snap.cal || 0} kcal / ${snap.prot || 0} prot (Double-clic pour oublier)`;
                     })()}
                   >💾</button>
                 )}
@@ -1486,13 +1491,19 @@ export function WeeklyPlanning() {
                                 setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                                 setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                               }}
+                              onDoubleClick={() => {
+                                const snapKey = `manual-${day}-${time}`;
+                                const updated = { ...savedSnapshots };
+                                delete updated[snapKey];
+                                setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
+                              }}
                               className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${flashedKeys[`manual-${day}-${time}`]
                                 ? 'bg-green-500/30 text-green-400 border border-green-400/50'
                                 : savedSnapshots[`manual-${day}-${time}`]
                                   ? 'bg-primary/20 text-primary border border-primary/40'
                                   : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
                                 }`}
-                              title={savedSnapshots[`manual-${day}-${time}`] ? `Sauvegardé: ${savedSnapshots[`manual-${day}-${time}`].cal || 0} kcal / ${savedSnapshots[`manual-${day}-${time}`].prot || 0} prot` : 'Sauvegarder les valeurs pour le reset'}
+                              title={savedSnapshots[`manual-${day}-${time}`] ? `Sauvegardé: ${savedSnapshots[`manual-${day}-${time}`].cal || 0} kcal / ${savedSnapshots[`manual-${day}-${time}`].prot || 0} prot (Double-clic pour oublier)` : 'Sauvegarder les valeurs pour le reset (Double-clic pour oublier)'}
                             >💾</button>
                           </div>
                         </div>
@@ -1590,13 +1601,19 @@ export function WeeklyPlanning() {
                         setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                         setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
                       }}
+                      onDoubleClick={() => {
+                        const snapKey = `extra-${day}`;
+                        const updated = { ...savedSnapshots };
+                        delete updated[snapKey];
+                        setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
+                      }}
                       className={`h-5 w-5 text-[9px] rounded font-semibold shrink-0 transition-colors flex items-center justify-center ${flashedKeys[`extra-${day}`]
                         ? 'bg-green-500/30 text-green-400 border border-green-400/50'
                         : savedSnapshots[`extra-${day}`]
                           ? 'bg-primary/20 text-primary border border-primary/40'
                           : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
                         }`}
-                      title={savedSnapshots[`extra-${day}`] ? `Sauvegardé: ${savedSnapshots[`extra-${day}`].cal || 0} kcal / ${savedSnapshots[`extra-${day}`].prot || 0} prot` : 'Sauvegarder les valeurs pour le reset'}
+                      title={savedSnapshots[`extra-${day}`] ? `Sauvegardé: ${savedSnapshots[`extra-${day}`].cal || 0} kcal / ${savedSnapshots[`extra-${day}`].prot || 0} prot (Double-clic pour oublier)` : 'Sauvegarder les valeurs pour le reset (Double-clic pour oublier)'}
                     >💾</button>
                   </div>
                 </div>

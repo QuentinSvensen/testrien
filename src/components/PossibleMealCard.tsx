@@ -16,7 +16,8 @@ import {
   type IngLine, parseIngredientLineDisplay, formatQtyDisplay,
   parseIngredientsToLines, serializeIngredients, computeIngredientCalories,
   computeIngredientProtein, cleanIngredientText, normalizeKey,
-  hasNegativeMetric, getMealColor, getAdaptedCounterDays, getDateForDayKey
+  hasNegativeMetric, getMealColor, getAdaptedCounterDays, getDateForDayKey,
+  extractMetrics, parseIngredientLineRaw
 } from "@/lib/ingredientUtils";
 import { scaleIngredientStringExact, findStockKey } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
@@ -98,46 +99,57 @@ export function PossibleMealCard({
         const baseGrams = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, '').replace(',', '.')) || 0;
         return baseGrams > 0 ? `${baseGrams}g ${meal.name}` : `1 ${meal.name}`;
       })();
-    const origGroups = baseIngStr.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
-    const overGroups = pm.ingredients_override.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
-    if (origGroups.length === 0) return null;
+    const parseToMap = (str: string) => {
+      const map = new Map<string, { qty: number; count: number }>();
+      str.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean).forEach(group => {
+        const alt = group.split(/\|/)[0].trim();
+        const isOptional = alt.startsWith("?");
+        const cleanAlt = isOptional ? alt.slice(1).trim() : alt;
+        
+        // Use normalized key for matching
+        const { text: withoutMetrics } = extractMetrics(cleanAlt);
+        const parsed = parseIngredientLineRaw(withoutMetrics);
+        if (!parsed.name) return;
+        const key = normalizeKey(parsed.name);
+        
+        // Only keep the first encounter (or could sum, but usually one line per ingredient)
+        if (!map.has(key)) {
+          map.set(key, { qty: parsed.qty, count: parsed.count });
+        }
+      });
+      return map;
+    };
+
+    const baseMap = parseToMap(baseIngStr);
+    const overMap = parseToMap(pm.ingredients_override);
+    
+    if (baseMap.size === 0 || overMap.size === 0) return null;
+    
     let detectedRatios: number[] = [];
-    let comparedCount = 0;
-    for (let i = 0; i < Math.min(origGroups.length, overGroups.length); i++) {
-      const origAlt = origGroups[i].split(/\|/)[0].trim();
-      const overAlt = overGroups[i].split(/\|/)[0].trim();
-      if (origAlt.startsWith("?")) continue;
-      const origMatch = origAlt.match(/^(\d+(?:[.,]\d+)?)\s*(?:g|gr|grammes?|kg|ml|cl|l)\s/i);
-      const overMatch = overAlt.match(/^(\d+(?:[.,]\d+)?)\s*(?:g|gr|grammes?|kg|ml|cl|l)\s/i);
-      if (origMatch && overMatch) {
-        const origQty = parseFloat(origMatch[1].replace(",", "."));
-        const overQty = parseFloat(overMatch[1].replace(",", "."));
-        if (origQty > 0 && overQty > 0) {
-          detectedRatios.push(overQty / origQty);
-          comparedCount++;
-          continue;
-        }
+    let commonCount = 0;
+    
+    for (const [key, baseVal] of baseMap.entries()) {
+      const overVal = overMap.get(key);
+      if (!overVal) continue;
+      
+      commonCount++;
+      if (baseVal.qty > 0 && overVal.qty > 0) {
+        detectedRatios.push(overVal.qty / baseVal.qty);
+      } else if (baseVal.count > 0 && overVal.count > 0) {
+        detectedRatios.push(overVal.count / baseVal.count);
+      } else {
+        detectedRatios.push(1);
       }
-      const origCountMatch = origAlt.match(/^(\d+(?:[.,]\d+)?)\s+\S/);
-      const overCountMatch = overAlt.match(/^(\d+(?:[.,]\d+)?)\s+\S/);
-      if (origCountMatch && overCountMatch && !origMatch && !overMatch) {
-        const origCount = parseFloat(origCountMatch[1].replace(",", "."));
-        const overCount = parseFloat(overCountMatch[1].replace(",", "."));
-        if (origCount > 0 && overCount > 0) {
-          detectedRatios.push(overCount / origCount);
-          comparedCount++;
-          continue;
-        }
-      }
-      comparedCount++;
-      detectedRatios.push(1); // no quantity change for this ingredient
     }
+    
     if (detectedRatios.length === 0) return null;
-    // Check if all ratios are the same (within tolerance)
     const firstRatio = detectedRatios[0];
-    if (Math.abs(firstRatio - 1) <= 0.01) return null; // no scaling
-    const allSame = detectedRatios.every(r => Math.abs(r - firstRatio) / firstRatio < 0.05);
-    if (!allSame) return null; // manual edit, not uniform scaling
+    if (Math.abs(firstRatio - 1) <= 0.01) return null;
+    
+    const allSame = detectedRatios.every(r => Math.abs(r - firstRatio) / (firstRatio || 1) < 0.05);
+    if (!allSame) return null;
+    if (commonCount < Math.min(baseMap.size, overMap.size) * 0.5) return null;
+
     return firstRatio;
   };
   const detectedRatio = detectScaleRatio();
