@@ -20,7 +20,7 @@ export function computeCounterDays(counterStartDate: string | null | undefined):
   if (!counterStartDate) return null;
   const start = parseISO(counterStartDate);
   const now = new Date();
-  const days = differenceInCalendarDays(now, start);
+  const days = Math.floor((now.getTime() - start.getTime()) / 86400000);
   return days < 1 ? null : days;
 }
 
@@ -46,13 +46,13 @@ export function getAdaptedCounterDays(startDate: string | null, dayKey: string |
   const created = createdAt ? parseISO(createdAt) : new Date();
   if (!dayKey) {
     // For unplanned meals, show age on the day it was moved to Possible.
-    const days = differenceInCalendarDays(created, start);
+    const days = Math.floor((created.getTime() - start.getTime()) / 86400000);
     return days < 1 ? null : days;
   }
 
   // For planned meals, show age on the planned day of the week it was moved (Stable Consumption Age)
   const targetDate = getDateForDayKey(dayKey, created);
-  const days = differenceInCalendarDays(targetDate, start);
+  const days = Math.floor((targetDate.getTime() - start.getTime()) / 86400000);
   return days < 1 ? null : days;
 }
 
