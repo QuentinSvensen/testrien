@@ -220,7 +220,8 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
               setDragIndex(null);
             }}
             onDoubleClick={() => setPopupPm(pm)}
-            isHighlighted={highlightedId === pm.id} />
+            isHighlighted={highlightedId === pm.id}
+            realtimeCounterStartDate={analysis.earliestCounterDate} />
         );
       })}
 
@@ -235,8 +236,9 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
             const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
             const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
 
-            // Compute counter days
-            const counterDays = getAdaptedCounterDays(popupPm.counter_start_date, popupPm.day_of_week, popupPm.created_at);
+            const analysis = analyzeMealIngredients({ ingredients: displayIngredients }, foodItems);
+            const effectiveStart = analysis.earliestCounterDate || popupPm.counter_start_date;
+            const counterDays = getAdaptedCounterDays(effectiveStart, popupPm.day_of_week, popupPm.created_at);
 
             const expired = popupPm.expiration_date && new Date(popupPm.expiration_date) < new Date();
 

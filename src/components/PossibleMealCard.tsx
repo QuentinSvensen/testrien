@@ -47,6 +47,7 @@ interface PossibleMealCardProps {
   expiredIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
   onDoubleClick?: () => void;
+  realtimeCounterStartDate?: string | null;
 }
 
 const DAY_LABELS: Record<string, string> = {
@@ -61,7 +62,8 @@ export function PossibleMealCard({
   onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning,
   onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateQuantity,
   onUpdateIngredients, onUpdatePossibleIngredients, onDragStart, onDragOver,
-  onDrop, isHighlighted, expiredIngredientNames, expiringSoonIngredientNames, onSplitQuantity, onDoubleClick
+  onDrop, isHighlighted, expiredIngredientNames, expiringSoonIngredientNames, onSplitQuantity, onDoubleClick,
+  realtimeCounterStartDate
 }: PossibleMealCardProps) {
   const parseIngredientLine = parseIngredientLineDisplay;
   const formatQty = formatQtyDisplay;
@@ -146,14 +148,15 @@ export function PossibleMealCard({
     const today = new Date();
     return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   })() : false;
-  const counterDays = getAdaptedCounterDays(pm.counter_start_date, pm.day_of_week, pm.created_at);
+  const effectiveCounterStart = realtimeCounterStartDate !== undefined ? realtimeCounterStartDate : pm.counter_start_date;
+  const counterDays = getAdaptedCounterDays(effectiveCounterStart, pm.day_of_week, pm.created_at);
 
   // Stop blinking if the meal's day is in the past!
   let isPast = false;
   if (pm.day_of_week) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const target = getDateForDayKey(pm.day_of_week);
+    const target = getDateForDayKey(pm.day_of_week, parseISO(pm.created_at));
     isPast = target.getTime() < today.getTime();
   }
 

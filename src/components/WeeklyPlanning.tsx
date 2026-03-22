@@ -838,22 +838,19 @@ export function WeeklyPlanning() {
   const renderMiniCard = (pm: PossibleMeal, compact = false) => {
     const meal = pm.meals;
     if (!meal) return null;
-    const expired = isExpiredOnDay(pm.expiration_date, pm.day_of_week);
-    const counterDays = getAdaptedCounterDays(pm.counter_start_date, pm.day_of_week, pm.created_at);
-    const counterUrgent = counterDays !== null && counterDays >= 3;
-    let isPast = false;
-    if (pm.day_of_week) {
-      const targetDate = getDateForDayKey(pm.day_of_week);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      isPast = targetDate.getTime() < today.getTime();
-    }
-    const overrideCal = calOverrides[pm.id];
     const displayIngredients = pm.ingredients_override ?? meal.ingredients;
     const mealForAnalysis = { ...meal, ingredients: displayIngredients };
     const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
+
+    const effectiveStart = analysis.earliestCounterDate || pm.counter_start_date;
+    const counterDays = getAdaptedCounterDays(effectiveStart, pm.day_of_week, pm.created_at);
+    const counterUrgent = counterDays !== null && counterDays >= 3;
+
     const expiredIngs = analysis.expiredIngredientNames;
     const soonIngs = analysis.expiringSoonIngredientNames;
+
+    const overrideCal = calOverrides[pm.id];
+    const expired = isExpiredOnDay(pm.expiration_date, pm.day_of_week);
 
     const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
     const isComputedCal = !overrideCal && ingCal !== null;
@@ -894,7 +891,13 @@ export function WeeklyPlanning() {
         expiringSoonIngredientNames={soonIngs}
         counterDays={counterDays}
         counterUrgent={counterUrgent}
-        isPast={isPast}
+        isPast={(() => {
+          if (!pm.day_of_week) return false;
+          const target = getDateForDayKey(pm.day_of_week, parseISO(pm.created_at));
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          return target.getTime() < today.getTime();
+        })()}
         displayCal={displayCal}
         isComputedCal={isComputedCal}
         displayPro={displayPro}
