@@ -8,7 +8,7 @@ import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer, Sparkles, Zap 
 import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, hasNegativeMetric, getMealColor } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useFoodItems, type FoodItem } from "@/hooks/useFoodItems";
@@ -145,22 +145,24 @@ function getCategoryEmoji(cat?: string) {
 
 function getCounterDays(startDate: string | null): number | null {
   if (!startDate) return null;
-  return Math.floor((Date.now() - new Date(startDate).getTime()) / 86400000);
+  return differenceInCalendarDays(new Date(), parseISO(startDate));
 }
 
 /** Counter days adapted: adds offset based on the difference between target day and today */
 function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
   if (!startDate) return null;
-  const startTime = new Date(startDate).getTime();
-  const createdTime = createdAt ? new Date(createdAt).getTime() : Date.now();
-  // If counter started after card was created, don't freeze - use real time
-  const refTime = startTime > createdTime ? Date.now() : createdTime;
-  const baseDays = Math.max(0, Math.floor((refTime - startTime) / 86400000));
+  const start = parseISO(startDate);
+  const created = createdAt ? parseISO(createdAt) : new Date();
+
+  // If counter started after card was created, use real time (don't "stabilize")
+  const refDate = start > created ? new Date() : created;
+  const baseDays = differenceInCalendarDays(refDate, start);
+
   if (!dayKey) return baseDays;
   const targetDate = getDateForDayKey(dayKey);
   const today = new Date();
   today.setHours(0, 0, 0, 0);
-  const dayOffset = Math.round((targetDate.getTime() - today.getTime()) / 86400000);
+  const dayOffset = differenceInCalendarDays(targetDate, today);
   return Math.max(0, baseDays + dayOffset);
 }
 

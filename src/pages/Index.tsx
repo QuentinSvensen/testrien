@@ -774,20 +774,22 @@ const Index = () => {
                   onMoveToPossible={async (mealId) => {
                     const meal = meals.find(m => m.id === mealId);
                     if (meal) {
-                      const snapshots = await deductIngredientsFromStock(meal);
+                      const { snapshots, consumedIds } = await deductIngredientsFromStock(meal);
                       const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
                       if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
-                      const an = analyzeMealIngredients(meal, foodItems, foodItemIndex);
+                      
+                      const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
                       const result = await moveToPossible.mutateAsync({ mealId, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate });
                       if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
                     }
                   }}
                   onMovePartialToPossible={async (meal, ratio) => {
                     const partialMeal = buildScaledMealForRatio(meal, ratio, stockMap);
-                    const snapshots = await deductIngredientsFromStock(partialMeal);
-                    const an = analyzeMealIngredients(meal, foodItems, foodItemIndex);
+                    const { snapshots, consumedIds } = await deductIngredientsFromStock(partialMeal);
+                    
+                    const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
                     const result = await addMealToPossibleDirectly.mutateAsync({
-                      name: meal.name, category: cat.value, colorSeed: meal.id,
+                      name: meal.name, category: cat.value,
                       calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate,
                     });
                     if (result?.id) {
@@ -804,7 +806,7 @@ const Index = () => {
                       const baseIng = meal.ingredients ? meal.ingredients : (baseGrams > 0 ? `${baseGrams}g ${meal.name}` : null);
                       const scaledIng = baseIng ? scaleIngredientStringExact(baseIng, ratio) : null;
                       const result = await addMealToPossibleDirectly.mutateAsync({
-                        name: meal.name, category: cat.value, colorSeed: meal.id,
+                        name: meal.name, category: cat.value,
                         calories: meal.calories, protein: meal.protein, grams: meal.grams,
                         ingredients: baseIng,
                       });
@@ -826,7 +828,7 @@ const Index = () => {
                       else { await supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", fi.id); }
                       qc.invalidateQueries({ queryKey: ["food_items"] });
                     }
-                    const pmResult = await addMealToPossibleDirectly.mutateAsync({ name: fi.name, category: cat.value, colorSeed: fi.id, calories: fi.calories, protein: null, grams: fi.grams, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
+                    const pmResult = await addMealToPossibleDirectly.mutateAsync({ name: fi.name, category: cat.value, calories: fi.calories, protein: null, grams: fi.grams, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
                     if (pmResult?.id) updateSnapshots(prev => ({ ...prev, [pmResult.id]: snapshot }));
                   }}
                   onDeleteFoodItem={(id) => { deleteFoodItem(id); }}
@@ -880,7 +882,7 @@ const Index = () => {
                     // Use the overridden ingredients if present, deduct from stock
                     const ingredientsToDeduce = pm.ingredients_override ?? pm.meals.ingredients;
                     const mealForDeduction = { ...pm.meals, ingredients: ingredientsToDeduce };
-                    const snapshots = await deductIngredientsFromStock(mealForDeduction);
+                    const { snapshots } = await deductIngredientsFromStock(mealForDeduction);
                     // Create the duplicate and store snapshots under its new ID
                     const newId = await duplicatePossibleMeal.mutateAsync(id);
                     if (newId && snapshots.length > 0) {
@@ -1078,7 +1080,7 @@ const Index = () => {
                         const displayGrams = consumeGrams ? String(consumeGrams) : (fi.grams ? String(parseQty(fi.grams)) : null);
                         const displayQty = consumeQty ?? 1;
                         const pmResult = await addMealToPossibleDirectly.mutateAsync({
-                          name: fi.name, category: cat.value, colorSeed: fi.id, calories: fi.calories, protein: null, grams: displayGrams,
+                          name: fi.name, category: cat.value, calories: fi.calories, protein: null, grams: displayGrams,
                           expiration_date: fi.expiration_date, possible_quantity: displayQty,
                         });
                         if (pmResult?.id) {

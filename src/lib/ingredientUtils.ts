@@ -6,12 +6,16 @@
 import type { FoodItem } from "@/components/FoodItems";
 import { colorFromName } from "./foodColors";
 
+import { differenceInCalendarDays, parseISO } from "date-fns";
+
 // ─── Counter Utility ────────────────────────────────────────────────────────
 
 /** Compute counter days from counter_start_date. Returns null if no counter or if counter is in the future (scheduled). */
 export function computeCounterDays(counterStartDate: string | null | undefined): number | null {
   if (!counterStartDate) return null;
-  const days = Math.floor((Date.now() - new Date(counterStartDate).getTime()) / 86400000);
+  const start = parseISO(counterStartDate);
+  const now = new Date();
+  const days = differenceInCalendarDays(now, start);
   return days < 0 ? null : days;
 }
 

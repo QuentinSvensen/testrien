@@ -209,7 +209,8 @@ export interface MealAnalysis {
 export function analyzeMealIngredients(
   meal: Meal,
   foodItems: FoodItem[],
-  index?: FoodItemIndex
+  index?: FoodItemIndex,
+  skipIds?: Set<string>
 ): MealAnalysis {
   const result: MealAnalysis = {
     earliestExpiration: null,
@@ -238,6 +239,7 @@ export function analyzeMealIngredients(
   for (const group of groups) {
     for (const alt of group) {
       for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
+        if (skipIds?.has(fi.id)) continue;
         // Expiration analysis
         if (fi.expiration_date) {
           if (!result.earliestExpiration || fi.expiration_date < result.earliestExpiration) {

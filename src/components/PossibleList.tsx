@@ -9,7 +9,7 @@ import { buildStockMap, analyzeMealIngredients, getDisplayedPMCalories, findStoc
 import type { StockInfo } from "@/lib/stockUtils";
 import type { FoodItem } from "@/components/FoodItems";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
-import { format, parseISO } from "date-fns";
+import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { fr } from "date-fns/locale";
 
 const DAY_LABELS_FULL: Record<string, string> = {
@@ -142,8 +142,10 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
 
   const getCounterDays = (startDate: string | null, pm?: PossibleMeal): number | null => {
     if (!startDate) return null;
-    const refTime = pm?.created_at ? new Date(pm.created_at).getTime() : Date.now();
-    return Math.floor((refTime - new Date(startDate).getTime()) / 86400000);
+    const start = parseISO(startDate);
+    const created = pm?.created_at ? parseISO(pm.created_at) : new Date();
+    const refDate = start > created ? new Date() : created;
+    return differenceInCalendarDays(refDate, start);
   };
 
   const displayItems = useMemo(() => {
@@ -242,8 +244,10 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
             // Compute counter days
             let counterDays: number | null = null;
             if (popupPm.counter_start_date) {
-              const refTime = popupPm.created_at ? new Date(popupPm.created_at).getTime() : Date.now();
-              counterDays = Math.floor((refTime - new Date(popupPm.counter_start_date).getTime()) / 86400000);
+              const start = parseISO(popupPm.counter_start_date);
+              const created = popupPm.created_at ? parseISO(popupPm.created_at) : new Date();
+              const refDate = start > created ? new Date() : created;
+              counterDays = differenceInCalendarDays(refDate, start);
               if (counterDays < 0) counterDays = null;
             }
 

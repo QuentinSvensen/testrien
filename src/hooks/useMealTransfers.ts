@@ -50,9 +50,9 @@ export function useMealTransfers(foodItems: FoodItem[]) {
     }
   };
 
-  /** Deduct ingredients from stock when moving to Possible */
-  const deductIngredientsFromStock = async (meal: Meal): Promise<FoodItem[]> => {
-    if (!meal.ingredients?.trim()) return [];
+  /** Deduct ingredients from stock when moving to Possible. Returns snapshots of old state + IDs of items fully deleted. */
+  const deductIngredientsFromStock = async (meal: Meal): Promise<{ snapshots: FoodItem[]; consumedIds: string[] }> => {
+    if (!meal.ingredients?.trim()) return { snapshots: [], consumedIds: [] };
     const groups = parseIngredientGroups(meal.ingredients);
     const stockMap = buildStockMap(foodItems);
     const snapshotsById = new Map<string, FoodItem>();
@@ -131,7 +131,10 @@ export function useMealTransfers(foodItems: FoodItem[]) {
       ))
     );
     invalidateStock();
-    return Array.from(snapshotsById.values());
+    return {
+      snapshots: Array.from(snapshotsById.values()),
+      consumedIds: Array.from(updatesById.values()).filter(u => u.delete).map(u => u.id)
+    };
   };
 
   /** Restore ingredients to stock (from snapshots or by re-adding) */
