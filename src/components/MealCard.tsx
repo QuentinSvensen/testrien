@@ -13,7 +13,7 @@ import {
   computeIngredientCalories, computeIngredientProtein, cleanIngredientText,
   hasNegativeMetric, getMealColor
 } from "@/lib/ingredientUtils";
-import { findStockKey, type StockInfo } from "@/lib/stockUtils";
+import { findStockKey, type StockInfo, getDisplayedCalories, getDisplayedProtein } from "@/lib/stockUtils";
 
 interface MealCardProps {
   meal: Meal;
@@ -46,10 +46,10 @@ interface MealCardProps {
 
 // Ingredient parsing utilities imported from @/lib/ingredientUtils
 
-export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(function MealCard({ 
-  meal, onMoveToPossible, onRename, onDelete, onUpdateCalories, onUpdateProtein, onUpdateGrams, 
-  onUpdateIngredients, onToggleFavorite, onUpdateOvenTemp, onUpdateOvenMinutes, onDragStart, 
-  onDragOver, onDrop, isHighlighted, hideDelete, expirationLabel, expirationDate, 
+export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(function MealCard({
+  meal, onMoveToPossible, onRename, onDelete, onUpdateCalories, onUpdateProtein, onUpdateGrams,
+  onUpdateIngredients, onToggleFavorite, onUpdateOvenTemp, onUpdateOvenMinutes, onDragStart,
+  onDragOver, onDrop, isHighlighted, hideDelete, expirationLabel, expirationDate,
   expirationIsToday, expiringIngredientName, expiredIngredientNames, expiringSoonIngredientNames,
   maxIngredientCounter, missingIngredientNames, counterIngredientNames, stockMap
 }, _ref) {
@@ -128,11 +128,10 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
             {/* Options row - wraps below title on narrow screens and stays right-aligned */}
             <div className="ml-auto flex w-full sm:w-auto items-center justify-end gap-1 shrink-0 flex-wrap">
               {maxIngredientCounter !== null && maxIngredientCounter !== undefined && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-bold ${
-                  maxIngredientCounter >= 3 ? 'bg-red-500/50 text-red-100' :
-                  maxIngredientCounter >= 1 ? 'bg-amber-400/30 text-amber-100' :
-                  'bg-white/25 text-white/80'
-                }`}>
+                <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-bold ${maxIngredientCounter >= 3 ? 'bg-red-500/50 text-red-100' :
+                    maxIngredientCounter >= 1 ? 'bg-amber-400/30 text-amber-100' :
+                      'bg-white/25 text-white/80'
+                  }`}>
                   ⏱ {maxIngredientCounter}j
                 </span>
               )}
@@ -142,27 +141,21 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
                 </span>
               )}
               {(() => {
-                const ingCal = computeIngredientCalories(meal.ingredients, isAvailableCb);
-                const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
-                const isComputed = ingCal !== null;
+                const displayCal = getDisplayedCalories(meal);
+                const isComputed = computeIngredientCalories(meal.ingredients, isAvailableCb) !== null;
                 return displayCal ? (
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${
-                    isComputed ? 'bg-orange-500/50 text-white font-bold' : 'text-white/70 bg-white/20'
-                  }`}>
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 ${isComputed ? 'bg-orange-500/50 text-white font-bold' : 'text-white/70 bg-white/20'
+                    }`}>
                     <Flame className="h-3 w-3" />{displayCal}
                   </span>
                 ) : null;
               })()}
               {(() => {
-                const ingPro = computeIngredientProtein(meal.ingredients, isAvailableCb);
-                const rawPro = ingPro !== null ? String(ingPro) : meal.protein;
-                const isComputedPro = ingPro !== null;
-                // Round display value visually
-                const displayPro = rawPro ? String(Math.round(parseFloat(rawPro.replace(',', '.').replace(/[^0-9.-]/g, '')) || 0)) : null;
-                return displayPro && displayPro !== '0' ? (
-                  <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 font-semibold ${
-                    isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/70 bg-blue-500/30'
-                  }`}>
+                const displayPro = getDisplayedProtein(meal);
+                const isComputedPro = computeIngredientProtein(meal.ingredients, isAvailableCb) !== null;
+                return displayPro && displayPro !== 0 ? (
+                  <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 font-semibold ${isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/70 bg-blue-500/30'
+                    }`}>
                     🍗 {displayPro}
                   </span>
                 ) : null;
@@ -233,13 +226,12 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
           {(expirationLabel || meal.ingredients) && (
             <div className="flex items-center gap-2 mt-1">
               {expirationLabel && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 font-semibold ${
-                  expirationIsToday
+                <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-1 shrink-0 font-semibold ${expirationIsToday
                     ? 'text-red-200 bg-red-500/30 ring-2 ring-red-500'
                     : expirationDate && new Date(expirationDate) < new Date(new Date().toDateString())
                       ? 'text-red-200 bg-red-500/30'
                       : 'text-white/70 bg-white/20'
-                }`}>
+                  }`}>
                   📅 {expirationLabel}
                 </span>
               )}
@@ -255,7 +247,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
     </div>
   );
 }), (prevProps, nextProps) => {
-  return prevProps.meal.id === nextProps.meal.id && 
+  return prevProps.meal.id === nextProps.meal.id &&
     prevProps.meal.name === nextProps.meal.name &&
     prevProps.meal.calories === nextProps.meal.calories &&
     prevProps.meal.grams === nextProps.meal.grams &&
@@ -291,7 +283,7 @@ function renderIngredientDisplay(
   const cleaned = cleanIngredientText(filteredRaw.join(", "));
   const groups = cleaned.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
   const elements: React.ReactNode[] = [];
-  
+
   groups.forEach((group, gi) => {
     const alts = group.split(/\|/).map(s => s.trim()).filter(Boolean);
     const groupIsOptional = alts[0]?.startsWith("?");
@@ -310,11 +302,11 @@ function renderIngredientDisplay(
 
       const cls = isExpired ? 'bg-red-500/40 text-red-100 px-0.5 rounded font-semibold'
         : isSoon ? 'ring-1 ring-red-500/60 font-semibold px-0.5 rounded'
-        : hasCounter ? 'underline decoration-2 underline-offset-2 decoration-white/60 font-semibold'
-        : (isMissing || isUnavailableAlt) ? 'bg-white/20 text-white/40 px-0.5 rounded line-through'
-        : groupIsOptional ? 'italic text-white/40'
-        : '';
-      
+          : hasCounter ? 'underline decoration-2 underline-offset-2 decoration-white/60 font-semibold'
+            : (isMissing || isUnavailableAlt) ? 'bg-white/20 text-white/40 px-0.5 rounded line-through'
+              : groupIsOptional ? 'italic text-white/40'
+                : '';
+
       const key = `${gi}-${ai}`;
       if (ai > 0) {
         elements.push(
@@ -328,6 +320,6 @@ function renderIngredientDisplay(
       );
     });
   });
-  
+
   return elements;
 }

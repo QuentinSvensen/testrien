@@ -2,6 +2,7 @@ import { useMemo } from 'react';
 import { useMeals, DAYS, TIMES, type PossibleMeal, type Meal } from '@/hooks/useMeals';
 import { usePreferences } from '@/hooks/usePreferences';
 import { computeIngredientCalories, computeIngredientProtein } from '@/lib/ingredientUtils';
+import { getDisplayedPMCalories, getDisplayedPMProtein, getDisplayedCalories, getDisplayedProtein } from '@/lib/stockUtils';
 
 const DEFAULT_DAILY_GOAL = 2750;
 const DRINK_CALORIES = 150;
@@ -95,16 +96,9 @@ export function getCardDisplayCalories(
   // 1. Manual override on the planning card
   if (calOverride) return parseCalories(calOverride) * qty;
 
-  // 2. Ingredient-computed calories (from ingredients_override or base ingredients)
-  const displayIngredients = pm.ingredients_override ?? meal.ingredients;
-  const ingCal = computeIngredientCalories(displayIngredients, isAvailable);
-  if (ingCal !== null) return ingCal * qty;
-
-  // 3. Base calories scaled by ratio
-  const ratio = getOverrideScaleRatio(meal, pm.ingredients_override);
-  const baseCal = parseCalories(meal.calories);
-  const scaledCal = ratio !== null && baseCal > 0 ? Math.round(baseCal * ratio) : baseCal;
-  return scaledCal * qty;
+  // 2. Use centralized macro display function (handles additive total & scaling)
+  const displayCal = getDisplayedPMCalories(pm, getOverrideScaleRatio(meal, pm.ingredients_override) ?? undefined);
+  return (displayCal || 0) * qty;
 }
 
 /**
@@ -115,14 +109,9 @@ export function getCardDisplayProtein(pm: PossibleMeal, isAvailable?: (name: str
   if (!meal) return 0;
   const qty = pm.quantity ?? 1;
 
-  const displayIngredients = pm.ingredients_override ?? meal.ingredients;
-  const ingPro = computeIngredientProtein(displayIngredients, isAvailable);
-  if (ingPro !== null) return ingPro * qty;
-
-  const ratio = getOverrideScaleRatio(meal, pm.ingredients_override);
-  const basePro = parseCalories(meal.protein);
-  const scaledPro = ratio !== null && basePro > 0 ? Math.round(basePro * ratio) : basePro;
-  return scaledPro * qty;
+  // Use centralized macro display function (handles additive total & scaling)
+  const displayPro = getDisplayedPMProtein(pm, getOverrideScaleRatio(meal, pm.ingredients_override) ?? undefined);
+  return (displayPro || 0) * qty;
 }
 
 export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
@@ -207,8 +196,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
         }
       } else {
         // Use ingredient-computed calories (consistent with picker display), fallback to meal.calories
-        const ingCal = computeIngredientCalories(breakfast.ingredients, isAvailable);
-        breakfastCal = ingCal !== null ? ingCal : parseCalories(breakfast.calories);
+        breakfastCal = getDisplayedCalories(breakfast, null, undefined, isAvailable) || 0;
       }
     } else {
       breakfastCal = breakfastManualCalories[day] || 0;
@@ -245,8 +233,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
           breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailable) : parseCalories(breakfast.protein);
         }
       } else {
-        const ingPro = computeIngredientProtein(breakfast.ingredients, isAvailable);
-        breakfastPro = ingPro !== null ? ingPro : parseCalories(breakfast.protein);
+        breakfastPro = getDisplayedProtein(breakfast, null, undefined, isAvailable) || 0;
       }
     } else {
       breakfastPro = breakfastManualProteins[day] || 0;

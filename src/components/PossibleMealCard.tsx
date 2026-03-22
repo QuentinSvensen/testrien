@@ -19,7 +19,7 @@ import {
   hasNegativeMetric, getMealColor, getAdaptedCounterDays, getDateForDayKey,
   extractMetrics, parseIngredientLineRaw
 } from "@/lib/ingredientUtils";
-import { scaleIngredientStringExact, findStockKey } from "@/lib/stockUtils";
+import { scaleIngredientStringExact, findStockKey, getDisplayedPMCalories, getDisplayedPMProtein } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
 import { fr } from "date-fns/locale";
 
@@ -105,13 +105,13 @@ export function PossibleMealCard({
         const alt = group.split(/\|/)[0].trim();
         const isOptional = alt.startsWith("?");
         const cleanAlt = isOptional ? alt.slice(1).trim() : alt;
-        
+
         // Use normalized key for matching
         const { text: withoutMetrics } = extractMetrics(cleanAlt);
         const parsed = parseIngredientLineRaw(withoutMetrics);
         if (!parsed.name) return;
         const key = normalizeKey(parsed.name);
-        
+
         // Only keep the first encounter (or could sum, but usually one line per ingredient)
         if (!map.has(key)) {
           map.set(key, { qty: parsed.qty, count: parsed.count });
@@ -122,16 +122,16 @@ export function PossibleMealCard({
 
     const baseMap = parseToMap(baseIngStr);
     const overMap = parseToMap(pm.ingredients_override);
-    
+
     if (baseMap.size === 0 || overMap.size === 0) return null;
-    
+
     let detectedRatios: number[] = [];
     let commonCount = 0;
-    
+
     for (const [key, baseVal] of baseMap.entries()) {
       const overVal = overMap.get(key);
       if (!overVal) continue;
-      
+
       commonCount++;
       if (baseVal.qty > 0 && overVal.qty > 0) {
         detectedRatios.push(overVal.qty / baseVal.qty);
@@ -141,11 +141,11 @@ export function PossibleMealCard({
         detectedRatios.push(1);
       }
     }
-    
+
     if (detectedRatios.length === 0) return null;
     const firstRatio = detectedRatios[0];
     if (Math.abs(firstRatio - 1) <= 0.01) return null;
-    
+
     const allSame = detectedRatios.every(r => Math.abs(r - firstRatio) / (firstRatio || 1) < 0.05);
     if (!allSame) return null;
     if (commonCount < Math.min(baseMap.size, overMap.size) * 0.5) return null;
@@ -405,35 +405,26 @@ export function PossibleMealCard({
           )}
           {/* ratio badge moved to absolute top-right */}
           {(() => {
-            const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
-            let displayCal = ingCal !== null ? String(ingCal) : meal.calories;
-            const isComputed = ingCal !== null;
-            // Scale manual calories by detected ratio
-            if (!isComputed && displayCal && detectedRatio !== null) {
-              const raw = parseFloat(displayCal.replace(/[^0-9.]/g, ''));
-              if (raw > 0) displayCal = String(Math.round(raw * detectedRatio));
-            }
+            const displayCal = getDisplayedPMCalories(pm, detectedRatio ?? undefined);
+            const isComputed = computeIngredientCalories(displayIngredients, isAvailableCb) !== null;
             return displayCal ? (
-              <button onClick={() => { setEditValue(meal.calories || ""); setEditing("calories"); }} className={`text-[10px] text-white px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 ${isComputed ? 'bg-orange-500/50 font-bold hover:bg-orange-500/60' : 'bg-black/30 text-white/90 hover:bg-black/40'
-                }`}>
+              <button 
+                onClick={() => { setEditValue(meal.calories || ""); setEditing("calories"); }} 
+                className={`text-[10px] text-white px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 ${
+                  isComputed ? 'bg-orange-500/50 font-bold hover:bg-orange-500/60' : 'bg-black/30 text-white/90 hover:bg-black/40'
+                }`}
+              >
                 <Flame className="h-2.5 w-2.5" />{displayCal}
               </button>
             ) : null;
           })()}
           {(() => {
-            const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
-            let rawPro = ingPro !== null ? String(ingPro) : meal.protein;
-            const isComputedPro = ingPro !== null;
-            // Scale manual protein by detected ratio
-            if (!isComputedPro && rawPro && detectedRatio !== null) {
-              const raw = parseFloat(rawPro.replace(/[^0-9.]/g, ''));
-              if (raw > 0) rawPro = String(Math.round(raw * detectedRatio));
-            }
-            // Round display value visually
-            const displayPro = rawPro ? String(Math.round(parseFloat(rawPro.replace(',', '.').replace(/[^0-9.-]/g, '')) || 0)) : null;
-            return displayPro && displayPro !== '0' ? (
-              <span className={`text-[10px] px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-semibold ${isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/90 bg-blue-500/40'
-                }`}>
+            const displayPro = getDisplayedPMProtein(pm, detectedRatio ?? undefined);
+            const isComputedPro = computeIngredientProtein(displayIngredients, isAvailableCb) !== null;
+            return displayPro && displayPro !== 0 ? (
+              <span className={`text-[10px] px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-semibold ${
+                isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/90 bg-blue-500/40'
+              }`}>
                 🍗 {displayPro}
               </span>
             ) : null;
@@ -495,8 +486,8 @@ export function PossibleMealCard({
         </div>
       </div>
 
-      {/* Row 3: ingredients (click to edit) — only show if base meal has ingredients */}
-      {!editing && !editingIngredients && displayIngredients && meal.ingredients && (
+      {/* Row 3: ingredients (click to edit) — show if base or override has ingredients */}
+      {!editing && !editingIngredients && displayIngredients && (
         <button onClick={openIngredients} className="mt-1 text-[10px] text-white/60 flex flex-wrap gap-x-1 text-left hover:text-white/80 transition-colors">
           {renderIngredientDisplayCompact(displayIngredients, expiredIngredientNames, expiringSoonIngredientNames, stockMap)}
         </button>

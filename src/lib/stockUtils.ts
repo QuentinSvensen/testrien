@@ -345,28 +345,50 @@ export function parseMacroDisplay(value: string | null | undefined): number | nu
   return Number.isFinite(parsed) ? parsed : null;
 }
 
-/** Get displayed calories for a Meal (ingredient-computed takes priority) */
-export function getDisplayedCalories(meal: { calories?: string | null; ingredients?: string | null }): number | null {
-  const ingCal = computeIngredientCalories(meal.ingredients ?? null);
+/** Get displayed calories for a Meal (additive if base has no ingredients but has macros) */
+export function getDisplayedCalories(meal: { calories?: string | null; ingredients?: string | null }, ingredientsOverride?: string | null, ratio?: number, isAvailable?: (name: string) => boolean): number | null {
+  const baseCal = parseMacroDisplay(meal.calories);
+  const scaledBaseCal = (baseCal !== null && ratio) ? baseCal * ratio : baseCal;
+
+  const ingredients = ingredientsOverride ?? meal.ingredients;
+  const ingCal = computeIngredientCalories(ingredients ?? null, isAvailable);
+  
+  // Additive logic: if we have an override, and the BASE meal has NO ingredients but HAS macros
+  if (ingredientsOverride && !meal.ingredients && baseCal !== null) {
+    return (scaledBaseCal || 0) + (ingCal || 0);
+  }
+
   if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-  return parseMacroDisplay(meal.calories);
+  return scaledBaseCal;
 }
 
-/** Get displayed protein for a Meal (ingredient-computed takes priority) */
-export function getDisplayedProtein(meal: { protein?: string | null; ingredients?: string | null }): number | null {
-  const ingPro = computeIngredientProtein(meal.ingredients ?? null);
-  if (ingPro !== null && Number.isFinite(ingPro)) return ingPro;
-  const raw = parseMacroDisplay(meal.protein);
-  return raw !== null ? Math.round(raw) : null;
+/** Get displayed protein for a Meal (additive if base has no ingredients but has macros) */
+export function getDisplayedProtein(meal: { protein?: string | null; ingredients?: string | null }, ingredientsOverride?: string | null, ratio?: number, isAvailable?: (name: string) => boolean): number | null {
+  const basePro = parseMacroDisplay(meal.protein);
+  const scaledBasePro = (basePro !== null && ratio) ? basePro * ratio : basePro;
+
+  const ingredients = ingredientsOverride ?? meal.ingredients;
+  const ingPro = computeIngredientProtein(ingredients ?? null, isAvailable);
+  
+  if (ingredientsOverride && !meal.ingredients && basePro !== null) {
+    const total = (scaledBasePro || 0) + (ingPro || 0);
+    return Math.round(total);
+  }
+
+  if (ingPro !== null && Number.isFinite(ingPro)) return Math.round(ingPro);
+  return scaledBasePro !== null ? Math.round(scaledBasePro) : null;
 }
 
 /** Get displayed calories for a PossibleMeal (uses ingredients_override if present) */
-export function getDisplayedPMCalories(pm: { ingredients_override?: string | null; meals?: { calories?: string | null; ingredients?: string | null } | null }): number | null {
-  const ingredients = pm.ingredients_override ?? pm.meals?.ingredients;
-  const ingCal = computeIngredientCalories(ingredients ?? null);
-  if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-  return parseMacroDisplay(pm.meals?.calories);
+export function getDisplayedPMCalories(pm: { ingredients_override?: string | null; meals?: { calories?: string | null; ingredients?: string | null } | null }, ratio?: number): number | null {
+  return getDisplayedCalories(pm.meals || {}, pm.ingredients_override, ratio);
 }
+
+/** Get displayed protein for a PossibleMeal (uses ingredients_override if present) */
+export function getDisplayedPMProtein(pm: { ingredients_override?: string | null; meals?: { protein?: string | null; ingredients?: string | null } | null }, ratio?: number): number | null {
+  return getDisplayedProtein(pm.meals || {}, pm.ingredients_override, ratio);
+}
+
 
 // ─── Formatting & Sorting ───────────────────────────────────────────────────
 
@@ -418,7 +440,7 @@ export function sortStockDeductionPriority(a: FoodItem, b: FoodItem): number {
 
 export function getValidDiscreteRatios(meal: Meal, stockMap?: Map<string, StockInfo>): number[] | null {
   if (!meal.ingredients?.trim()) return null;
-  
+
   let validRatios: number[] | null = null;
   const EPSILON = 0.001;
 
@@ -426,10 +448,10 @@ export function getValidDiscreteRatios(meal: Meal, stockMap?: Map<string, StockI
     .forEach(group => {
       const alt = group.split(/\|/).map(s => s.trim()).filter(Boolean)[0];
       if (!alt || alt.startsWith("?")) return;
-      
+
       const { text: withoutMetrics } = extractMetrics(alt);
       const parsed = parseIngredientLineRaw(withoutMetrics);
-      
+
       let isIndivisible = false;
       let myRatios: number[] = [];
 
@@ -441,19 +463,19 @@ export function getValidDiscreteRatios(meal: Meal, stockMap?: Map<string, StockI
       } else if (stockMap) {
         const key = findStockKey(stockMap, parsed.name);
         if (key) {
-           const stock = stockMap.get(key)!;
-           if (stock.indivisibleUnit > 0 && parsed.qty > 0) {
-              isIndivisible = true;
-              for (let k = 1; ((k * stock.indivisibleUnit) / parsed.qty) <= 10; k++) {
-                myRatios.push((k * stock.indivisibleUnit) / parsed.qty);
-              }
-           }
+          const stock = stockMap.get(key)!;
+          if (stock.indivisibleUnit > 0 && parsed.qty > 0) {
+            isIndivisible = true;
+            for (let k = 1; ((k * stock.indivisibleUnit) / parsed.qty) <= 10; k++) {
+              myRatios.push((k * stock.indivisibleUnit) / parsed.qty);
+            }
+          }
         }
       }
 
       if (isIndivisible) {
         if (!myRatios.some(r => Math.abs(r - 1.0) < EPSILON)) myRatios.push(1.0);
-        
+
         if (validRatios === null) {
           validRatios = myRatios;
         } else {
@@ -501,12 +523,12 @@ export function buildScaledMealForRatio(meal: Meal, ratio: number, stockMap?: Ma
 
 export function scaleIngredientStringExact(rawIngredients: string | null, ratio: number, stockMap?: Map<string, StockInfo>): string | null {
   if (!rawIngredients?.trim()) return null;
-  
+
   // First pass: determine the effective ratio considering count-based rounding
   // If any count-based ingredient rounds up, all ingredients should use that rounded ratio
   let effectiveRatio = ratio;
   const groups = rawIngredients.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
-  
+
   for (const group of groups) {
     const alt = group.split(/\|/).map(s => s.trim()).filter(Boolean)[0];
     if (!alt) continue;
@@ -514,7 +536,7 @@ export function scaleIngredientStringExact(rawIngredients: string | null, ratio:
     const cleanAlt = isOptional ? alt.slice(1).trim() : alt;
     const { text: withoutMetrics } = extractMetrics(cleanAlt);
     const parsed = parseIngredientLineRaw(withoutMetrics);
-    
+
     if (parsed.count > 0 && parsed.qty === 0) {
       const scaledCount = Math.round(parsed.count * ratio);
       const actualRatio = scaledCount / parsed.count;
@@ -523,44 +545,44 @@ export function scaleIngredientStringExact(rawIngredients: string | null, ratio:
       }
     }
   }
-  
+
   return groups.map(group => {
-      return group.split(/\|/).map(s => s.trim()).filter(Boolean)
-        .map(alt => {
-          const isOptional = alt.startsWith("?");
-          const cleanAlt = isOptional ? alt.slice(1).trim() : alt;
-          
-          const { text: withoutMetrics, cal, pro } = extractMetrics(cleanAlt);
-          const parsed = parseIngredientLineRaw(withoutMetrics);
-          
-          let scaledQtyRaw = parsed.qty > 0 ? parsed.qty * effectiveRatio : 0;
-          let scaledCountRaw = parsed.count > 0 ? parsed.count * effectiveRatio : 0;
+    return group.split(/\|/).map(s => s.trim()).filter(Boolean)
+      .map(alt => {
+        const isOptional = alt.startsWith("?");
+        const cleanAlt = isOptional ? alt.slice(1).trim() : alt;
 
-          if (parsed.count > 0 && parsed.qty === 0) {
-            scaledCountRaw = Math.round(scaledCountRaw);
-          }
+        const { text: withoutMetrics, cal, pro } = extractMetrics(cleanAlt);
+        const parsed = parseIngredientLineRaw(withoutMetrics);
 
-          if (stockMap) {
-            const key = findStockKey(stockMap, parsed.name);
-            if (key) {
-               const stock = stockMap.get(key)!;
-               if (stock.indivisibleUnit > 0 && parsed.qty > 0) {
-                  scaledQtyRaw = Math.round(scaledQtyRaw / stock.indivisibleUnit) * stock.indivisibleUnit;
-               }
+        let scaledQtyRaw = parsed.qty > 0 ? parsed.qty * effectiveRatio : 0;
+        let scaledCountRaw = parsed.count > 0 ? parsed.count * effectiveRatio : 0;
+
+        if (parsed.count > 0 && parsed.qty === 0) {
+          scaledCountRaw = Math.round(scaledCountRaw);
+        }
+
+        if (stockMap) {
+          const key = findStockKey(stockMap, parsed.name);
+          if (key) {
+            const stock = stockMap.get(key)!;
+            if (stock.indivisibleUnit > 0 && parsed.qty > 0) {
+              scaledQtyRaw = Math.round(scaledQtyRaw / stock.indivisibleUnit) * stock.indivisibleUnit;
             }
           }
+        }
 
-          const scaledQty = scaledQtyRaw > 0 ? formatNumeric(Math.round(scaledQtyRaw * 10) / 10) : "";
-          const scaledCount = scaledCountRaw > 0 ? formatNumeric(Math.round(scaledCountRaw * 10) / 10) : "";
-          
-          let token = [scaledQty ? `${scaledQty}g` : "", scaledCount, parsed.rawName].filter(Boolean).join(" ");
-          
-          if (cal) token += ` {${cal}}`;
-          if (pro) token += ` [${pro}]`;
-          
-          return isOptional ? `?${token}` : token;
-        }).join(" | ");
-    }).join(", ");
+        const scaledQty = scaledQtyRaw > 0 ? formatNumeric(Math.round(scaledQtyRaw * 10) / 10) : "";
+        const scaledCount = scaledCountRaw > 0 ? formatNumeric(Math.round(scaledCountRaw * 10) / 10) : "";
+
+        let token = [scaledQty ? `${scaledQty}g` : "", scaledCount, parsed.rawName].filter(Boolean).join(" ");
+
+        if (cal) token += ` {${cal}}`;
+        if (pro) token += ` [${pro}]`;
+
+        return isOptional ? `?${token}` : token;
+      }).join(" | ");
+  }).join(", ");
 }
 
 // ─── Macro Propagation Helper ───────────────────────────────────────────────

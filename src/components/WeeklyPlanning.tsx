@@ -4,7 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { useQueryClient } from "@tanstack/react-query";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useCalorieBalance, getOverrideScaleRatio, getCardDisplayProtein, getCardDisplayCalories } from "@/hooks/useCalorieBalance";
-import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer, Sparkles, Zap } from "lucide-react";
+import { Timer, Flame, Weight, Calendar, Lock, Plus, Thermometer, Sparkles, Zap, Hash } from "lucide-react";
 import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, normalizeKey, hasNegativeMetric, getMealColor, getAdaptedCounterDays } from "@/lib/ingredientUtils";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -12,7 +12,7 @@ import { format, parseISO, differenceInCalendarDays } from "date-fns";
 import { fr } from "date-fns/locale";
 import { Checkbox } from "@/components/ui/checkbox";
 import { useFoodItems, type FoodItem } from "@/hooks/useFoodItems";
-import { analyzeMealIngredients, buildStockMap, findStockKey, type StockInfo } from "@/lib/stockUtils";
+import { analyzeMealIngredients, buildStockMap, findStockKey, type StockInfo, getDisplayedCalories as getMealCal, getDisplayedProtein as getMealPro } from "@/lib/stockUtils";
 import { useMealTransfers } from "@/hooks/useMealTransfers";
 
 /** Additive planning input: click "+" to enter a value that gets added to current */
@@ -283,7 +283,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
             </div>
           )}
         </div>
-        {!compact && (pm.expiration_date || meal.grams || meal.ingredients) && (
+        {!compact && (pm.expiration_date || meal.grams || pm.ingredients_override || meal.ingredients) && (
           <div className="mt-auto pt-0.5">
             {meal.grams && (
               <div className="flex items-center gap-1">
@@ -293,7 +293,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                 </span>
               </div>
             )}
-            {(meal.ingredients || pm.expiration_date) && (
+            {(pm.ingredients_override || meal.ingredients || pm.expiration_date) && (
               <div className={`${meal.grams ? "mt-0.5" : ""} text-[9px] text-white/50 break-words whitespace-normal`}>
                 {pm.expiration_date && (
                   <span className={`inline-flex items-center gap-0.5 mr-1 rounded px-1 py-0.5 border align-middle ${expired ? "text-red-200 font-bold border-red-300/40 bg-red-400/10" : "text-white/60 border-white/15 bg-white/5"}`}>
@@ -301,7 +301,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                     {format(parseISO(pm.expiration_date), "d MMM", { locale: fr })}
                   </span>
                 )}
-                {meal.ingredients && renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, stockMap)}
+                {(pm.ingredients_override || meal.ingredients) && renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, stockMap)}
               </div>
             )}
           </div>
@@ -333,7 +333,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                   </span>
                 </div>
               )}
-              {meal.ingredients && (
+              {(pm.ingredients_override || meal.ingredients) && (
                 <div className={`${pm.expiration_date || meal.grams ? "mt-0.5" : ""} text-[9px] text-white/50 flex flex-wrap gap-x-1`}>
                   {renderIngredientDisplayPlanning(pm.ingredients_override ?? meal.ingredients, expiredIngredientNames, expiringSoonIngredientNames, stockMap)}
                 </div>
@@ -430,7 +430,7 @@ export function WeeklyPlanning() {
 
   // Breakfast selections per day
   const breakfastSelections = getPreference<Record<string, string>>('planning_breakfast', {});
-  const { getDayCalories, DAILY_GOAL, getBreakfastForDay } = useCalorieBalance(isAvailableCb);
+  const { getDayCalories, getDayProtein, DAILY_GOAL, getBreakfastForDay } = useCalorieBalance(isAvailableCb);
   const petitDejMeals = getMealsByCategory('petit_dejeuner');
   const possiblePetitDej = possibleMeals.filter(pm => pm.meals?.category === 'petit_dejeuner');
 
@@ -628,41 +628,6 @@ export function WeeklyPlanning() {
   const breakfastManualCalories = getPreference<Record<string, number>>('planning_breakfast_manual_calories', {});
   const autoConsumeBreakfast = getPreference<Record<string, boolean>>('planning_auto_consume_breakfast', {});
 
-  const getDayProtein = (day: string): number => {
-    const mealProt = (['matin', ...TIMES] as string[]).reduce((total, time) => {
-      const slotMeals = getMealsForSlot(day, time);
-      if (slotMeals.length > 0) {
-        return total + slotMeals.reduce((s, pm) => {
-          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-          const ingPro = computeIngredientProtein(displayIngredients);
-          return s + (ingPro !== null ? ingPro : parseProtein(pm.meals?.protein));
-        }, 0);
-      }
-      return total + (manualProteins[`${day}-${time}`] || 0);
-    }, 0);
-    const breakfast = getBreakfastForDay(day);
-    let breakfastProt = 0;
-    if (breakfast) {
-      const selId = breakfastSelections[day];
-      if (selId?.startsWith('pm:')) {
-        const pmId = selId.slice(3);
-        const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        if (possiblePdj && possiblePdj.day_of_week === day && possiblePdj.meal_time === 'matin') {
-          // Already counted in mealProt via 'matin' slot calculations!
-          breakfastProt = 0;
-        } else {
-          breakfastProt = possiblePdj ? getCardDisplayProtein(possiblePdj) : parseProtein(breakfast.protein);
-        }
-      } else {
-        const ingPro = computeIngredientProtein(breakfast.ingredients);
-        breakfastProt = ingPro !== null ? ingPro : parseProtein(breakfast.protein);
-      }
-    } else {
-      breakfastProt = breakfastManualProteins[day] || 0;
-    }
-    const extraProt = extraProteins[day] || 0;
-    return mealProt + breakfastProt + extraProt;
-  };
 
   const handleAddExtraItem = (day: string, item: FoodItem) => {
     const itemCals = parseCalories(item.calories);
@@ -851,12 +816,6 @@ export function WeeklyPlanning() {
     const overrideCal = calOverrides[pm.id];
     const expired = isExpiredOnDay(pm.expiration_date, pm.day_of_week);
 
-    const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
-    const isComputedCal = !overrideCal && ingCal !== null;
-
-    const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
-    const isComputedPro = ingPro !== null;
-
     // Use shared ratio detection
     let displayMeal = meal;
     const detectedRatio = getOverrideScaleRatio(meal, pm.ingredients_override);
@@ -867,18 +826,12 @@ export function WeeklyPlanning() {
       }
     }
 
-    // Scale calories/protein by ratio if not ingredient-computed
-    let displayCal = overrideCal || (ingCal !== null ? String(ingCal) : meal.calories);
-    if (!overrideCal && !isComputedCal && displayCal && detectedRatio !== null) {
-      const raw = parseFloat(displayCal.replace(/[^0-9.]/g, ''));
-      if (raw > 0) displayCal = String(Math.round(raw * detectedRatio));
-    }
+    // Use centralized macro logic
+    const displayCal = overrideCal || String(getCardDisplayCalories(pm, undefined, isAvailableCb));
+    const displayPro = String(getCardDisplayProtein(pm, isAvailableCb));
 
-    let displayPro = ingPro !== null ? String(ingPro) : meal.protein;
-    if (!isComputedPro && displayPro && detectedRatio !== null) {
-      const raw = parseFloat(displayPro.replace(/[^0-9.]/g, ''));
-      if (raw > 0) displayPro = String(Math.round(raw * detectedRatio));
-    }
+    const isComputedCal = !overrideCal && computeIngredientCalories(displayIngredients, isAvailableCb) !== null;
+    const isComputedPro = computeIngredientProtein(displayIngredients, isAvailableCb) !== null;
 
     return (
       <PlanningMiniCard
@@ -1109,10 +1062,8 @@ export function WeeklyPlanning() {
               baseBreakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailableCb) : parseProtein(breakfast.protein);
             }
           } else {
-            const ingCal = computeIngredientCalories(breakfast.ingredients, isAvailableCb);
-            baseBreakfastCals = ingCal !== null ? ingCal : parseCalories(breakfast.calories);
-            const ingPro = computeIngredientProtein(breakfast.ingredients, isAvailableCb);
-            baseBreakfastPro = ingPro !== null ? ingPro : parseProtein(breakfast.protein);
+            baseBreakfastCals = getMealCal(breakfast);
+            baseBreakfastPro = getMealPro(breakfast);
           }
         } else {
           baseBreakfastCals = breakfastManualCalories[day] || 0;
@@ -1172,10 +1123,8 @@ export function WeeklyPlanning() {
                           <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Possible</p>
                           {possiblePetitDej.map(pm => {
                             const displayIng = pm.ingredients_override ?? pm.meals?.ingredients;
-                            const ingCal = computeIngredientCalories(displayIng, isAvailableCb);
-                            const calDisplay = ingCal !== null ? String(ingCal) : pm.meals?.calories;
-                            const ingPro = computeIngredientProtein(displayIng, isAvailableCb);
-                            const proDisplay = ingPro !== null ? String(ingPro) : pm.meals?.protein;
+                            const calDisplay = getMealCal(pm.meals || {}, pm.ingredients_override);
+                            const proDisplay = getMealPro(pm.meals || {}, pm.ingredients_override);
                             const pmSelId = `pm:${pm.id}`;
                             const isMatinSelected = pm.day_of_week === day && pm.meal_time === 'matin';
                             const isDropdownSelected = breakfastSelections[day] === pmSelId;
@@ -1202,10 +1151,8 @@ export function WeeklyPlanning() {
                       )}
                       <p className="text-[9px] text-muted-foreground/60 px-2 font-semibold uppercase tracking-wide">Tous</p>
                       {petitDejMeals.map(m => {
-                        const ingCal = computeIngredientCalories(m.ingredients, isAvailableCb);
-                        const calDisplay = ingCal !== null ? String(ingCal) : m.calories;
-                        const ingPro = computeIngredientProtein(m.ingredients, isAvailableCb);
-                        const proDisplay = ingPro !== null ? String(ingPro) : m.protein;
+                        const calDisplay = getMealCal(m);
+                        const proDisplay = getMealPro(m);
                         const mealSelId = `meal:${m.id}`;
                         const isSelected = breakfastSelections[day] === mealSelId;
                         const otherDays = DAYS.filter(d => d !== day && breakfastSelections[d] === mealSelId);
@@ -1573,15 +1520,27 @@ export function WeeklyPlanning() {
                                   <p className="text-[11px] font-bold text-foreground group-hover:text-orange-600 transition-colors truncate">{fi.name}</p>
                                 </div>
                                 <div className="flex items-center gap-1.5 shrink-0">
-                                  {fi.calories && (
-                                    <div className="flex items-center gap-1 bg-orange-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-orange-500">
-                                      <Flame className="w-2.5 h-2.5" />
-                                      {fi.calories}
+                                  {fi.quantity && fi.quantity > 1 && (
+                                    <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-muted-foreground/60 border border-border/10">
+                                      <Hash className="w-2.5 h-2.5" />
+                                      {fi.quantity}
+                                    </div>
+                                  )}
+                                  {fi.grams && (
+                                    <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-muted-foreground/60 border border-border/10">
+                                      <Weight className="w-2.5 h-2.5" />
+                                      {fi.grams}
                                     </div>
                                   )}
                                   {fi.protein && (
                                     <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-blue-500 border border-blue-500/10">
                                       🍗 {fi.protein}
+                                    </div>
+                                  )}
+                                  {fi.calories && (
+                                    <div className="flex items-center gap-1 bg-orange-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-orange-500">
+                                      <Flame className="w-2.5 h-2.5" />
+                                      {fi.calories}
                                     </div>
                                   )}
                                 </div>
@@ -1673,10 +1632,8 @@ export function WeeklyPlanning() {
           {popupPm && popupPm.meals && (() => {
             const meal = popupPm.meals;
             const displayIngredients = popupPm.ingredients_override ?? meal.ingredients;
-            const ingCal = computeIngredientCalories(displayIngredients, isAvailableCb);
-            const ingPro = computeIngredientProtein(displayIngredients, isAvailableCb);
-            const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
-            const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
+            const displayCal = String(getCardDisplayCalories(popupPm, undefined, isAvailableCb));
+            const displayPro = String(getCardDisplayProtein(popupPm, isAvailableCb));
             const counterDays = getAdaptedCounterDays(popupPm.counter_start_date, popupPm.day_of_week, popupPm.created_at);
             const expired = isExpiredOnDay(popupPm.expiration_date, popupPm.day_of_week);
             return (
@@ -1739,10 +1696,8 @@ export function WeeklyPlanning() {
           <DialogTitle className="sr-only">Détails du petit déjeuner</DialogTitle>
           {popupBreakfast && (() => {
             const meal = popupBreakfast.meal;
-            const ingCal = computeIngredientCalories(meal.ingredients, isAvailableCb);
-            const ingPro = computeIngredientProtein(meal.ingredients, isAvailableCb);
-            const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
-            const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
+            const displayCal = getMealCal(meal);
+            const displayPro = getMealPro(meal);
             return (
               <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: getMealColor(meal.ingredients, meal.name) }}>
                 <h3 className="text-lg font-bold mb-2">🥐 {meal.name}</h3>

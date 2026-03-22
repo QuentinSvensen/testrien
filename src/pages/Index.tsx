@@ -27,6 +27,7 @@ import {
   normalizeForMatch, normalizeKey, strictNameMatch, accentSafeKeyMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, smartFoodContains,
+  extractIngredientMacros,
 } from "@/lib/ingredientUtils";
 import {
   buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
@@ -209,6 +210,21 @@ const Index = () => {
       setPreference.mutate({ key: 'available_use_remaining_calories_plat', value: true });
     }
   }, [unlocked, isPreferencesLoading]);
+
+  const macroLookup = useMemo(() => {
+    const map = new Map<string, { cal: string; pro: string }>();
+    for (const meal of meals) {
+      if (!meal.ingredients) continue;
+      const macros = extractIngredientMacros(meal.ingredients);
+      for (const [key, val] of macros) {
+        const existing = map.get(key);
+        if (!existing || (!existing.cal && val.cal) || (!existing.pro && val.pro)) {
+          map.set(key, { cal: val.cal || existing?.cal || "", pro: val.pro || existing?.pro || "" });
+        }
+      }
+    }
+    return map;
+  }, [meals]);
 
   useEffect(() => {
     if (!unlocked) return;
@@ -828,7 +844,11 @@ const Index = () => {
                             else { await supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", fi.id); }
                             qc.invalidateQueries({ queryKey: ["food_items"] });
                           }
-                          const pmResult = await addMealToPossibleDirectly.mutateAsync({ name: fi.name, category: cat.value, calories: fi.calories, protein: null, grams: fi.grams, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
+                          const fiKey = normalizeKey(fi.name);
+                          const fiMacro = macroLookup.get(fiKey);
+                          const calories = fi.calories || fiMacro?.cal || null;
+                          const protein = fi.protein || fiMacro?.pro || null;
+                          const pmResult = await addMealToPossibleDirectly.mutateAsync({ name: fi.name, category: cat.value, calories, protein, grams: fi.grams, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
                           if (pmResult?.id) updateSnapshots(prev => ({ ...prev, [pmResult.id]: snapshot }));
                         }}
                         onDeleteFoodItem={(id) => { deleteFoodItem(id); }}
@@ -1057,12 +1077,15 @@ const Index = () => {
                           onMoveToPossible={async (fi, consumeQty, consumeGrams) => {
                             const snapshot = [{ ...fi }];
                             if (!fi.is_infinite) {
-                              if (consumeGrams && consumeGrams > 0) {
-                                const perUnit = parseQty(fi.grams);
+                              const perUnit = parseQty(fi.grams);
+                              if (perUnit > 0) {
+                                const totalDeduct = (consumeQty || 0) * perUnit + (consumeGrams || 0);
+                                if (totalDeduct <= 0 && (consumeQty !== undefined || consumeGrams !== undefined)) return; // Explicitly 0
+                                const actualDeduct = totalDeduct > 0 ? totalDeduct : perUnit;
                                 const totalAvail = getFoodItemTotalGrams(fi);
-                                const remaining = totalAvail - consumeGrams;
+                                const remaining = totalAvail - actualDeduct;
                                 if (remaining <= 0) { await supabase.from("food_items").delete().eq("id", fi.id); }
-                                else if (fi.quantity && fi.quantity >= 1 && perUnit > 0) {
+                                else if (fi.quantity && fi.quantity >= 1) {
                                   const fullUnits = Math.floor(remaining / perUnit);
                                   const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
                                   if (rem > 0) { await supabase.from("food_items").update({ quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, rem) } as any).eq("id", fi.id); }
@@ -1070,17 +1093,42 @@ const Index = () => {
                                   else { await supabase.from("food_items").delete().eq("id", fi.id); }
                                 } else { await supabase.from("food_items").update({ grams: formatNumeric(remaining) } as any).eq("id", fi.id); }
                               } else {
-                                const deductQty = consumeQty ?? 1;
+                                if (consumeQty === 0) return; // Explicitly 0
+                                const deductQty = consumeQty || 1;
                                 const currentQty = fi.quantity ?? 1;
                                 if (currentQty <= deductQty) { await supabase.from("food_items").delete().eq("id", fi.id); }
                                 else { await supabase.from("food_items").update({ quantity: currentQty - deductQty } as any).eq("id", fi.id); }
                               }
                               qc.invalidateQueries({ queryKey: ["food_items"] });
                             }
-                            const displayGrams = consumeGrams ? String(consumeGrams) : (fi.grams ? String(parseQty(fi.grams)) : null);
-                            const displayQty = consumeQty ?? 1;
+                            const unitG = parseQty(fi.grams);
+                            const totalMovedG = unitG > 0 ? ((consumeQty || 0) * unitG + (consumeGrams || 0)) : 0;
+                            if (totalMovedG <= 0 && (consumeQty !== undefined || consumeGrams !== undefined)) return;
+                            const actualMovedG = totalMovedG > 0 ? totalMovedG : (unitG > 0 ? unitG : 0);
+                            
+                            const displayGrams = actualMovedG > 0 ? String(actualMovedG) : (fi.grams ? String(parseQty(fi.grams)) : null);
+                            const displayQty = consumeQty || (consumeGrams ? Math.ceil(consumeGrams / (unitG || 1)) : 1);
+                            
+                            let ratio = 1;
+                            if (unitG > 0) {
+                              ratio = actualMovedG / unitG;
+                            } else if (consumeQty !== undefined) {
+                              ratio = consumeQty || 1;
+                            }
+                            
+
+                            const fiKey = normalizeKey(fi.name);
+                            const fiMacro = macroLookup.get(fiKey);
+                            const baseCalStr = fi.calories || fiMacro?.cal || "0";
+                            const baseProStr = fi.protein || fiMacro?.pro || "0";
+                            
+                            const baseCal = parseFloat(String(baseCalStr).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+                            const basePro = parseFloat(String(baseProStr).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+                            
+                            const calories = baseCal > 0 ? formatNumeric(baseCal * ratio) : null;
+                            const protein = basePro > 0 ? formatNumeric(basePro * ratio) : null;
                             const pmResult = await addMealToPossibleDirectly.mutateAsync({
-                              name: fi.name, category: cat.value, calories: fi.calories, protein: null, grams: displayGrams,
+                              name: fi.name, category: cat.value, calories, protein, grams: displayGrams,
                               expiration_date: fi.expiration_date, possible_quantity: displayQty,
                             });
                             if (pmResult?.id) {

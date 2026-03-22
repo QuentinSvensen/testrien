@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
 import { computeIngredientCalories } from "@/lib/ingredientUtils";
+import { getDisplayedPMCalories } from "@/lib/stockUtils";
 import { toast } from "@/hooks/use-toast";
 
 export type MealCategory = 'petit_dejeuner' | 'entree' | 'plat' | 'dessert' | 'bonus';
@@ -580,18 +581,7 @@ export function useMeals(options?: { enabled?: boolean }) {
     possibleMeals.filter((pm) => pm.meals?.category === cat).sort((a, b) => a.sort_order - b.sort_order);
 
   const extractSortableCalories = (pm: PossibleMeal): number | null => {
-    const ingredients = pm.ingredients_override ?? pm.meals?.ingredients;
-    const ingCal = computeIngredientCalories(ingredients);
-    if (ingCal !== null && Number.isFinite(ingCal)) return ingCal;
-
-    const raw = pm.meals?.calories;
-    if (!raw) return null;
-
-    const match = raw.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-    if (!match) return null;
-
-    const parsed = Number.parseFloat(match[0]);
-    return Number.isFinite(parsed) ? parsed : null;
+    return getDisplayedPMCalories(pm);
   };
 
   const sortByExpiration = (items: PossibleMeal[]) =>

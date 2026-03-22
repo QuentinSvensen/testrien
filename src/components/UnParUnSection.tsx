@@ -204,7 +204,7 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
     let gramsVal = consumeGrams ? parseFloat(consumeGrams.replace(",", ".")) || undefined : undefined;
     // Enforce maximums
     if (qtyVal !== undefined && qtyVal > maxQty) qtyVal = maxQty;
-    if (qtyVal !== undefined && qtyVal < 1) qtyVal = 1;
+    if (qtyVal !== undefined && qtyVal < 0) qtyVal = 0;
     if (gramsVal !== undefined && gramsVal > maxGrams) gramsVal = maxGrams;
     if (gramsVal !== undefined && gramsVal < 1) gramsVal = 1;
     onMoveToPossible(consumeDialogItem, qtyVal, gramsVal);
@@ -281,7 +281,7 @@ export function UnParUnSection({ category, foodItems, allMeals, collapsed, onTog
           onClick={() => {
             if ((fi.quantity && fi.quantity > 1) || fi.grams) {
               setConsumeDialogItem(fi);
-              setConsumeQty(fi.quantity ? "1" : "");
+              setConsumeQty("");
               setConsumeGrams("");
             } else {
               onMoveToPossible(fi);
