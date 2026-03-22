@@ -32,6 +32,9 @@ self.addEventListener('fetch', (event) => {
   const { request } = event;
   const url = new URL(request.url);
 
+  // Skip non-http/https schemes (e.g., chrome-extension://)
+  if (!['http:', 'https:'].includes(url.protocol)) return;
+
   if (request.method !== 'GET') return;
 
   const isViteDevRequest =
