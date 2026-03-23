@@ -13,6 +13,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { colorFromName, computeCounterDays } from "@/lib/ingredientUtils";
 import { usePreferences } from "@/hooks/usePreferences";
+import { useSortModes, FoodSortMode } from "@/hooks/useSortModes";
 
 export { colorFromName };
 
@@ -632,6 +633,10 @@ const STORAGE_SECTIONS: { type: StorageType; label: string; emoji: React.ReactNo
 
 export function FoodItems() {
   const { items, isLoading: itemsLoading } = useFoodItems();
+  const {
+    foodSortModes, sortDirections, toggleFoodSort, toggleSortDirection, resetFoodSortToManual
+  } = useSortModes({ enabled: true });
+
   const { getPreference, setPreference, isLoading: prefsLoading } = usePreferences();
   const isLoading = itemsLoading || prefsLoading;
   const qc = useQueryClient();
@@ -729,31 +734,7 @@ export function FoodItems() {
   const [pendingExpiration, setPendingExpiration] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
 
-  // Independent sort per section
-  const [sortModes, setSortModes] = useState<Record<StorageType, SortMode>>(() => {
-    const saved = localStorage.getItem('food_sort_modes');
-    return saved ? JSON.parse(saved) : { frigo: 'manual', sec: 'manual', surgele: 'manual', extras: 'manual', toujours: 'manual' };
-  });
-
   const [dragIndex, setDragIndex] = useState<number | null>(null);
-
-  // Sync DB sort modes to local state
-  useEffect(() => {
-    const dbSortModes = getPreference<Record<string, SortMode>>('food_sort_modes', null as any);
-    if (dbSortModes && Object.keys(dbSortModes).length > 0) {
-      setSortModes(dbSortModes);
-    }
-  }, [getPreference]);
-
-  // Persist local state to localStorage and DB
-  const dbSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  useEffect(() => {
-    localStorage.setItem('food_sort_modes', JSON.stringify(sortModes));
-    if (dbSyncRef.current) clearTimeout(dbSyncRef.current);
-    dbSyncRef.current = setTimeout(() => {
-      setPreference.mutate({ key: 'food_sort_modes', value: sortModes });
-    }, 1000);
-  }, [sortModes, setPreference]);
 
   const normalizeSearch = (text: string) =>
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/s$/g, "");
@@ -766,9 +747,15 @@ export function FoodItems() {
 
   const getSortedItems = (storageType: StorageType): FoodItem[] => {
     const sectionItems = items.filter(i => i.storage_type === storageType);
-    let sorted: FoodItem[];
-    if (sortModes[storageType] === "expiration") {
-      sorted = [...sectionItems].sort((a, b) => {
+    const mode = foodSortModes[storageType] || "manual";
+    const asc = sortDirections[`food-${storageType}`] !== false; // default to true (ascending)
+
+    if (mode === "manual") return filterBySearch(sectionItems);
+
+    let sorted = [...sectionItems];
+
+    if (mode === "expiration") {
+      sorted.sort((a, b) => {
         if (a.is_meal && !a.expiration_date && !(b.is_meal && !b.expiration_date)) return -1;
         if (b.is_meal && !b.expiration_date && !(a.is_meal && !a.expiration_date)) return 1;
 
@@ -785,46 +772,62 @@ export function FoodItems() {
 
         const aG1 = aExpired && aCounter !== null;
         const bG1 = bExpired && bCounter !== null;
-        if (aG1 && !bG1) return -1;
-        if (!aG1 && bG1) return 1;
+        if (aG1 && !bG1) return asc ? -1 : 1;
+        if (!aG1 && bG1) return asc ? 1 : -1;
         if (aG1 && bG1) {
-          if (aCounter !== bCounter) return (bCounter ?? 0) - (aCounter ?? 0);
+          if (aCounter !== bCounter) return asc ? (bCounter ?? 0) - (aCounter ?? 0) : (aCounter ?? 0) - (bCounter ?? 0);
           const dateCmp = (a.expiration_date ?? '').localeCompare(b.expiration_date ?? '');
-          if (dateCmp !== 0) return dateCmp;
-          return parseCal(a) - parseCal(b);
+          if (dateCmp !== 0) return asc ? dateCmp : -dateCmp;
+          return asc ? parseCal(a) - parseCal(b) : parseCal(b) - parseCal(a);
         }
 
         const aG2 = !aExpired && aCounter !== null;
         const bG2 = !bExpired && bCounter !== null;
-        if (aG2 && !bG2) return -1;
-        if (!aG2 && bG2) return 1;
+        if (aG2 && !bG2) return asc ? -1 : 1;
+        if (!aG2 && bG2) return asc ? 1 : -1;
         if (aG2 && bG2) {
-          if ((bCounter ?? 0) !== (aCounter ?? 0)) return (bCounter ?? 0) - (aCounter ?? 0);
+          if ((bCounter ?? 0) !== (aCounter ?? 0)) return asc ? (bCounter ?? 0) - (aCounter ?? 0) : (aCounter ?? 0) - (bCounter ?? 0);
           const dateCmp = (a.expiration_date ?? '').localeCompare(b.expiration_date ?? '');
-          if (dateCmp !== 0) return dateCmp;
-          return parseCal(a) - parseCal(b);
+          if (dateCmp !== 0) return asc ? dateCmp : -dateCmp;
+          return asc ? parseCal(a) - parseCal(b) : parseCal(b) - parseCal(a);
         }
 
         const aG3 = aExpired && aCounter === null;
         const bG3 = bExpired && bCounter === null;
-        if (aG3 && !bG3) return -1;
-        if (!aG3 && bG3) return 1;
+        if (aG3 && !bG3) return asc ? -1 : 1;
+        if (!aG3 && bG3) return asc ? 1 : -1;
         if (aG3 && bG3) {
           const dateCmp = (a.expiration_date ?? '').localeCompare(b.expiration_date ?? '');
-          if (dateCmp !== 0) return dateCmp;
-          return parseCal(a) - parseCal(b);
+          if (dateCmp !== 0) return asc ? dateCmp : -dateCmp;
+          return asc ? parseCal(a) - parseCal(b) : parseCal(b) - parseCal(a);
         }
 
         if (!a.expiration_date && !b.expiration_date) return 0;
-        if (!a.expiration_date) return 1;
-        if (!b.expiration_date) return -1;
+        if (!a.expiration_date) return asc ? 1 : -1;
+        if (!b.expiration_date) return asc ? -1 : 1;
         const dateCmp = a.expiration_date.localeCompare(b.expiration_date);
-        if (dateCmp !== 0) return dateCmp;
-        return parseCal(a) - parseCal(b);
+        if (dateCmp !== 0) return asc ? dateCmp : -dateCmp;
+        return asc ? parseCal(a) - parseCal(b) : parseCal(b) - parseCal(a);
       });
-    } else {
-      sorted = sectionItems;
+    } else if (mode === "name") {
+      sorted.sort((a, b) => {
+        const cmp = a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
+        return asc ? cmp : -cmp;
+      });
+    } else if (mode === "calories") {
+      sorted.sort((a, b) => {
+        const parseCal = (fi: FoodItem) => parseFloat((fi.calories || "0").replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+        const diff = parseCal(a) - parseCal(b);
+        return asc ? diff : -diff;
+      });
+    } else if (mode === "protein") {
+      sorted.sort((a, b) => {
+        const parsePro = (fi: FoodItem) => parseFloat((fi.protein || "0").replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+        const diff = parsePro(a) - parsePro(b);
+        return asc ? diff : -diff;
+      });
     }
+
     return filterBySearch(sorted);
   };
 
@@ -860,7 +863,7 @@ export function FoodItems() {
     const [moved] = reordered.splice(fromIndex, 1);
     reordered.splice(toIndex, 0, moved);
     reorderItems.mutate(reordered.map((item, i) => ({ id: item.id, sort_order: i })));
-    setSortModes(prev => ({ ...prev, [storageType]: "manual" }));
+    resetFoodSortToManual(storageType);
   };
 
   if (isLoading) {
@@ -998,8 +1001,10 @@ export function FoodItems() {
             onUpdate={(id, updates) => updateItem.mutate({ id, ...updates })}
             onDelete={(id) => deleteItem.mutate(id)}
             onDuplicate={(id) => duplicateItem.mutate(id)}
-            sortMode={sortModes[section.type]}
-            onToggleSort={() => setSortModes(prev => ({ ...prev, [section.type]: prev[section.type] === "manual" ? "expiration" : "manual" }))}
+            sortMode={foodSortModes[section.type] || "manual"}
+            onToggleSort={() => toggleFoodSort(section.type)}
+            sortDirection={sortDirections[`food-${section.type}`] !== false}
+            onToggleSortDirection={() => toggleSortDirection(`food-${section.type}`)}
             onReorder={(from, to) => handleReorder(section.type, from, to)}
             dragIndex={dragIndex}
             setDragIndex={setDragIndex}
@@ -1020,8 +1025,10 @@ export function FoodItems() {
               onUpdate={(id, updates) => updateItem.mutate({ id, ...updates })}
               onDelete={(id) => deleteItem.mutate(id)}
               onDuplicate={(id) => duplicateItem.mutate(id)}
-              sortMode={sortModes[section.type]}
-              onToggleSort={() => setSortModes(prev => ({ ...prev, [section.type]: prev[section.type] === "manual" ? "expiration" : "manual" }))}
+              sortMode={foodSortModes[section.type] || "manual"}
+              onToggleSort={() => toggleFoodSort(section.type)}
+              sortDirection={sortDirections[`food-${section.type}`] !== false}
+              onToggleSortDirection={() => toggleSortDirection(`food-${section.type}`)}
               onReorder={(from, to) => handleReorder(section.type, from, to)}
               dragIndex={dragIndex}
               setDragIndex={setDragIndex}
@@ -1045,8 +1052,10 @@ interface FoodSectionProps {
   onUpdate: (id: string, updates: Partial<FoodItem>) => void;
   onDelete: (id: string) => void;
   onDuplicate: (id: string) => void;
-  sortMode: SortMode;
+  sortMode: FoodSortMode;
   onToggleSort: () => void;
+  sortDirection: boolean;
+  onToggleSortDirection: () => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
   dragIndex: number | null;
   setDragIndex: (i: number | null) => void;
@@ -1054,9 +1063,9 @@ interface FoodSectionProps {
   onChangeStorage: (id: string, storageType: StorageType) => void;
 }
 
-function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onDuplicate, sortMode, onToggleSort, onReorder, dragIndex, setDragIndex, allItems, onChangeStorage }: FoodSectionProps) {
-  const SortIcon = sortMode === "expiration" ? CalendarDays : ArrowUpDown;
-  const sortLabel = sortMode === "expiration" ? "Péremption" : "Manuel";
+function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onDuplicate, sortMode, onToggleSort, sortDirection, onToggleSortDirection, onReorder, dragIndex, setDragIndex, allItems, onChangeStorage }: FoodSectionProps) {
+  const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "name" ? ArrowUpDown : sortMode === "calories" ? Flame : sortMode === "protein" ? UtensilsCrossed : ArrowUpDown;
+  const sortLabel = sortMode === "expiration" ? "Péremption" : sortMode === "name" ? "Nom" : sortMode === "calories" ? "Calories" : sortMode === "protein" ? "Protéines" : "Manuel";
   const [sectionDragOver, setSectionDragOver] = useState(false);
   const [collapsed, setCollapsed] = useState(storageType === 'toujours' || storageType === 'extras');
   const isTouchDevice = typeof window !== "undefined" && (navigator.maxTouchPoints > 0 || "ontouchstart" in window);
@@ -1194,10 +1203,17 @@ function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onD
           </h2>
         </button>
         <span className="text-sm font-normal text-muted-foreground">{items.length}</span>
-        <Button size="sm" variant="ghost" onClick={onToggleSort} className="text-[10px] gap-0.5 h-7 px-2">
-          <SortIcon className="h-3 w-3" />
-          <span className="hidden sm:inline">{sortLabel}</span>
-        </Button>
+        <div className="flex items-center gap-1">
+          {sortMode !== "manual" && (
+            <Button size="sm" variant="ghost" onClick={onToggleSortDirection} className="h-7 w-7 p-0 rounded-full">
+              {sortDirection ? <ChevronDown className="h-3.5 w-3.5" /> : <ChevronDown className="h-3.5 w-3.5 rotate-180" />}
+            </Button>
+          )}
+          <Button size="sm" variant="ghost" onClick={onToggleSort} className={`text-[10px] gap-0.5 h-7 px-2 rounded-full border transition-all ${sortMode !== "manual" ? 'bg-primary/10 border-primary/30 text-primary hover:bg-primary/20' : 'border-transparent'}`}>
+            <SortIcon className="h-3 w-3" />
+            <span className="hidden sm:inline">{sortLabel}</span>
+          </Button>
+        </div>
       </div>
 
       {!collapsed && (
