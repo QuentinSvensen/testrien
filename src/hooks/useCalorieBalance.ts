@@ -4,6 +4,8 @@ import { usePreferences } from '@/hooks/usePreferences';
 import { computeIngredientCalories, computeIngredientProtein } from '@/lib/ingredientUtils';
 import { getDisplayedPMCalories, getDisplayedPMProtein, getDisplayedCalories, getDisplayedProtein } from '@/lib/stockUtils';
 
+import { useFoodItems } from "@/hooks/useFoodItems";
+
 const DEFAULT_DAILY_GOAL = 2750;
 const DRINK_CALORIES = 150;
 
@@ -25,6 +27,12 @@ function parseCalories(cal: string | null | undefined): number {
   if (!cal) return 0;
   const n = parseFloat(cal.replace(/[^0-9.]/g, ""));
   return isNaN(n) ? 0 : n;
+}
+
+function parseProtein(prot: string | null | undefined): number {
+  if (!prot) return 0;
+  const n = parseFloat(prot.replace(/[^0-9.]/g, ""));
+  return isNaN(n) ? 0 : Math.round(n);
 }
 
 /**
@@ -117,6 +125,7 @@ export function getCardDisplayProtein(pm: PossibleMeal, isAvailable?: (name: str
 export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
   const { meals: allMeals, possibleMeals, getMealsByCategory } = useMeals();
   const { getPreference } = usePreferences();
+  const { items: foodItems } = useFoodItems();
 
   const petitDejMeals = getMealsByCategory('petit_dejeuner');
   const breakfastSelections = getPreference<Record<string, string>>('planning_breakfast', {});
@@ -180,7 +189,6 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     }, 0);
 
     const breakfast = getBreakfastForDay(day);
-    const extra = extraCalories[day] || 0;
     let breakfastCal = 0;
     if (breakfast) {
       const selId = breakfastSelections[day];
@@ -201,9 +209,18 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     } else {
       breakfastCal = breakfastManualCalories[day] || 0;
     }
+
+    const extraManual = extraCalories[day] || 0;
+    const extraSelections = getPreference<Record<string, string[]>>('planning_extra_selections', {});
+    const selectedExtraIds = extraSelections[day] || [];
+    const extraSelectedCal = selectedExtraIds.reduce((sum, id) => {
+      const item = foodItems.find(fi => fi.id === id);
+      return sum + parseCalories(item?.calories);
+    }, 0);
+
     const drinkCal = TIMES.reduce((sum, time) => sum + (drinkChecks[`${day}-${time}`] ? DRINK_CALORIES : 0), 0);
 
-    return mealCals + breakfastCal + extra + drinkCal;
+    return mealCals + breakfastCal + extraManual + extraSelectedCal + drinkCal;
   };
 
   const getDayProtein = (day: string): number => {
@@ -238,9 +255,16 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     } else {
       breakfastPro = breakfastManualProteins[day] || 0;
     }
-    const extra = extraProteins[day] || 0;
+    
+    const extraManual = extraProteins[day] || 0;
+    const extraSelections = getPreference<Record<string, string[]>>('planning_extra_selections', {});
+    const selectedExtraIds = extraSelections[day] || [];
+    const extraSelectedPro = selectedExtraIds.reduce((sum, id) => {
+      const item = foodItems.find(fi => fi.id === id);
+      return sum + parseProtein(item?.protein);
+    }, 0);
 
-    return mealPro + breakfastPro + extra;
+    return mealPro + breakfastPro + extraManual + extraSelectedPro;
   };
 
   const getTargetCalorieThreshold = () => {
@@ -274,5 +298,5 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     return Math.max(0, DAILY_PROTEIN_GOAL - todayConsumed);
   };
 
-  return { getDayCalories, getDayProtein, DAILY_GOAL, DAILY_PROTEIN_GOAL, getBreakfastForDay, getTargetCalorieThreshold, getRemainingProtein };
+  return { getDayCalories, getDayProtein, DAILY_GOAL, DAILY_PROTEIN_GOAL, getRecordSelectedExtraIds: (day: string) => (getPreference<Record<string, string[]>>('planning_extra_selections', {})[day] || []), getBreakfastForDay, getTargetCalorieThreshold, getRemainingProtein };
 }

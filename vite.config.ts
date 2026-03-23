@@ -12,7 +12,7 @@ export default defineConfig({
     chunkSizeWarningLimit: 1000,
   },
   server: {
-    host: "::",
+    host: true,
     port: 8081,
     hmr: {
       overlay: false,

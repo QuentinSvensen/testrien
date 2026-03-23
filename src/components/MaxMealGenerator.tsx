@@ -1,5 +1,6 @@
-import { useState, useEffect } from "react";
-import { ChevronDown, ChevronRight, Loader2, Zap } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { usePreferences } from "@/hooks/usePreferences";
+import { ChevronDown, ChevronRight, Loader2, Zap, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { toast } from "@/hooks/use-toast";
 import type { FoodItem } from "@/components/FoodItems";
@@ -44,11 +45,28 @@ function deductMealFromVirtualStock(
   }
 }
 
-export function MaxMealGenerator({ foodItems, meals }: Props) {
+export default function MaxMealGenerator({ foodItems, meals }: Props) {
+  const { getPreference, setPreference } = usePreferences();
   const [open, setOpen] = useState(false);
   const [loading, setLoading] = useState(false);
   const [results, setResults] = useState<GeneratedMeal[]>([]);
   const [hasGenerated, setHasGenerated] = useState(false);
+  const [sortBy, setSortBy] = useState<'none' | 'asc' | 'desc'>('desc');
+
+  // Sync DB sort mode to local state
+  useEffect(() => {
+    const dbSort = getPreference<'none' | 'asc' | 'desc'>('max_meal_sort_by', null as any);
+    if (dbSort) setSortBy(dbSort);
+  }, [getPreference]);
+
+  // Persist to DB
+  const dbSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => {
+    if (dbSyncRef.current) clearTimeout(dbSyncRef.current);
+    dbSyncRef.current = setTimeout(() => {
+      setPreference.mutate({ key: 'max_meal_sort_by', value: sortBy });
+    }, 1000);
+  }, [sortBy, setPreference]);
 
   // Restore from sessionStorage on mount
   useEffect(() => {
@@ -144,7 +162,7 @@ export function MaxMealGenerator({ foodItems, meals }: Props) {
           });
         }
 
-        // Sort by calories desc
+        // Default sort by calories desc for the session storage
         generated.sort((a, b) => (b.calories ?? 0) - (a.calories ?? 0));
         setResults(generated);
         setHasGenerated(true);
@@ -155,6 +173,21 @@ export function MaxMealGenerator({ foodItems, meals }: Props) {
         setLoading(false);
       }
     }, 100);
+  };
+
+  const sortedResults = [...results].sort((a, b) => {
+    if (sortBy === 'none') return 0;
+    const valA = a.calories ?? 0;
+    const valB = b.calories ?? 0;
+    return sortBy === 'desc' ? valB - valA : valA - valB;
+  });
+
+  const toggleSort = () => {
+    setSortBy(prev => {
+      if (prev === 'desc') return 'asc';
+      if (prev === 'asc') return 'none';
+      return 'desc';
+    });
   };
 
   return (
@@ -177,7 +210,20 @@ export function MaxMealGenerator({ foodItems, meals }: Props) {
               {loading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Zap className="h-3.5 w-3.5" />}
               Générer
             </Button>
-            <span className="text-[10px] text-muted-foreground">Simule le max de plats réalisables en déduisant séquentiellement le stock</span>
+            {results.length > 0 && (
+              <Button 
+                variant="outline" 
+                size="sm" 
+                onClick={toggleSort} 
+                className={`gap-1.5 text-[10px] h-8 rounded-xl border-dashed ${sortBy !== 'none' ? 'bg-orange-500/10 border-orange-500/30 text-orange-600' : ''}`}
+              >
+                {sortBy === 'none' && <ArrowUpDown className="h-3 w-3" />}
+                {sortBy === 'asc' && <ArrowUp className="h-3 w-3" />}
+                {sortBy === 'desc' && <ArrowDown className="h-3 w-3" />}
+                Calories
+              </Button>
+            )}
+            <span className="text-[10px] text-muted-foreground ml-1">Simule le max de plats réalisables en déduisant séquentiellement le stock</span>
           </div>
 
           {hasGenerated && results.length === 0 && (
@@ -186,9 +232,9 @@ export function MaxMealGenerator({ foodItems, meals }: Props) {
             </p>
           )}
 
-          {results.length > 0 && (
+          {sortedResults.length > 0 && (
             <div className="flex flex-col gap-2">
-              {results.map((r, i) => (
+              {sortedResults.map((r, i) => (
                 <div key={i} className="flex flex-col rounded-2xl px-3 py-2.5 bg-amber-500/10 border border-amber-500/20">
                   <div className="flex items-center gap-2">
                     <p className="font-semibold text-sm text-foreground flex-1 truncate">{r.name}</p>

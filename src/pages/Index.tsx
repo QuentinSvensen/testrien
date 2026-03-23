@@ -4,6 +4,7 @@ import { Plus, Dice5, ArrowUpDown, CalendarDays, ShoppingCart, CalendarRange, Ut
 import { DevMenu } from "@/components/DevMenu";
 import { Chronometer } from "@/components/Chronometer";
 import { PinLock } from "@/components/PinLock";
+import { ErrorBoundary } from "@/components/ErrorBoundary";
 
 import { useNavigate, useLocation } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,26 +42,49 @@ import {
 } from "@/lib/stockUtils";
 import { useMealTransfers } from "@/hooks/useMealTransfers";
 
+// Robust lazy loader with retry/refresh logic
+const lazyRetry = (importFn: () => Promise<any>, name: string) => {
+  return lazy(async () => {
+    try {
+      return await importFn();
+    } catch (error: any) {
+      console.error(`Error loading chunk for ${name}:`, error);
+      
+      // If it's a chunk loading error (common on redeploys), refresh the page
+      const isChunkError = error.name === 'ChunkLoadError' || 
+                          error.message?.includes('Failed to fetch dynamically imported module') ||
+                          error.message?.includes('Failed to load module script');
+      
+      if (isChunkError && !sessionStorage.getItem(`retry-${name}`)) {
+        sessionStorage.setItem(`retry-${name}`, 'true');
+        window.location.reload();
+      }
+      
+      throw error;
+    }
+  });
+};
+
 // Lazy component factories (for preloading)
 const importShoppingList = () => import("@/components/ShoppingList").then((m) => ({ default: m.ShoppingList }));
 const importMealPlanGenerator = () => import("@/components/MealPlanGenerator").then((m) => ({ default: m.MealPlanGenerator }));
 const importFoodItems = () => import("@/components/FoodItems").then((m) => ({ default: m.FoodItems }));
-const importMaxMealGenerator = () => import("@/components/MaxMealGenerator").then((m) => ({ default: m.MaxMealGenerator }));
+const importMaxMealGenerator = () => import("@/components/MaxMealGenerator"); // Now default export
 const importWeeklyPlanning = () => import("@/components/WeeklyPlanning").then((m) => ({ default: m.WeeklyPlanning }));
 const importMasterList = () => import("@/components/MasterList").then((m) => ({ default: m.MasterList }));
 const importPossibleList = () => import("@/components/PossibleList").then((m) => ({ default: m.PossibleList }));
 const importAvailableList = () => import("@/components/AvailableList").then((m) => ({ default: m.AvailableList }));
 const importUnParUnSection = () => import("@/components/UnParUnSection").then((m) => ({ default: m.UnParUnSection }));
 
-const LazyShoppingList = lazy(importShoppingList);
-const LazyMealPlanGenerator = lazy(importMealPlanGenerator);
-const LazyFoodItems = lazy(importFoodItems);
-const LazyMaxMealGenerator = lazy(importMaxMealGenerator);
-const LazyWeeklyPlanning = lazy(importWeeklyPlanning);
-const LazyMasterList = lazy(importMasterList);
-const LazyPossibleList = lazy(importPossibleList);
-const LazyAvailableList = lazy(importAvailableList);
-const LazyUnParUnSection = lazy(importUnParUnSection);
+const LazyShoppingList = lazyRetry(importShoppingList, "ShoppingList");
+const LazyMealPlanGenerator = lazyRetry(importMealPlanGenerator, "MealPlanGenerator");
+const LazyFoodItems = lazyRetry(importFoodItems, "FoodItems");
+const LazyMaxMealGenerator = lazyRetry(importMaxMealGenerator, "MaxMealGenerator");
+const LazyWeeklyPlanning = lazyRetry(importWeeklyPlanning, "WeeklyPlanning");
+const LazyMasterList = lazyRetry(importMasterList, "MasterList");
+const LazyPossibleList = lazyRetry(importPossibleList, "PossibleList");
+const LazyAvailableList = lazyRetry(importAvailableList, "AvailableList");
+const LazyUnParUnSection = lazyRetry(importUnParUnSection, "UnParUnSection");
 
 const CATEGORIES: { value: MealCategory; label: string; emoji: string; }[] = [
   { value: "petit_dejeuner", label: "Petit déj", emoji: "🥐" },
@@ -245,7 +269,7 @@ const Index = () => {
   const lastWeeklyReset = getPreference<string>('last_weekly_reset', '');
   const sundayClearDone = useRef(false);
   useEffect(() => {
-    if (!unlocked || sundayClearDone.current || isPreferencesLoading) return;
+    if (!unlocked || sundayClearDone.current || isPreferencesLoading || isLoading) return;
     sundayClearDone.current = true;
 
     const now = new Date();
@@ -397,7 +421,7 @@ const Index = () => {
       toast({ title: "🔄 Reset hebdomadaire effectué", description: "Utilisez ↩ Restaurer dans le planning pour récupérer les cartes." });
     };
     clearAll();
-  }, [unlocked, possibleMeals, lastWeeklyReset]);
+  }, [unlocked, possibleMeals, lastWeeklyReset, isPreferencesLoading, isLoading]);
 
   const [activeCategory, setActiveCategory] = useState<MealCategory>(() => {
     if (location.pathname === '/repas') {
@@ -435,6 +459,27 @@ const Index = () => {
   };
   const [masterSourcePmIds, setMasterSourcePmIds] = useState<Set<string>>(new Set());
   const [unParUnSourcePmIds, setUnParUnSourcePmIds] = useState<Set<string>>(new Set());
+
+  const handleMoveToPossibleGeneral = async (mealId: string, source?: string) => {
+    const meal = meals.find(m => m.id === mealId);
+    if (!meal) return;
+
+    const { snapshots, consumedIds } = await deductIngredientsFromStock(meal);
+    const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
+    if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
+
+    const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
+    const result = await moveToPossible.mutateAsync({ 
+      mealId, 
+      expiration_date: an.earliestExpiration, 
+      counter_start_date: an.earliestCounterDate 
+    });
+
+    if (result?.id) {
+      if (snapshots.length > 0) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
+      if (source === "master") setMasterSourcePmIds(prev => new Set([...prev, result.id]));
+    }
+  };
 
   // Sort modes — extracted to dedicated hook
   const {
@@ -621,13 +666,13 @@ const Index = () => {
       <main className="max-w-6xl mx-auto p-3 sm:p-4">
         <Suspense fallback={<div className="flex justify-center py-8 text-muted-foreground"><Loader2 className="h-5 w-5 animate-spin" /></div>}>
           {mainPage === "aliments" && (
-            <div>
+            <ErrorBoundary section="Aliments">
               <LazyFoodItems />
               <LazyMaxMealGenerator foodItems={foodItems} meals={meals} />
-            </div>
+            </ErrorBoundary>
           )}
           {mainPage === "courses" && (
-            <div>
+            <ErrorBoundary section="Courses">
               <div className="sticky top-[44px] sm:top-[52px] z-10 bg-background/95 backdrop-blur-sm pb-2 pt-1">
                 <div className="flex items-center gap-1 bg-muted rounded-full p-0.5 max-w-xs mx-auto">
                   <button onClick={() => setCoursesTab("liste")} className={`flex-1 py-1.5 rounded-full text-xs font-medium transition-colors ${coursesTab === "liste" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}`}>🛒 Liste</button>
@@ -698,9 +743,13 @@ const Index = () => {
                 </label>
               </div>
               {coursesTab === "liste" ? <LazyShoppingList /> : <LazyMealPlanGenerator />}
-            </div>
+            </ErrorBoundary>
           )}
-          {mainPage === "planning" && <LazyWeeklyPlanning />}
+          {mainPage === "planning" && (
+            <ErrorBoundary section="Planning">
+              <LazyWeeklyPlanning />
+            </ErrorBoundary>
+          )}
           {mainPage === "repas" &&
             <Tabs value={activeCategory} onValueChange={(v) => setActiveCategory(v as MealCategory)}>
               <div className="flex items-center gap-2 mb-3 sm:mb-4">
@@ -737,410 +786,394 @@ const Index = () => {
 
               {CATEGORIES.map((cat) =>
                 <TabsContent key={cat.value} value={cat.value}>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
-                    <div className="flex flex-col gap-3 sm:gap-4 order-1">
-                      <LazyMasterList
-                        category={cat}
-                        meals={getSortedMaster(cat.value)}
-                        foodItems={foodItems}
-                        sortMode={(masterSortModes[cat.value] || "manual") as any}
-                        sortAsc={sortDirections[`master-${cat.value}`] !== false}
-                        onToggleSort={() => toggleMasterSort(cat.value)}
-                        onToggleSortDirection={() => toggleSortDirection(`master-${cat.value}`)}
-                        collapsed={collapsedSections[`master-${cat.value}`] ?? false}
-                        onToggleCollapse={() => toggleSectionCollapse(`master-${cat.value}`)}
-                        onMoveToPossible={async (id) => {
-                          const result = await moveToPossible.mutateAsync({ mealId: id });
-                          if (result?.id) setMasterSourcePmIds(prev => new Set([...prev, result.id]));
-                        }}
-                        onRename={(id, name) => renameMeal.mutate({ id, name })}
-                        onDelete={(id) => deleteMeal.mutate(id)}
-                        onUpdateCalories={(id, cal) => updateCalories.mutate({ id, calories: cal })}
-                        onUpdateProtein={(id, prot) => updateProtein.mutate({ id, protein: prot })}
-                        onUpdateGrams={(id, g) => updateGrams.mutate({ id, grams: g })}
-                        onUpdateIngredients={(id, ing) => {
-                          if (ing) {
-                            const { sourceIngredients, updates } = propagateIngredientMacros(id, ing, meals);
-                            updateIngredients.mutate({ id, ingredients: sourceIngredients });
-                            for (const u of updates) updateIngredients.mutate({ id: u.id, ingredients: u.ingredients });
-                          } else {
-                            updateIngredients.mutate({ id, ingredients: ing });
-                          }
-                        }}
-                        onToggleFavorite={(id) => {
-                          const meal = meals.find((m) => m.id === id);
-                          if (meal) toggleFavorite.mutate({ id, is_favorite: !meal.is_favorite });
-                        }}
-                        onUpdateOvenTemp={(id, t) => updateOvenTemp.mutate({ id, oven_temp: t })}
-                        onUpdateOvenMinutes={(id, m) => updateOvenMinutes.mutate({ id, oven_minutes: m })}
-                        onReorder={(from, to) => handleReorderMeals(cat.value, from, to)} />
-
-                      <LazyAvailableList
-                        category={cat}
-                        meals={getMealsByCategory(cat.value)}
-                        foodItems={foodItems}
-                        allMeals={meals}
-                        stockMap={stockMap}
-                        sortMode={availableSortModes[cat.value] || "manual"}
-                        sortAsc={sortDirections[`available-${cat.value}`] !== false}
-                        onToggleSort={() => toggleAvailableSort(cat.value)}
-                        onToggleSortDirection={() => toggleSortDirection(`available-${cat.value}`)}
-                        collapsed={collapsedSections[`available-${cat.value}`] ?? false}
-                        onToggleCollapse={() => toggleSectionCollapse(`available-${cat.value}`)}
-                        onMoveToPossible={async (mealId) => {
-                          const meal = meals.find(m => m.id === mealId);
-                          if (meal) {
-                            const { snapshots, consumedIds } = await deductIngredientsFromStock(meal);
-                            const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
-                            if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
-
-                            const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
-                            const result = await moveToPossible.mutateAsync({ mealId, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate });
-                            if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
-                          }
-                        }}
-                        onMovePartialToPossible={async (meal, ratio) => {
-                          const partialMeal = buildScaledMealForRatio(meal, ratio, stockMap);
-                          const { snapshots, consumedIds } = await deductIngredientsFromStock(partialMeal);
-
-                          const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
-                          const result = await addMealToPossibleDirectly.mutateAsync({
-                            name: meal.name, category: cat.value,
-                            calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate,
-                          });
-                          if (result?.id) {
-                            updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
-                            if (partialMeal.ingredients && partialMeal.ingredients !== meal.ingredients) {
-                              updatePossibleIngredients.mutate({ id: result.id, ingredients_override: partialMeal.ingredients });
-                            }
-                          }
-                        }}
-                        onMoveNameMatchToPossible={async (meal, fi, ratio) => {
-                          if (fi.is_infinite && ratio && ratio !== 1) {
-                            // Infinite card with multiplier - create with ORIGINAL values, set override for scaling
-                            const baseGrams = parseQty(meal.grams);
-                            const baseIng = meal.ingredients ? meal.ingredients : (baseGrams > 0 ? `${baseGrams}g ${meal.name}` : null);
-                            const scaledIng = baseIng ? scaleIngredientStringExact(baseIng, ratio) : null;
-                            const result = await addMealToPossibleDirectly.mutateAsync({
-                              name: meal.name, category: cat.value,
-                              calories: meal.calories, protein: meal.protein, grams: meal.grams,
-                              ingredients: baseIng,
-                            });
-                            if (result?.id && scaledIng) {
-                              updatePossibleIngredients.mutate({ id: result.id, ingredients_override: scaledIng });
-                            }
-                            return;
-                          }
-                          const snapshot = [{ ...fi }];
-                          if (!fi.is_infinite) await deductNameMatchStock(meal);
-                          const result = await moveToPossible.mutateAsync({ mealId: meal.id, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
-                          if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshot }));
-                        }}
-                        onMoveFoodItemToPossible={async (fi) => {
-                          const snapshot = [{ ...fi }];
-                          if (!fi.is_infinite) {
-                            const currentQty = fi.quantity ?? 1;
-                            if (currentQty <= 1) { await supabase.from("food_items").delete().eq("id", fi.id); }
-                            else { await supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", fi.id); }
-                            qc.invalidateQueries({ queryKey: ["food_items"] });
-                          }
-                          const fiKey = normalizeKey(fi.name);
-                          const fiMacro = macroLookup.get(fiKey);
-                          const calories = fi.calories || fiMacro?.cal || null;
-                          const protein = fi.protein || fiMacro?.pro || null;
-                          const pmResult = await addMealToPossibleDirectly.mutateAsync({ name: fi.name, category: cat.value, calories, protein, grams: fi.grams, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
-                          if (pmResult?.id) updateSnapshots(prev => ({ ...prev, [pmResult.id]: snapshot }));
-                        }}
-                        onDeleteFoodItem={(id) => { deleteFoodItem(id); }}
-                        onRename={(id, name) => renameMeal.mutate({ id, name })}
-                        onUpdateCalories={(id, cal) => updateCalories.mutate({ id, calories: cal })}
-                        onUpdateGrams={(id, g) => updateGrams.mutate({ id, grams: g })}
-                        onUpdateIngredients={(id, ing) => updateIngredients.mutate({ id, ingredients: ing })}
-                        onToggleFavorite={(id) => {
-                          const meal = meals.find((m) => m.id === id);
-                          if (meal) toggleFavorite.mutate({ id, is_favorite: !meal.is_favorite });
-                        }}
-                        onUpdateOvenTemp={(id, t) => updateOvenTemp.mutate({ id, oven_temp: t })}
-                        onUpdateOvenMinutes={(id, m) => updateOvenMinutes.mutate({ id, oven_minutes: m })} />
-
-                    </div>
-                    <div className="order-3 md:order-2">
-                      <LazyPossibleList
-                        category={cat}
-                        items={getSortedPossible(cat.value)}
-                        sortMode={sortModes[cat.value] || "manual"}
-                        stockMap={stockMap}
-                        onToggleSort={() => toggleSort(cat.value)}
-                        onRandomPick={() => handleRandomPick(cat.value)}
-                        onRemove={(id) => { removeFromPossible.mutate(id); }}
-                        onReturnWithoutDeduction={async (id) => {
-                          const pm = getPossibleByCategory(cat.value).find(p => p.id === id);
-                          const snapshots = deductionSnapshots[id];
-                          if (snapshots && snapshots.length > 0) {
-                            // Always prefer snapshot restoration — it restores exact original state
-                            await restoreIngredientsToStock({} as Meal, snapshots);
-                          } else if (pm?.ingredients_override && pm?.meals) {
-                            // No snapshots but has override — reverse the current ingredients
-                            const currentIngredients = pm.ingredients_override;
-                            await adjustStockForIngredientChange(currentIngredients, null, snapshots);
-                          } else if (pm?.meals) {
-                            await restoreIngredientsToStock(pm.meals);
-                          }
-                          updateSnapshots(prev => { const next = { ...prev }; delete next[id]; return next; });
-                          removeFromPossible.mutate(id);
-                          setUnParUnSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
-                        }}
-                        onReturnToMaster={(id) => {
-                          removeFromPossible.mutate(id);
-                          setMasterSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
-                        }}
-                        onSplitQuantity={(id, ratio, baseIng) => splitPossibleMealQuantity.mutate({ id, ratio, baseIngredients: baseIng })}
-                        onDelete={(id) => { deletePossibleMeal.mutate(id); }}
-                        onDuplicate={async (id) => {
-                          const pm = possibleMeals.find(p => p.id === id);
-                          if (pm?.meals) {
-                            // Use the overridden ingredients if present, deduct from stock
-                            const ingredientsToDeduce = pm.ingredients_override ?? pm.meals.ingredients;
-                            const mealForDeduction = { ...pm.meals, ingredients: ingredientsToDeduce };
-                            const { snapshots } = await deductIngredientsFromStock(mealForDeduction);
-                            // Create the duplicate and store snapshots under its new ID
-                            const newId = await duplicatePossibleMeal.mutateAsync(id);
-                            if (newId && snapshots.length > 0) {
-                              updateSnapshots(prev => ({ ...prev, [newId]: snapshots }));
-                            }
-                          } else {
-                            duplicatePossibleMeal.mutate(id);
-                          }
-                        }}
-                        onUpdateExpiration={(id, d) => updateExpiration.mutate({ id, expiration_date: d })}
-                        onUpdatePlanning={(id, day, time) => {
-                          updatePlanning.mutate({ id, day_of_week: day, meal_time: time });
-                          const pm = possibleMeals.find(p => p.id === id);
-                          if (pm) {
-                            const ing = pm.ingredients_override ?? pm.meals?.ingredients;
-                            updateFoodItemCountersForPlanning(ing, day, time);
-                          }
-                        }}
-                        onUpdateCounter={(id, d) => updateCounter.mutate({ id, counter_start_date: d })}
-                        onUpdateCalories={(id, cal) => updateCalories.mutate({ id, calories: cal })}
-                        onUpdateGrams={async (id, g, pmId) => {
-                          const pm = pmId ? possibleMeals.find(p => p.id === pmId) : possibleMeals.find(p => p.meal_id === id);
-                          if (pm && unParUnSourcePmIds.has(pm.id)) {
-                            if (pm.meals) {
-                              const oldGrams = parseQty(pm.meals.grams);
-                              const newGrams = parseQty(g);
-                              const delta = oldGrams - newGrams;
-                              if (delta !== 0) {
-                                const snapshots = deductionSnapshots[pm.id];
-                                let matchingFi = foodItems.find(fi => snapshots?.[0] ? fi.id === snapshots[0].id : strictNameMatch(fi.name, pm.meals.name) && !fi.is_infinite);
-                                if (matchingFi) {
-                                  const perUnit = parseQty(matchingFi.grams);
-                                  if (delta > 0) {
-                                    if (matchingFi.quantity && matchingFi.quantity >= 1 && perUnit > 0) {
-                                      const currentTotal = getFoodItemTotalGrams(matchingFi);
-                                      const newTotal = currentTotal + delta;
-                                      const fullUnits = Math.floor(newTotal / perUnit);
-                                      const rem = Math.round((newTotal - fullUnits * perUnit) * 10) / 10;
-                                      await supabase.from("food_items").update({ quantity: rem > 0 ? fullUnits + 1 : fullUnits, grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null) } as any).eq("id", matchingFi.id);
-                                      if (rem <= 0 && matchingFi.counter_start_date) await supabase.from("food_items").update({ counter_start_date: null } as any).eq("id", matchingFi.id);
-                                    } else {
-                                      const current = parseQty(matchingFi.grams);
-                                      await supabase.from("food_items").update({ grams: formatNumeric(current + delta) } as any).eq("id", matchingFi.id);
-                                    }
-                                  } else {
-                                    const toDeduct = -delta;
-                                    const totalAvail = getFoodItemTotalGrams(matchingFi);
-                                    const remaining = totalAvail - toDeduct;
-                                    if (remaining <= 0) { await supabase.from("food_items").delete().eq("id", matchingFi.id); }
-                                    else if (matchingFi.quantity && matchingFi.quantity >= 1 && perUnit > 0) {
-                                      const fullUnits = Math.floor(remaining / perUnit);
-                                      const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
-                                      await supabase.from("food_items").update({ quantity: rem > 0 ? Math.max(1, fullUnits + 1) : fullUnits, grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null) } as any).eq("id", matchingFi.id);
-                                    } else { await supabase.from("food_items").update({ grams: formatNumeric(remaining) } as any).eq("id", matchingFi.id); }
-                                  }
-                                  qc.invalidateQueries({ queryKey: ["food_items"] });
-                                } else if (delta > 0 && snapshots?.[0]) {
-                                  // Item was deleted entirely. Recreate it with returned delta
-                                  const sn = snapshots[0];
-                                  const { id: _id, created_at, quantity, grams, ...rest } = sn as Record<string, any>;
-                                  const perUnit = parseQty(sn.grams);
-                                  if (sn.quantity !== null && sn.quantity >= 1 && perUnit > 0) {
-                                    const fullUnits = Math.floor(delta / perUnit);
-                                    const rem = Math.round((delta - fullUnits * perUnit) * 10) / 10;
-                                    await supabase.from("food_items").insert({
-                                      ...rest,
-                                      quantity: rem > 0 ? fullUnits + 1 : fullUnits,
-                                      grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null)
-                                    } as any);
-                                  } else {
-                                    await supabase.from("food_items").insert({
-                                      ...rest,
-                                      grams: formatNumeric(delta)
-                                    } as any);
-                                  }
-                                  qc.invalidateQueries({ queryKey: ["food_items"] });
-                                }
-                              }
-                            }
-                          }
-                          updateGrams.mutate({ id, grams: g });
-                        }}
-                        onUpdateIngredients={(id, ing) => updateIngredients.mutate({ id, ingredients: ing })}
-                        onUpdatePossibleIngredients={async (pmId, newIngredients) => {
-                          const pm = possibleMeals.find(p => p.id === pmId);
-                          if (!pm) return;
-                          const oldIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-                          if (oldIngredients || newIngredients) {
-                            const newSnaps = await adjustStockForIngredientChange(oldIngredients, newIngredients, deductionSnapshots[pmId]);
-                            if (newSnaps.length > 0) {
-                              updateSnapshots(prev => ({
-                                ...prev,
-                                [pmId]: [...(prev[pmId] ?? []), ...newSnaps],
-                              }));
-                            }
-                          }
-                          let finalIngredients = newIngredients;
-                          if (newIngredients) {
-                            const { sourceIngredients } = propagateIngredientMacros('__pm__', newIngredients, meals);
-                            finalIngredients = sourceIngredients;
-                          }
-                          updatePossibleIngredients.mutate({ id: pmId, ingredients_override: finalIngredients });
-                        }}
-                        onUpdateQuantity={async (id, qty) => {
-                          if (unParUnSourcePmIds.has(id)) {
-                            const pm = possibleMeals.find(p => p.id === id);
-                            if (pm?.meals) {
-                              const oldQty = pm.quantity;
-                              const delta = oldQty - qty;
-                              if (delta !== 0) {
-                                const snapshots = deductionSnapshots[pm.id];
-                                let matchingFi = foodItems.find(fi => snapshots?.[0] ? fi.id === snapshots[0].id : strictNameMatch(fi.name, pm.meals.name) && !fi.is_infinite);
-                                if (matchingFi) {
-                                  if (delta > 0) {
-                                    const newStockQty = (matchingFi.quantity ?? 0) + delta;
-                                    const perUnit = parseQty(matchingFi.grams);
-                                    const partial = parsePartialQty(matchingFi.grams);
-                                    const hasPartial = partial > 0 && partial < perUnit;
-                                    const updateData: any = { quantity: newStockQty };
-                                    if (!hasPartial && matchingFi.counter_start_date) updateData.counter_start_date = null;
-                                    await supabase.from("food_items").update(updateData).eq("id", matchingFi.id);
-                                  } else {
-                                    const toDeduct = -delta;
-                                    const currentQty = matchingFi.quantity ?? 1;
-                                    if (currentQty <= toDeduct) { await supabase.from("food_items").delete().eq("id", matchingFi.id); }
-                                    else { await supabase.from("food_items").update({ quantity: currentQty - toDeduct } as any).eq("id", matchingFi.id); }
-                                  }
-                                  qc.invalidateQueries({ queryKey: ["food_items"] });
-                                } else if (delta > 0 && snapshots?.[0]) {
-                                  // Recreate deleted item
-                                  const sn = snapshots[0];
-                                  const { id: _id, created_at, quantity, ...rest } = sn as Record<string, any>;
-                                  await supabase.from("food_items").insert({
-                                    ...rest,
-                                    quantity: delta
-                                  } as any);
-                                  qc.invalidateQueries({ queryKey: ["food_items"] });
-                                } else if (delta < 0) {
-                                  toast({ title: "⚠️ Stock insuffisant", description: `Plus de "${pm.meals.name}" en stock.` });
-                                }
-                              }
-                            }
-                          }
-                          updatePossibleQuantity.mutate({ id, quantity: qty });
-                        }}
-                        onReorder={(from, to) => handleReorderPossible(cat.value, from, to)}
-                        onExternalDrop={async (mealId, source) => {
-                          const result = await moveToPossible.mutateAsync({ mealId });
-                          if (result?.id && source === "master") setMasterSourcePmIds(prev => new Set([...prev, result.id]));
-                        }}
-                        highlightedId={highlightedId}
-                        foodItems={foodItems}
-                        onAddDirectly={() => openDialog("possible")}
-                        masterSourcePmIds={masterSourcePmIds}
-                        unParUnSourcePmIds={unParUnSourcePmIds} />
-                    </div>
-
-                    {cat.value === "plat" && (
-                      <div className="order-2 md:order-3 md:col-span-2">
-                        <LazyUnParUnSection
+                  <ErrorBoundary section={`Repas - ${cat.label}`}>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
+                      <div className="flex flex-col gap-3 sm:gap-4 order-1">
+                        <LazyMasterList
                           category={cat}
+                          meals={getSortedMaster(cat.value)}
+                          foodItems={foodItems}
+                          sortMode={(masterSortModes[cat.value] || "manual") as any}
+                          sortAsc={sortDirections[`master-${cat.value}`] !== false}
+                          onToggleSort={() => toggleMasterSort(cat.value)}
+                          onToggleSortDirection={() => toggleSortDirection(`master-${cat.value}`)}
+                          collapsed={collapsedSections[`master-${cat.value}`] ?? false}
+                          onToggleCollapse={() => toggleSectionCollapse(`master-${cat.value}`)}
+                          onMoveToPossible={(id) => handleMoveToPossibleGeneral(id, "master")}
+                          onRename={(id, name) => renameMeal.mutate({ id, name })}
+                          onDelete={(id) => deleteMeal.mutate(id)}
+                          onUpdateCalories={(id, cal) => updateCalories.mutate({ id, calories: cal })}
+                          onUpdateProtein={(id, prot) => updateProtein.mutate({ id, protein: prot })}
+                          onUpdateGrams={(id, g) => updateGrams.mutate({ id, grams: g })}
+                          onUpdateIngredients={(id, ing) => {
+                            if (ing) {
+                              const { sourceIngredients, updates } = propagateIngredientMacros(id, ing, meals);
+                              updateIngredients.mutate({ id, ingredients: sourceIngredients });
+                              for (const u of updates) updateIngredients.mutate({ id: u.id, ingredients: u.ingredients });
+                            } else {
+                              updateIngredients.mutate({ id, ingredients: ing });
+                            }
+                          }}
+                          onToggleFavorite={(id) => {
+                            const meal = meals.find((m) => m.id === id);
+                            if (meal) toggleFavorite.mutate({ id, is_favorite: !meal.is_favorite });
+                          }}
+                          onUpdateOvenTemp={(id, t) => updateOvenTemp.mutate({ id, oven_temp: t })}
+                          onUpdateOvenMinutes={(id, m) => updateOvenMinutes.mutate({ id, oven_minutes: m })}
+                          onReorder={(from, to) => handleReorderMeals(cat.value, from, to)} />
+
+                        <LazyAvailableList
+                          category={cat}
+                          meals={getMealsByCategory(cat.value)}
                           foodItems={foodItems}
                           allMeals={meals}
-                          collapsed={collapsedSections[`unparun-${cat.value}`] ?? true}
-                          onToggleCollapse={() => toggleSectionCollapse(`unparun-${cat.value}`)}
-                          sortMode={unParUnSortModes[cat.value] || "expiration"}
-                          onToggleSort={() => {
-                            const current = unParUnSortModes[cat.value] || "expiration";
-                            const next: UnParUnSortMode = current === "manual" ? "expiration" : "manual";
-                            setUnParUnSort(cat.value, next);
+                          stockMap={stockMap}
+                          sortMode={availableSortModes[cat.value] || "manual"}
+                          sortAsc={sortDirections[`available-${cat.value}`] !== false}
+                          onToggleSort={() => toggleAvailableSort(cat.value)}
+                          onToggleSortDirection={() => toggleSortDirection(`available-${cat.value}`)}
+                          collapsed={collapsedSections[`available-${cat.value}`] ?? false}
+                          onToggleCollapse={() => toggleSectionCollapse(`available-${cat.value}`)}
+                          onMoveToPossible={(mealId) => handleMoveToPossibleGeneral(mealId, "available")}
+                          onMovePartialToPossible={async (meal, ratio) => {
+                            const partialMeal = buildScaledMealForRatio(meal, ratio, stockMap);
+                            const { snapshots, consumedIds } = await deductIngredientsFromStock(partialMeal);
+
+                            const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
+                            const result = await addMealToPossibleDirectly.mutateAsync({
+                              name: meal.name, category: cat.value,
+                              calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients, expiration_date: an.earliestExpiration, counter_start_date: an.earliestCounterDate,
+                            });
+                            if (result?.id) {
+                              updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
+                              if (partialMeal.ingredients && partialMeal.ingredients !== meal.ingredients) {
+                                updatePossibleIngredients.mutate({ id: result.id, ingredients_override: partialMeal.ingredients });
+                              }
+                            }
                           }}
-                          onMoveToPossible={async (fi, consumeQty, consumeGrams) => {
+                          onMoveNameMatchToPossible={async (meal, fi, ratio) => {
+                            if (fi.is_infinite && ratio && ratio !== 1) {
+                              // Infinite card with multiplier - create with ORIGINAL values, set override for scaling
+                              const baseGrams = parseQty(meal.grams);
+                              const baseIng = meal.ingredients ? meal.ingredients : (baseGrams > 0 ? `${baseGrams}g ${meal.name}` : null);
+                              const scaledIng = baseIng ? scaleIngredientStringExact(baseIng, ratio) : null;
+                              const result = await addMealToPossibleDirectly.mutateAsync({
+                                name: meal.name, category: cat.value,
+                                calories: meal.calories, protein: meal.protein, grams: meal.grams,
+                                ingredients: baseIng,
+                              });
+                              if (result?.id && scaledIng) {
+                                updatePossibleIngredients.mutate({ id: result.id, ingredients_override: scaledIng });
+                              }
+                              return;
+                            }
+                            const snapshot = [{ ...fi }];
+                            if (!fi.is_infinite) await deductNameMatchStock(meal);
+                            const result = await moveToPossible.mutateAsync({ mealId: meal.id, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
+                            if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshot }));
+                          }}
+                          onMoveFoodItemToPossible={async (fi) => {
                             const snapshot = [{ ...fi }];
                             if (!fi.is_infinite) {
-                              const perUnit = parseQty(fi.grams);
-                              if (perUnit > 0) {
-                                const totalDeduct = (consumeQty || 0) * perUnit + (consumeGrams || 0);
-                                if (totalDeduct <= 0 && (consumeQty !== undefined || consumeGrams !== undefined)) return; // Explicitly 0
-                                const actualDeduct = totalDeduct > 0 ? totalDeduct : perUnit;
-                                const totalAvail = getFoodItemTotalGrams(fi);
-                                const remaining = totalAvail - actualDeduct;
-                                if (remaining <= 0) { await supabase.from("food_items").delete().eq("id", fi.id); }
-                                else if (fi.quantity && fi.quantity >= 1) {
-                                  const fullUnits = Math.floor(remaining / perUnit);
-                                  const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
-                                  if (rem > 0) { await supabase.from("food_items").update({ quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, rem) } as any).eq("id", fi.id); }
-                                  else if (fullUnits > 0) { await supabase.from("food_items").update({ quantity: fullUnits, grams: formatNumeric(perUnit), counter_start_date: null } as any).eq("id", fi.id); }
-                                  else { await supabase.from("food_items").delete().eq("id", fi.id); }
-                                } else { await supabase.from("food_items").update({ grams: formatNumeric(remaining) } as any).eq("id", fi.id); }
-                              } else {
-                                if (consumeQty === 0) return; // Explicitly 0
-                                const deductQty = consumeQty || 1;
-                                const currentQty = fi.quantity ?? 1;
-                                if (currentQty <= deductQty) { await supabase.from("food_items").delete().eq("id", fi.id); }
-                                else { await supabase.from("food_items").update({ quantity: currentQty - deductQty } as any).eq("id", fi.id); }
-                              }
+                              const currentQty = fi.quantity ?? 1;
+                              if (currentQty <= 1) { await supabase.from("food_items").delete().eq("id", fi.id); }
+                              else { await supabase.from("food_items").update({ quantity: currentQty - 1 } as any).eq("id", fi.id); }
                               qc.invalidateQueries({ queryKey: ["food_items"] });
                             }
-                            const unitG = parseQty(fi.grams);
-                            const totalMovedG = unitG > 0 ? ((consumeQty || 0) * unitG + (consumeGrams || 0)) : 0;
-                            if (totalMovedG <= 0 && (consumeQty !== undefined || consumeGrams !== undefined)) return;
-                            const actualMovedG = totalMovedG > 0 ? totalMovedG : (unitG > 0 ? unitG : 0);
-                            
-                            const displayGrams = actualMovedG > 0 ? String(actualMovedG) : (fi.grams ? String(parseQty(fi.grams)) : null);
-                            const displayQty = consumeQty || (consumeGrams ? Math.ceil(consumeGrams / (unitG || 1)) : 1);
-                            
-                            let ratio = 1;
-                            if (unitG > 0) {
-                              ratio = actualMovedG / unitG;
-                            } else if (consumeQty !== undefined) {
-                              ratio = consumeQty || 1;
-                            }
-                            
-
                             const fiKey = normalizeKey(fi.name);
                             const fiMacro = macroLookup.get(fiKey);
-                            const baseCalStr = fi.calories || fiMacro?.cal || "0";
-                            const baseProStr = fi.protein || fiMacro?.pro || "0";
-                            
-                            const baseCal = parseFloat(String(baseCalStr).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
-                            const basePro = parseFloat(String(baseProStr).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
-                            
-                            const calories = baseCal > 0 ? formatNumeric(baseCal * ratio) : null;
-                            const protein = basePro > 0 ? formatNumeric(basePro * ratio) : null;
-                            const pmResult = await addMealToPossibleDirectly.mutateAsync({
-                              name: fi.name, category: cat.value, calories, protein, grams: displayGrams,
-                              expiration_date: fi.expiration_date, possible_quantity: displayQty,
-                            });
-                            if (pmResult?.id) {
-                              updateSnapshots(prev => ({ ...prev, [pmResult.id]: snapshot }));
-                              setUnParUnSourcePmIds(prev => new Set([...prev, pmResult.id]));
+                            const calories = fi.calories || fiMacro?.cal || null;
+                            const protein = fi.protein || fiMacro?.pro || null;
+                            const pmResult = await addMealToPossibleDirectly.mutateAsync({ name: fi.name, category: cat.value, calories, protein, grams: fi.grams, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
+                            if (pmResult?.id) updateSnapshots(prev => ({ ...prev, [pmResult.id]: snapshot }));
+                          }}
+                          onDeleteFoodItem={(id) => { deleteFoodItem(id); }}
+                          onRename={(id, name) => renameMeal.mutate({ id, name })}
+                          onUpdateCalories={(id, cal) => updateCalories.mutate({ id, calories: cal })}
+                          onUpdateGrams={(id, g) => updateGrams.mutate({ id, grams: g })}
+                          onUpdateIngredients={(id, ing) => updateIngredients.mutate({ id, ingredients: ing })}
+                          onToggleFavorite={(id) => {
+                            const meal = meals.find((m) => m.id === id);
+                            if (meal) toggleFavorite.mutate({ id, is_favorite: !meal.is_favorite });
+                          }}
+                          onUpdateOvenTemp={(id, t) => updateOvenTemp.mutate({ id, oven_temp: t })}
+                          onUpdateOvenMinutes={(id, m) => updateOvenMinutes.mutate({ id, oven_minutes: m })} />
+
+                      </div>
+                      <div className="order-3 md:order-2">
+                        <LazyPossibleList
+                          category={cat}
+                          items={getSortedPossible(cat.value)}
+                          sortMode={sortModes[cat.value] || "manual"}
+                          stockMap={stockMap}
+                          onToggleSort={() => toggleSort(cat.value)}
+                          onRandomPick={() => handleRandomPick(cat.value)}
+                          onRemove={(id) => { removeFromPossible.mutate(id); }}
+                          onReturnWithoutDeduction={async (id) => {
+                            const pm = getPossibleByCategory(cat.value).find(p => p.id === id);
+                            const snapshots = deductionSnapshots[id];
+                            if (snapshots && snapshots.length > 0) {
+                              // Always prefer snapshot restoration — it restores exact original state
+                              await restoreIngredientsToStock({} as Meal, snapshots);
+                            } else if (pm?.ingredients_override && pm?.meals) {
+                              // No snapshots but has override — reverse the current ingredients
+                              const currentIngredients = pm.ingredients_override;
+                              await adjustStockForIngredientChange(currentIngredients, null, snapshots);
+                            } else if (pm?.meals) {
+                              await restoreIngredientsToStock(pm.meals);
+                            }
+                            updateSnapshots(prev => { const next = { ...prev }; delete next[id]; return next; });
+                            removeFromPossible.mutate(id);
+                            setUnParUnSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+                          }}
+                          onReturnToMaster={(id) => {
+                            removeFromPossible.mutate(id);
+                            setMasterSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+                          }}
+                          onSplitQuantity={(id, ratio, baseIng) => splitPossibleMealQuantity.mutate({ id, ratio, baseIngredients: baseIng })}
+                          onDelete={(id) => { deletePossibleMeal.mutate(id); }}
+                          onDuplicate={async (id) => {
+                            const pm = possibleMeals.find(p => p.id === id);
+                            if (pm?.meals) {
+                              // Use the overridden ingredients if present, deduct from stock
+                              const ingredientsToDeduce = pm.ingredients_override ?? pm.meals.ingredients;
+                              const mealForDeduction = { ...pm.meals, ingredients: ingredientsToDeduce };
+                              const { snapshots } = await deductIngredientsFromStock(mealForDeduction);
+                              // Create the duplicate and store snapshots under its new ID
+                              const newId = await duplicatePossibleMeal.mutateAsync(id);
+                              if (newId && snapshots.length > 0) {
+                                updateSnapshots(prev => ({ ...prev, [newId]: snapshots }));
+                              }
+                            } else {
+                              duplicatePossibleMeal.mutate(id);
                             }
                           }}
-                        />
+                          onUpdateExpiration={(id, d) => updateExpiration.mutate({ id, expiration_date: d })}
+                          onUpdatePlanning={(id, day, time) => {
+                            updatePlanning.mutate({ id, day_of_week: day, meal_time: time });
+                            const pm = possibleMeals.find(p => p.id === id);
+                            if (pm) {
+                              const ing = pm.ingredients_override ?? pm.meals?.ingredients;
+                              updateFoodItemCountersForPlanning(ing, day, time);
+                            }
+                          }}
+                          onUpdateCounter={(id, d) => updateCounter.mutate({ id, counter_start_date: d })}
+                          onUpdateCalories={(id, cal) => updateCalories.mutate({ id, calories: cal })}
+                          onUpdateGrams={async (id, g, pmId) => {
+                            const pm = pmId ? possibleMeals.find(p => p.id === pmId) : possibleMeals.find(p => p.meal_id === id);
+                            if (pm && unParUnSourcePmIds.has(pm.id)) {
+                              if (pm.meals) {
+                                const oldGrams = parseQty(pm.meals.grams);
+                                const newGrams = parseQty(g);
+                                const delta = oldGrams - newGrams;
+                                if (delta !== 0) {
+                                  const snapshots = deductionSnapshots[pm.id];
+                                  let matchingFi = foodItems.find(fi => snapshots?.[0] ? fi.id === snapshots[0].id : strictNameMatch(fi.name, pm.meals.name) && !fi.is_infinite);
+                                  if (matchingFi) {
+                                    const perUnit = parseQty(matchingFi.grams);
+                                    if (delta > 0) {
+                                      if (matchingFi.quantity && matchingFi.quantity >= 1 && perUnit > 0) {
+                                        const currentTotal = getFoodItemTotalGrams(matchingFi);
+                                        const newTotal = currentTotal + delta;
+                                        const fullUnits = Math.floor(newTotal / perUnit);
+                                        const rem = Math.round((newTotal - fullUnits * perUnit) * 10) / 10;
+                                        await supabase.from("food_items").update({ quantity: rem > 0 ? fullUnits + 1 : fullUnits, grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null) } as any).eq("id", matchingFi.id);
+                                        if (rem <= 0 && matchingFi.counter_start_date) await supabase.from("food_items").update({ counter_start_date: null } as any).eq("id", matchingFi.id);
+                                      } else {
+                                        const current = parseQty(matchingFi.grams);
+                                        await supabase.from("food_items").update({ grams: formatNumeric(current + delta) } as any).eq("id", matchingFi.id);
+                                      }
+                                    } else {
+                                      const toDeduct = -delta;
+                                      const totalAvail = getFoodItemTotalGrams(matchingFi);
+                                      const remaining = totalAvail - toDeduct;
+                                      if (remaining <= 0) { await supabase.from("food_items").delete().eq("id", matchingFi.id); }
+                                      else if (matchingFi.quantity && matchingFi.quantity >= 1 && perUnit > 0) {
+                                        const fullUnits = Math.floor(remaining / perUnit);
+                                        const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
+                                        await supabase.from("food_items").update({ quantity: rem > 0 ? Math.max(1, fullUnits + 1) : fullUnits, grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null) } as any).eq("id", matchingFi.id);
+                                      } else { await supabase.from("food_items").update({ grams: formatNumeric(remaining) } as any).eq("id", matchingFi.id); }
+                                    }
+                                    qc.invalidateQueries({ queryKey: ["food_items"] });
+                                  } else if (delta > 0 && snapshots?.[0]) {
+                                    // Item was deleted entirely. Recreate it with returned delta
+                                    const sn = snapshots[0];
+                                    const { id: _id, created_at, quantity, grams, ...rest } = sn as Record<string, any>;
+                                    const perUnit = parseQty(sn.grams);
+                                    if (sn.quantity !== null && sn.quantity >= 1 && perUnit > 0) {
+                                      const fullUnits = Math.floor(delta / perUnit);
+                                      const rem = Math.round((delta - fullUnits * perUnit) * 10) / 10;
+                                      await supabase.from("food_items").insert({
+                                        ...rest,
+                                        quantity: rem > 0 ? fullUnits + 1 : fullUnits,
+                                        grams: encodeStoredGrams(perUnit, rem > 0 ? rem : null)
+                                      } as any);
+                                    } else {
+                                      await supabase.from("food_items").insert({
+                                        ...rest,
+                                        grams: formatNumeric(delta)
+                                      } as any);
+                                    }
+                                    qc.invalidateQueries({ queryKey: ["food_items"] });
+                                  }
+                                }
+                              }
+                            }
+                            updateGrams.mutate({ id, grams: g });
+                          }}
+                          onUpdateIngredients={(id, ing) => updateIngredients.mutate({ id, ingredients: ing })}
+                          onUpdatePossibleIngredients={async (pmId, newIngredients) => {
+                            const pm = possibleMeals.find(p => p.id === pmId);
+                            if (!pm) return;
+                            const oldIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
+                            if (oldIngredients || newIngredients) {
+                              const newSnaps = await adjustStockForIngredientChange(oldIngredients, newIngredients, deductionSnapshots[pmId]);
+                              if (newSnaps.length > 0) {
+                                updateSnapshots(prev => ({
+                                  ...prev,
+                                  [pmId]: [...(prev[pmId] ?? []), ...newSnaps],
+                                }));
+                              }
+                            }
+                            let finalIngredients = newIngredients;
+                            if (newIngredients) {
+                              const { sourceIngredients } = propagateIngredientMacros('__pm__', newIngredients, meals);
+                              finalIngredients = sourceIngredients;
+                            }
+                            updatePossibleIngredients.mutate({ id: pmId, ingredients_override: finalIngredients });
+                          }}
+                          onUpdateQuantity={async (id, qty) => {
+                            if (unParUnSourcePmIds.has(id)) {
+                              const pm = possibleMeals.find(p => p.id === id);
+                              if (pm?.meals) {
+                                const oldQty = pm.quantity;
+                                const delta = oldQty - qty;
+                                if (delta !== 0) {
+                                  const snapshots = deductionSnapshots[pm.id];
+                                  let matchingFi = foodItems.find(fi => snapshots?.[0] ? fi.id === snapshots[0].id : strictNameMatch(fi.name, pm.meals.name) && !fi.is_infinite);
+                                  if (matchingFi) {
+                                    if (delta > 0) {
+                                      const newStockQty = (matchingFi.quantity ?? 0) + delta;
+                                      const perUnit = parseQty(matchingFi.grams);
+                                      const partial = parsePartialQty(matchingFi.grams);
+                                      const hasPartial = partial > 0 && partial < perUnit;
+                                      const updateData: any = { quantity: newStockQty };
+                                      if (!hasPartial && matchingFi.counter_start_date) updateData.counter_start_date = null;
+                                      await supabase.from("food_items").update(updateData).eq("id", matchingFi.id);
+                                    } else {
+                                      const toDeduct = -delta;
+                                      const currentQty = matchingFi.quantity ?? 1;
+                                      if (currentQty <= toDeduct) { await supabase.from("food_items").delete().eq("id", matchingFi.id); }
+                                      else { await supabase.from("food_items").update({ quantity: currentQty - toDeduct } as any).eq("id", matchingFi.id); }
+                                    }
+                                    qc.invalidateQueries({ queryKey: ["food_items"] });
+                                  } else if (delta > 0 && snapshots?.[0]) {
+                                    // Recreate deleted item
+                                    const sn = snapshots[0];
+                                    const { id: _id, created_at, quantity, ...rest } = sn as Record<string, any>;
+                                    await supabase.from("food_items").insert({
+                                      ...rest,
+                                      quantity: delta
+                                    } as any);
+                                    qc.invalidateQueries({ queryKey: ["food_items"] });
+                                  } else if (delta < 0) {
+                                    toast({ title: "⚠️ Stock insuffisant", description: `Plus de "${pm.meals.name}" en stock.` });
+                                  }
+                                }
+                              }
+                            }
+                            updatePossibleQuantity.mutate({ id, quantity: qty });
+                          }}
+                          onReorder={(from, to) => handleReorderPossible(cat.value, from, to)}
+                          onExternalDrop={(mealId, source) => handleMoveToPossibleGeneral(mealId, source)}
+                          highlightedId={highlightedId}
+                          foodItems={foodItems}
+                          onAddDirectly={() => openDialog("possible")}
+                          masterSourcePmIds={masterSourcePmIds}
+                          unParUnSourcePmIds={unParUnSourcePmIds} />
                       </div>
-                    )}
 
-                  </div>
+                      {cat.value === "plat" && (
+                        <div className="order-2 md:order-3 md:col-span-2">
+                          <LazyUnParUnSection
+                            category={cat}
+                            foodItems={foodItems}
+                            allMeals={meals}
+                            collapsed={collapsedSections[`unparun-${cat.value}`] ?? true}
+                            onToggleCollapse={() => toggleSectionCollapse(`unparun-${cat.value}`)}
+                            sortMode={unParUnSortModes[cat.value] || "expiration"}
+                            onToggleSort={() => {
+                              const current = unParUnSortModes[cat.value] || "expiration";
+                              const next: UnParUnSortMode = current === "manual" ? "expiration" : "manual";
+                              setUnParUnSort(cat.value, next);
+                            }}
+                            onMoveToPossible={async (fi, consumeQty, consumeGrams) => {
+                              const snapshot = [{ ...fi }];
+                              if (!fi.is_infinite) {
+                                const perUnit = parseQty(fi.grams);
+                                if (perUnit > 0) {
+                                  const totalDeduct = (consumeQty || 0) * perUnit + (consumeGrams || 0);
+                                  if (totalDeduct <= 0 && (consumeQty !== undefined || consumeGrams !== undefined)) return; // Explicitly 0
+                                  const actualDeduct = totalDeduct > 0 ? totalDeduct : perUnit;
+                                  const totalAvail = getFoodItemTotalGrams(fi);
+                                  const remaining = totalAvail - actualDeduct;
+                                  if (remaining <= 0) { await supabase.from("food_items").delete().eq("id", fi.id); }
+                                  else if (fi.quantity && fi.quantity >= 1) {
+                                    const fullUnits = Math.floor(remaining / perUnit);
+                                    const rem = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
+                                    if (rem > 0) { await supabase.from("food_items").update({ quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, rem) } as any).eq("id", fi.id); }
+                                    else if (fullUnits > 0) { await supabase.from("food_items").update({ quantity: fullUnits, grams: formatNumeric(perUnit), counter_start_date: null } as any).eq("id", fi.id); }
+                                    else { await supabase.from("food_items").delete().eq("id", fi.id); }
+                                  } else { await supabase.from("food_items").update({ grams: formatNumeric(remaining) } as any).eq("id", fi.id); }
+                                } else {
+                                  if (consumeQty === 0) return; // Explicitly 0
+                                  const deductQty = consumeQty || 1;
+                                  const currentQty = fi.quantity ?? 1;
+                                  if (currentQty <= deductQty) { await supabase.from("food_items").delete().eq("id", fi.id); }
+                                  else { await supabase.from("food_items").update({ quantity: currentQty - deductQty } as any).eq("id", fi.id); }
+                                }
+                                qc.invalidateQueries({ queryKey: ["food_items"] });
+                              }
+                              const unitG = parseQty(fi.grams);
+                              const totalMovedG = unitG > 0 ? ((consumeQty || 0) * unitG + (consumeGrams || 0)) : 0;
+                              if (totalMovedG <= 0 && (consumeQty !== undefined || consumeGrams !== undefined)) return;
+                              const actualMovedG = totalMovedG > 0 ? totalMovedG : (unitG > 0 ? unitG : 0);
+
+                              const displayGrams = actualMovedG > 0 ? String(actualMovedG) : (fi.grams ? String(parseQty(fi.grams)) : null);
+                              const displayQty = consumeQty || (consumeGrams ? Math.ceil(consumeGrams / (unitG || 1)) : 1);
+
+                              let ratio = 1;
+                              if (unitG > 0) {
+                                ratio = actualMovedG / unitG;
+                              } else if (consumeQty !== undefined) {
+                                ratio = consumeQty || 1;
+                              }
+
+
+                              const fiKey = normalizeKey(fi.name);
+                              const fiMacro = macroLookup.get(fiKey);
+                              const baseCalStr = fi.calories || fiMacro?.cal || "0";
+                              const baseProStr = fi.protein || fiMacro?.pro || "0";
+
+                              const baseCal = parseFloat(String(baseCalStr).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+                              const basePro = parseFloat(String(baseProStr).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
+
+                              const calories = baseCal > 0 ? formatNumeric(baseCal * ratio) : null;
+                              const protein = basePro > 0 ? formatNumeric(basePro * ratio) : null;
+                              const pmResult = await addMealToPossibleDirectly.mutateAsync({
+                                name: fi.name, category: cat.value, calories, protein, grams: displayGrams,
+                                expiration_date: fi.expiration_date, possible_quantity: displayQty,
+                              });
+                              if (pmResult?.id) {
+                                updateSnapshots(prev => ({ ...prev, [pmResult.id]: snapshot }));
+                                setUnParUnSourcePmIds(prev => new Set([...prev, pmResult.id]));
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
+                    </div>
+                  </ErrorBoundary>
                 </TabsContent>
               )}
             </Tabs>

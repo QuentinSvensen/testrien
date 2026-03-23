@@ -616,6 +616,7 @@ export function WeeklyPlanning() {
   const manualProteins = getPreference<Record<string, number>>('planning_manual_proteins', {});
   const breakfastManualProteins = getPreference<Record<string, number>>('planning_breakfast_manual_proteins', {});
   const extraProteins = getPreference<Record<string, number>>('planning_extra_proteins', {});
+  const extraSelections = getPreference<Record<string, string[]>>('planning_extra_selections', {});
 
   const savedSnapshots = getPreference<Record<string, { cal?: number; prot?: number }>>('planning_saved_snapshots', {});
   const [flashedKeys, setFlashedKeys] = useState<Record<string, boolean>>({});
@@ -630,22 +631,14 @@ export function WeeklyPlanning() {
 
 
   const handleAddExtraItem = (day: string, item: FoodItem) => {
-    const itemCals = parseCalories(item.calories);
-    const itemPro = parseProtein(item.protein);
-
-    if (itemCals > 0) {
-      const updatedCals = { ...extraCalories };
-      updatedCals[day] = (updatedCals[day] || 0) + itemCals;
-      setPreference.mutate({ key: 'planning_extra_calories', value: updatedCals });
+    const updated = { ...extraSelections };
+    const current = updated[day] || [];
+    if (current.includes(item.id)) {
+      updated[day] = current.filter(id => id !== item.id);
+    } else {
+      updated[day] = [...current, item.id];
     }
-
-    if (itemPro > 0) {
-      const updatedPro = { ...extraProteins };
-      updatedPro[day] = (updatedPro[day] || 0) + itemPro;
-      setPreference.mutate({ key: 'planning_extra_proteins', value: updatedPro });
-    }
-
-    setOpenExtrasDay(null);
+    setPreference.mutate({ key: 'planning_extra_selections', value: updated });
   };
 
   const handleDrop = async (e: React.DragEvent, day: string, time: string) => {
@@ -928,6 +921,7 @@ export function WeeklyPlanning() {
       if (raw.manualProteins) setPreference.mutate({ key: 'planning_manual_proteins', value: raw.manualProteins });
       if (raw.extraCalories) setPreference.mutate({ key: 'planning_extra_calories', value: raw.extraCalories });
       if (raw.extraProteins) setPreference.mutate({ key: 'planning_extra_proteins', value: raw.extraProteins });
+      if (raw.extraSelections) setPreference.mutate({ key: 'planning_extra_selections', value: raw.extraSelections });
       if (raw.breakfastManualCalories) setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: raw.breakfastManualCalories });
       if (raw.breakfastManualProteins) setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: raw.breakfastManualProteins });
       if (raw.breakfastSelections) setPreference.mutate({ key: 'planning_breakfast', value: raw.breakfastSelections });
@@ -959,6 +953,7 @@ export function WeeklyPlanning() {
       manualProteins,
       extraCalories,
       extraProteins,
+      extraSelections,
       breakfastManualCalories,
       breakfastManualProteins,
       breakfastSelections,
@@ -977,18 +972,25 @@ export function WeeklyPlanning() {
     }));
     const rMC: Record<string, number> = {}, rMP: Record<string, number> = {};
     const rEC: Record<string, number> = {}, rEP: Record<string, number> = {};
+    const rES: Record<string, string[]> = {};
     const rBC: Record<string, number> = {}, rBP: Record<string, number> = {};
     const keptBreakfast: Record<string, string> = {};
     for (const [key, snap] of Object.entries(snaps)) {
       const s = snap as any;
       if (key.startsWith('manual-')) { const k = key.replace('manual-', ''); if (s.cal) rMC[k] = s.cal; if (s.prot) rMP[k] = s.prot; }
-      else if (key.startsWith('extra-')) { const k = key.replace('extra-', ''); if (s.cal) rEC[k] = s.cal; if (s.prot) rEP[k] = s.prot; }
+      else if (key.startsWith('extra-')) { 
+        const k = key.replace('extra-', ''); 
+        if (s.cal) rEC[k] = s.cal; 
+        if (s.prot) rEP[k] = s.prot; 
+        if (s.itemIds) rES[k] = s.itemIds;
+      }
       else if (key.startsWith('breakfast-')) { const k = key.replace('breakfast-', ''); if (s.cal) rBC[k] = s.cal; if (s.prot) rBP[k] = s.prot; if (s.mealId) keptBreakfast[k] = s.mealId; }
     }
     setPreference.mutate({ key: 'planning_manual_calories', value: rMC });
     setPreference.mutate({ key: 'planning_manual_proteins', value: rMP });
     setPreference.mutate({ key: 'planning_extra_calories', value: rEC });
     setPreference.mutate({ key: 'planning_extra_proteins', value: rEP });
+    setPreference.mutate({ key: 'planning_extra_selections', value: rES });
     setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: rBC });
     setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: rBP });
     setPreference.mutate({ key: 'planning_breakfast', value: keptBreakfast });
@@ -1467,10 +1469,18 @@ export function WeeklyPlanning() {
                 <div className="flex flex-col items-center gap-0.5 mt-1 w-full">
                   <PlanningInput
                     storageKey={`extra-${day}`}
-                    currentValue={extraCalories[day] || 0}
+                    currentValue={(() => {
+                      const manual = extraCalories[day] || 0;
+                      const ids = extraSelections[day] || [];
+                      const selected = ids.reduce((sum, id) => sum + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0);
+                      return manual + selected;
+                    })()}
                     onSave={(val) => {
+                      const ids = extraSelections[day] || [];
+                      const selected = ids.reduce((sum, id) => sum + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0);
+                      const manual = Math.max(0, val - selected);
                       const updated = { ...extraCalories };
-                      if (val > 0) updated[day] = val;
+                      if (manual > 0) updated[day] = manual;
                       else delete updated[day];
                       setPreference.mutate({ key: 'planning_extra_calories', value: updated });
                     }}
@@ -1479,20 +1489,28 @@ export function WeeklyPlanning() {
                   />
                   <PlanningInput
                     storageKey={`extra-prot-${day}`}
-                    currentValue={extraProteins[day] || 0}
+                    currentValue={(() => {
+                      const manual = extraProteins[day] || 0;
+                      const ids = extraSelections[day] || [];
+                      const selected = ids.reduce((sum, id) => sum + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0);
+                      return manual + selected;
+                    })()}
                     onSave={(val) => {
+                      const ids = extraSelections[day] || [];
+                      const selected = ids.reduce((sum, id) => sum + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0);
+                      const manual = Math.max(0, val - selected);
                       const updated = { ...extraProteins };
-                      if (val > 0) updated[day] = val;
+                      if (manual > 0) updated[day] = manual;
                       else delete updated[day];
                       setPreference.mutate({ key: 'planning_extra_proteins', value: updated });
                     }}
                     placeholder="prot"
                     className="w-full h-5 text-[11px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center"
                   />
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 mt-1">
                     <Popover open={openExtrasDay === day} onOpenChange={(open) => setOpenExtrasDay(open ? day : null)}>
                       <PopoverTrigger asChild>
-                        <button className="h-5 w-5 flex items-center justify-center bg-orange-500/10 text-orange-500 rounded-full hover:bg-orange-500/20 transition-all hover:scale-110 active:scale-95" title="Ajouter un aliment Extra">
+                        <button className={`h-5 w-5 flex items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95 ${extraSelections[day]?.length > 0 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-500/10 text-orange-500 hover:bg-orange-500/20'}`} title="Ajouter un aliment Extra">
                           <Plus className="h-3 w-3" />
                         </button>
                       </PopoverTrigger>
@@ -1510,42 +1528,50 @@ export function WeeklyPlanning() {
                               <p className="text-[9px] text-muted-foreground/60 mt-1">Ajoutez-les dans l'onglet Aliments</p>
                             </div>
                           ) : (
-                            foodItems.filter(fi => fi.storage_type === 'extras').map(fi => (
-                              <button
-                                key={fi.id}
-                                onClick={() => handleAddExtraItem(day, fi)}
-                                className="w-full text-left p-2 rounded-xl bg-muted/30 hover:bg-orange-500/10 border border-transparent hover:border-orange-500/20 transition-all group flex items-center gap-3"
-                              >
-                                <div className="flex-1 min-w-0">
-                                  <p className="text-[11px] font-bold text-foreground group-hover:text-orange-600 transition-colors truncate">{fi.name}</p>
-                                </div>
-                                <div className="flex items-center gap-1.5 shrink-0">
-                                  {fi.quantity && fi.quantity > 1 && (
-                                    <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-muted-foreground/60 border border-border/10">
-                                      <Hash className="w-2.5 h-2.5" />
-                                      {fi.quantity}
-                                    </div>
-                                  )}
-                                  {fi.grams && (
-                                    <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-muted-foreground/60 border border-border/10">
-                                      <Weight className="w-2.5 h-2.5" />
-                                      {fi.grams}
-                                    </div>
-                                  )}
-                                  {fi.protein && (
-                                    <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-blue-500 border border-blue-500/10">
-                                      🍗 {fi.protein}
-                                    </div>
-                                  )}
-                                  {fi.calories && (
-                                    <div className="flex items-center gap-1 bg-orange-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-orange-500">
-                                      <Flame className="w-2.5 h-2.5" />
-                                      {fi.calories}
-                                    </div>
-                                  )}
-                                </div>
-                              </button>
-                            ))
+                            foodItems.filter(fi => fi.storage_type === 'extras').map(fi => {
+                              const isSelected = (extraSelections[day] || []).includes(fi.id);
+                              return (
+                                <button
+                                  key={fi.id}
+                                  onClick={() => handleAddExtraItem(day, fi)}
+                                  className={`w-full text-left p-2 rounded-xl border transition-all group flex items-center gap-3 ${
+                                    isSelected 
+                                      ? 'bg-orange-500/20 border-orange-500/40 shadow-inner' 
+                                      : 'bg-muted/30 hover:bg-orange-500/10 border-transparent hover:border-orange-500/20'
+                                  }`}
+                                >
+                                  <div className="flex-1 min-w-0">
+                                    <p className={`text-[11px] font-bold transition-colors truncate ${isSelected ? 'text-orange-600' : 'text-foreground group-hover:text-orange-600'}`}>{fi.name}</p>
+                                  </div>
+                                  <div className="flex items-center gap-1.5 shrink-0">
+                                    {isSelected && <Zap className="w-3 h-3 text-orange-500 animate-pulse" />}
+                                    {fi.quantity && fi.quantity > 1 && (
+                                      <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-muted-foreground/60 border border-border/10">
+                                        <Hash className="w-2.5 h-2.5" />
+                                        {fi.quantity}
+                                      </div>
+                                    )}
+                                    {fi.grams && (
+                                      <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-muted-foreground/60 border border-border/10">
+                                        <Weight className="w-2.5 h-2.5" />
+                                        {fi.grams}
+                                      </div>
+                                    )}
+                                    {fi.protein && (
+                                      <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-blue-500 border border-blue-500/10">
+                                        🍗 {fi.protein}
+                                      </div>
+                                    )}
+                                    {fi.calories && (
+                                      <div className="flex items-center gap-1 bg-orange-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-orange-500">
+                                        <Flame className="w-2.5 h-2.5" />
+                                        {fi.calories}
+                                      </div>
+                                    )}
+                                  </div>
+                                </button>
+                              );
+                            })
                           )}
                         </div>
                       </PopoverContent>
@@ -1555,7 +1581,8 @@ export function WeeklyPlanning() {
                         const snapKey = `extra-${day}`;
                         const cal = extraCalories[day] || 0;
                         const prot = extraProteins[day] || 0;
-                        const updated = { ...savedSnapshots, [snapKey]: { cal, prot } };
+                        const itemIds = extraSelections[day] || [];
+                        const updated = { ...savedSnapshots, [snapKey]: { cal, prot, itemIds } };
                         setPreference.mutate({ key: 'planning_saved_snapshots', value: updated });
                         setFlashedKeys(prev => ({ ...prev, [snapKey]: true }));
                         setTimeout(() => setFlashedKeys(prev => ({ ...prev, [snapKey]: false })), 1200);
@@ -1572,7 +1599,7 @@ export function WeeklyPlanning() {
                           ? 'bg-primary/20 text-primary border border-primary/40'
                           : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60 border border-transparent'
                         }`}
-                      title={savedSnapshots[`extra-${day}`] ? `Sauvegardé: ${savedSnapshots[`extra-${day}`].cal || 0} kcal / ${savedSnapshots[`extra-${day}`].prot || 0} prot (Double-clic pour oublier)` : 'Sauvegarder les valeurs pour le reset (Double-clic pour oublier)'}
+                      title={savedSnapshots[`extra-${day}`] ? `Sauvegardé: ${savedSnapshots[`extra-${day}`].cal || 0} kcal / ${savedSnapshots[`extra-${day}`].prot || 0} prot, ${savedSnapshots[`extra-${day}`].itemIds?.length || 0} items (Double-clic pour oublier)` : 'Sauvegarder les valeurs pour le reset (Double-clic pour oublier)'}
                     >💾</button>
                   </div>
                 </div>
@@ -1632,9 +1659,12 @@ export function WeeklyPlanning() {
           {popupPm && popupPm.meals && (() => {
             const meal = popupPm.meals;
             const displayIngredients = popupPm.ingredients_override ?? meal.ingredients;
+            const mealForAnalysis = { ...meal, ingredients: displayIngredients };
+            const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
+            const effectiveStart = analysis.earliestCounterDate || popupPm.counter_start_date;
             const displayCal = String(getCardDisplayCalories(popupPm, undefined, isAvailableCb));
             const displayPro = String(getCardDisplayProtein(popupPm, isAvailableCb));
-            const counterDays = getAdaptedCounterDays(popupPm.counter_start_date, popupPm.day_of_week, popupPm.created_at);
+            const counterDays = getAdaptedCounterDays(effectiveStart, popupPm.day_of_week, popupPm.created_at);
             const expired = isExpiredOnDay(popupPm.expiration_date, popupPm.day_of_week);
             return (
               <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: getMealColor(meal.ingredients, meal.name) }}>

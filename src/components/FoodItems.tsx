@@ -12,6 +12,7 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
 import { colorFromName, computeCounterDays } from "@/lib/ingredientUtils";
+import { usePreferences } from "@/hooks/usePreferences";
 
 export { colorFromName };
 
@@ -630,7 +631,33 @@ const STORAGE_SECTIONS: { type: StorageType; label: string; emoji: React.ReactNo
 ];
 
 export function FoodItems() {
-  const { items, isLoading, addItem, updateItem, deleteItem, duplicateItem, reorderItems } = useFoodItems();
+  const { items, isLoading: itemsLoading } = useFoodItems();
+  const { getPreference, setPreference, isLoading: prefsLoading } = usePreferences();
+  const isLoading = itemsLoading || prefsLoading;
+  const qc = useQueryClient();
+  const invalidate = () => qc.invalidateQueries({ queryKey: ["food_items"] });
+
+  const addItem = useMutation({
+    mutationFn: async ({ name, storage_type, quantity, grams, food_type, expiration_date }: { name: string; storage_type: StorageType; quantity?: number | null; grams?: string | null; food_type?: FoodType; expiration_date?: string | null }) => {
+      const maxOrder = items.reduce((m, i) => Math.max(m, i.sort_order), -1);
+      const { error } = await supabase
+        .from("food_items")
+        .insert({
+          name,
+          sort_order: maxOrder + 1,
+          is_dry: storage_type === 'sec',
+          storage_type,
+          ...(quantity ? { quantity } : {}),
+          ...(grams ? { grams } : {}),
+          no_counter: storage_type === 'extras' ? true : !grams,
+          ...(food_type ? { food_type } : {}),
+          ...(expiration_date ? { expiration_date } : {}),
+        } as any);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
   const [newName, setNewName] = useState("");
   const [newQuantity, setNewQuantity] = useState("");
   const [newGrams, setNewGrams] = useState("");
@@ -638,6 +665,63 @@ export function FoodItems() {
   const [newExpiration, setNewExpiration] = useState<Date | undefined>(undefined);
   const [expCalOpen, setExpCalOpen] = useState(false);
   const [showStoragePrompt, setShowStoragePrompt] = useState(false);
+
+  // Sync mutations from useFoodItems hook locally
+  const updateItem = useMutation({
+    mutationFn: async ({ id, ...updates }: Partial<FoodItem> & { id: string }) => {
+      const { error } = await supabase.from("food_items").update(updates as any).eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
+  const deleteItem = useMutation({
+    mutationFn: async (id: string) => {
+      const { error } = await supabase.from("food_items").delete().eq("id", id);
+      if (error) throw error;
+    },
+    onSuccess: invalidate,
+  });
+
+  const duplicateItem = useMutation({
+    mutationFn: async (id: string) => {
+      const source = items.find(i => i.id === id);
+      if (!source) return;
+      const maxOrder = items.reduce((m, i) => Math.max(m, i.sort_order), -1);
+      const { data: inserted, error } = await supabase.from("food_items").insert({
+        name: source.name,
+        grams: source.grams,
+        calories: source.calories,
+        expiration_date: source.expiration_date,
+        counter_start_date: source.counter_start_date,
+        is_meal: source.is_meal,
+        is_infinite: source.is_infinite,
+        is_dry: source.is_dry,
+        storage_type: source.storage_type,
+        quantity: source.quantity,
+        sort_order: maxOrder + 1,
+      } as any).select().single();
+      if (error) throw error;
+      return { newId: inserted.id, sourceId: source.id };
+    },
+    onSuccess: (result) => {
+      if (result) {
+        const overrides = JSON.parse(sessionStorage.getItem('color_overrides') || '{}');
+        overrides[result.newId] = result.sourceId;
+        sessionStorage.setItem('color_overrides', JSON.stringify(overrides));
+      }
+      invalidate();
+    },
+  });
+
+  const reorderItems = useMutation({
+    mutationFn: async (ordered: { id: string; sort_order: number }[]) => {
+      await Promise.all(ordered.map(({ id, sort_order }) =>
+        supabase.from("food_items").update({ sort_order } as any).eq("id", id)
+      ));
+    },
+    onSuccess: invalidate,
+  });
   const [pendingName, setPendingName] = useState("");
   const [pendingQuantity, setPendingQuantity] = useState("");
   const [pendingGrams, setPendingGrams] = useState("");
@@ -653,10 +737,23 @@ export function FoodItems() {
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
-  // Persist sort modes
+  // Sync DB sort modes to local state
+  useEffect(() => {
+    const dbSortModes = getPreference<Record<string, SortMode>>('food_sort_modes', null as any);
+    if (dbSortModes && Object.keys(dbSortModes).length > 0) {
+      setSortModes(dbSortModes);
+    }
+  }, [getPreference]);
+
+  // Persist local state to localStorage and DB
+  const dbSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   useEffect(() => {
     localStorage.setItem('food_sort_modes', JSON.stringify(sortModes));
-  }, [sortModes]);
+    if (dbSyncRef.current) clearTimeout(dbSyncRef.current);
+    dbSyncRef.current = setTimeout(() => {
+      setPreference.mutate({ key: 'food_sort_modes', value: sortModes });
+    }, 1000);
+  }, [sortModes, setPreference]);
 
   const normalizeSearch = (text: string) =>
     text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/s$/g, "");

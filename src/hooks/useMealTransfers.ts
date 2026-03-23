@@ -438,8 +438,11 @@ export function useMealTransfers(foodItems: FoodItem[]) {
       );
       for (const fi of matchingItems) {
         const newDate = targetDate ?? new Date().toISOString();
-        // If the item already has an earlier counter (opened before planned meal), don't touch it
-        if (fi.counter_start_date && new Date(fi.counter_start_date) < new Date(newDate)) {
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+        // If the item already has an OLD counter (opened before today), don't touch it.
+        // If it was opened today or later (freshly moved to Possible), allow postponing to the planned date.
+        if (fi.counter_start_date && new Date(fi.counter_start_date) < today) {
           continue;
         }
         // Only update if the date actually changes

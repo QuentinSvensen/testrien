@@ -56,7 +56,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
   const isPlat = category.value === "plat";
   const { getPreference: getAvailPref, setPreference: setAvailPref } = usePreferences();
   const storedOrder = getAvailPref<string[]>(`available_order_${category.value}`, []);
-  const useRemainingCalories = getAvailPref<boolean>(`available_use_remaining_calories_${category.value}`, isPlat);
+  const useRemainingCalories = getAvailPref<boolean>(`available_use_remaining_calories_${category.value}`, true);
   const [avDragIndex, setAvDragIndex] = useState<number | null>(null);
   const [customRatios, setCustomRatios] = useState<Record<string, number>>({});
   const [editingRatioId, setEditingRatioId] = useState<string | null>(null);
@@ -881,7 +881,7 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
         )}
       </div>
 
-      {!collapsed && isPlat && (
+      {!collapsed && (
         <div className="flex items-center gap-3 mt-3 px-3 py-1.5 bg-muted/40 rounded-2xl border border-muted/50">
           <Checkbox
             id={`filter-calories-${category.value}`}

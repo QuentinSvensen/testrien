@@ -265,10 +265,12 @@ export function analyzeMealIngredients(
               result.maxIngredientCounter = days;
               result.maxCounterName = fi.name;
             }
-            if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
-              result.earliestCounterDate = fi.counter_start_date;
-            }
             result.counterIngredientNames.add(normalizeKey(alt.name));
+          }
+          // Always collect the earliest starting date, even if 0 days old, 
+          // to allow derived views (like Tuesday planning) to calculate offsets correctly.
+          if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
+            result.earliestCounterDate = fi.counter_start_date;
           }
         }
       }

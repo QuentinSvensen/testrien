@@ -11,18 +11,23 @@
           "message channel closed",
           "chrome-extension",
           "DevTools",
-          "React Router"
+          "React Router",
+          "debug-metadata",
+          "inject script test",
+          "react-devtools"
         ];
         
         const isIgnored = (err) => {
           if (!err) return false;
+          // Exact matches for noisy debug logs
+          if (err === "test") return true;
           const s = String(err.stack || err.message || err || "").toLowerCase();
           return IGNORED.some(i => s.includes(i.toLowerCase()));
         };
 
         // Aggressive console patching
         const patch = () => {
-          ['error', 'warn', 'debug'].forEach(m => {
+          ['error', 'warn', 'debug', 'log', 'info'].forEach(m => {
             const original = console[m];
             if (!original || original.__shielded) return;
             const wrapper = function(...args) {
