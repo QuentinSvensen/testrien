@@ -231,10 +231,15 @@ const Index = () => {
     calorieFilterForced.current = true;
 
     for (const cat of CATEGORIES) {
-      if (cat.value === "petit_dejeuner") continue;
       const key = `available_use_remaining_calories_${cat.value}`;
-      if (!getPreference<boolean>(key, true)) {
-        setPreference.mutate({ key, value: true });
+      if (cat.value === "petit_dejeuner") {
+        if (getPreference<boolean>(key, false)) {
+          setPreference.mutate({ key, value: false });
+        }
+      } else {
+        if (!getPreference<boolean>(key, true)) {
+          setPreference.mutate({ key, value: true });
+        }
       }
     }
   }, [unlocked, isPreferencesLoading]);
