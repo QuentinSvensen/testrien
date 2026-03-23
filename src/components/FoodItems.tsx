@@ -297,10 +297,24 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
   const handleDecrementQuantity = (e: React.MouseEvent) => {
     e.stopPropagation();
     const currentQty = item.quantity ?? 1;
-    if (currentQty <= 1) {
-      onDelete();
+    const hasRemainder = gramsData.remainder !== null;
+
+    if (hasRemainder) {
+      if (currentQty <= 1) {
+        onDelete();
+      } else {
+        // "Retire le reste": on finit l'unité en cours, donc -1 quantité et on reset le reste
+        onUpdate({ 
+          quantity: currentQty - 1, 
+          grams: gramsData.unit !== null ? formatNumeric(gramsData.unit) : item.grams 
+        });
+      }
     } else {
-      onUpdate({ quantity: currentQty - 1 });
+      if (currentQty <= 1) {
+        onDelete();
+      } else {
+        onUpdate({ quantity: currentQty - 1 });
+      }
     }
   };
 
