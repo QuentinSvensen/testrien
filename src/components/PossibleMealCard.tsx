@@ -476,7 +476,7 @@ export function PossibleMealCard({
                 <List className="mr-2 h-4 w-4" /> Ingrédients
               </DropdownMenuItem>
               <DropdownMenuItem onClick={() => onUpdateCounter(pm.counter_start_date ? null : new Date().toISOString())}>
-                <Timer className="mr-2 h-4 w-4" /> {pm.counter_start_date ? 'Arrêter compteur' : 'Démarrer compteur'}
+                <Timer className="mr-2 h-4 w-4" /> {pm.counter_start_date ? (new Date(pm.counter_start_date) > new Date() ? 'Prog.' : 'Arrêter compteur') : 'Démarrer compteur'}
               </DropdownMenuItem>
               <DropdownMenuItem onClick={onDelete} className="text-destructive">
                 <Trash2 className="mr-2 h-4 w-4" /> Supprimer

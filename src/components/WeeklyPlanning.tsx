@@ -142,12 +142,6 @@ function getCategoryEmoji(cat?: string) {
   }
 }
 
-function getCounterDays(startDate: string | null): number | null {
-  if (!startDate) return null;
-  return differenceInCalendarDays(new Date(), parseISO(startDate));
-}
-
-
 function isExpiredDate(d: string | null) {
   if (!d) return false;
   return new Date(d) < new Date(new Date().toDateString());
@@ -271,7 +265,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                   🍗 {displayPro}
                 </span>
               )}
-              {counterDays !== null && (
+              {counterDays !== null ? (
                 <span
                   className={`text-[9px] font-black px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border
                   ${counterUrgent ? `bg-red-600 text-white border-red-300 shadow-md ${!isPast ? 'animate-pulse' : ''}` : "bg-black/50 text-white border-white/30"}`}
@@ -279,7 +273,15 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                   <Timer className="h-2.5 w-2.5" />
                   {counterDays}j
                 </span>
-              )}
+              ) : pm.counter_start_date ? (
+                <span
+                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border bg-blue-500/40 text-white border-blue-300/30"
+                  title={`Programmé pour le ${format(parseISO(pm.counter_start_date), 'EEEE d MMMM', { locale: fr })}`}
+                >
+                  <Timer className="h-2.5 w-2.5" />
+                  📅
+                </span>
+              ) : null}
             </div>
           )}
         </div>
@@ -383,7 +385,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                 🍗 {displayPro}
               </span>
             )}
-            {counterDays !== null && (
+            {counterDays !== null ? (
               <span
                 className={`text-[9px] font-black px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border
                 ${counterUrgent ? "bg-red-600 text-white border-red-300 shadow-md" : "bg-black/50 text-white border-white/30"}`}
@@ -391,7 +393,15 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                 <Timer className="h-2.5 w-2.5" />
                 {counterDays}j
               </span>
-            )}
+            ) : pm.counter_start_date ? (
+              <span
+                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border bg-blue-500/40 text-white border-blue-300/30"
+                title={`Programmé pour le ${format(parseISO(pm.counter_start_date), 'EEEE d MMMM', { locale: fr })}`}
+              >
+                <Timer className="h-2.5 w-2.5" />
+                📅
+              </span>
+            ) : null}
           </div>
         )}
       </div>
@@ -419,7 +429,8 @@ export function WeeklyPlanning() {
     const pm = possibleMeals.find(p => p.id === pmId);
     if (pm) {
       const ing = pm.ingredients_override ?? pm.meals?.ingredients;
-      updateFoodItemCountersForPlanning(ing, day, time);
+      const fallbackDate = pm.created_at;
+      updateFoodItemCountersForPlanning(ing, day, time, fallbackDate);
     }
   };
 
@@ -452,7 +463,12 @@ export function WeeklyPlanning() {
       // Update DB if it's a PossibleMeal
       if (selId.startsWith('pm:')) {
         const pmId = selId.slice(3);
+        const pm = possiblePetitDej.find(p => p.id === pmId);
         updatePlanning.mutate({ id: pmId, day_of_week: day, meal_time: 'matin' });
+        if (pm) {
+          const ing = pm.ingredients_override ?? pm.meals?.ingredients;
+          updateFoodItemCountersForPlanning(ing, day, 'matin', pm.created_at);
+        }
       }
     } else {
       delete updated[day];
@@ -618,7 +634,7 @@ export function WeeklyPlanning() {
   const extraProteins = getPreference<Record<string, number>>('planning_extra_proteins', {});
   const extraSelections = getPreference<Record<string, string[]>>('planning_extra_selections', {});
 
-  const savedSnapshots = getPreference<Record<string, { cal?: number; prot?: number }>>('planning_saved_snapshots', {});
+  const savedSnapshots = getPreference<Record<string, { cal?: number; prot?: number; itemIds?: string[] }>>('planning_saved_snapshots', {});
   const [flashedKeys, setFlashedKeys] = useState<Record<string, boolean>>({});
   const WEEKLY_GOAL = DAILY_GOAL * DEFAULT_WEEKLY_MULTIPLIER;
   const DAILY_PROTEIN_GOAL_PREF = getPreference<number>('planning_protein_goal', DAILY_PROTEIN_GOAL);

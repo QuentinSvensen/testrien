@@ -304,9 +304,11 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
         onDelete();
       } else {
         // "Retire le reste": on finit l'unité en cours, donc -1 quantité et on reset le reste
+        // On arrête aussi le compteur car l'unité ouverte est terminée.
         onUpdate({ 
           quantity: currentQty - 1, 
-          grams: gramsData.unit !== null ? formatNumeric(gramsData.unit) : item.grams 
+          grams: gramsData.unit !== null ? formatNumeric(gramsData.unit) : item.grams,
+          counter_start_date: null
         });
       }
     } else {
@@ -590,7 +592,7 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
           title={item.counter_start_date ? 'Arrêter compteur' : 'Démarrer compteur'}
         >
           <Timer className="h-2.5 w-2.5" />
-          {item.counter_start_date ? 'Stop' : 'Compteur'}
+          {item.counter_start_date ? (new Date(item.counter_start_date) > new Date() ? 'Prog.' : 'Stop') : 'Compteur'}
         </button>
 
         {/* No-counter toggle (auto-counter logic) */}

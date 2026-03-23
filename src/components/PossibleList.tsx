@@ -5,7 +5,7 @@ import { MealList } from "@/components/MealList";
 import { PossibleMealCard } from "@/components/PossibleMealCard";
 import type { PossibleMeal } from "@/hooks/useMeals";
 import { computeIngredientCalories, computeIngredientProtein, cleanIngredientText, getMealColor, normalizeKey, hasNegativeMetric } from "@/lib/ingredientUtils";
-import { buildStockMap, analyzeMealIngredients, getDisplayedPMCalories, findStockKey } from "@/lib/stockUtils";
+import { buildStockMap, analyzeMealIngredients, getDisplayedPMCalories, findStockKey, buildFoodItemIndex } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
 import type { FoodItem } from "@/components/FoodItems";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -138,20 +138,17 @@ interface PossibleListProps {
 export function PossibleList({ category, items, sortMode, stockMap, onToggleSort, onRandomPick, onRemove, onReturnWithoutDeduction, onReturnToMaster, onDelete, onDuplicate, onUpdateExpiration, onUpdatePlanning, onUpdateCounter, onUpdateCalories, onUpdateGrams, onUpdateIngredients, onUpdatePossibleIngredients, onUpdateQuantity, onSplitQuantity, onReorder, onExternalDrop, highlightedId, foodItems, onAddDirectly, masterSourcePmIds, unParUnSourcePmIds }: PossibleListProps) {
   const [dragIndex, setDragIndex] = useState<number | null>(null);
   const [popupPm, setPopupPm] = useState<PossibleMeal | null>(null);
+
+  // Index food items for O(1) lookup in analyzeMealIngredients
+  const foodItemIndex = useMemo(() => buildFoodItemIndex(foodItems), [foodItems]);
+
   const sortLabel = sortMode === "manual" ? "Manuel" : sortMode === "expiration" ? "Péremption" : "Planning";
   const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "planning" ? CalendarClock : ArrowUpDown;
-
-
-  const displayItems = useMemo(() => {
-    if (sortMode !== "expiration") return items;
-
-    return [...items].sort((a, b) => {
+  const displayItemsWithAnalysis = useMemo(() => {
+    const list = sortMode !== "expiration" ? items : [...items].sort((a, b) => {
       const aCounter = getAdaptedCounterDays(a.counter_start_date, null, a.created_at);
       const bCounter = getAdaptedCounterDays(b.counter_start_date, null, b.created_at);
-      // Only re-sort items with same non-null, non-zero counter
       if (aCounter === null || bCounter === null || aCounter !== bCounter) return 0;
-
-      // Same counter (non-zero): sort by date first
       if (aCounter !== 0) {
         const aDate = a.expiration_date;
         const bDate = b.expiration_date;
@@ -162,31 +159,34 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
         if (aDate && !bDate) return -1;
         if (!aDate && bDate) return 1;
       }
-
-      // Same counter + same date: sort by calories ascending
       const aCal = getDisplayedPMCalories(a);
       const bCal = getDisplayedPMCalories(b);
       if (aCal !== null && bCal !== null && aCal !== bCal) return aCal - bCal;
       if (aCal !== null && bCal === null) return -1;
       if (aCal === null && bCal !== null) return 1;
-
       return (a.meals?.name ?? "").localeCompare(b.meals?.name ?? "");
     });
-  }, [items, sortMode]);
+
+    return list.map(pm => {
+      const meal = pm.meals;
+      if (!meal) return { pm, analysis: null };
+      const currentIngredients = pm.ingredients_override ?? meal.ingredients;
+      const analysis = analyzeMealIngredients({ ...meal, ingredients: currentIngredients }, foodItems, foodItemIndex);
+      return { pm, analysis };
+    });
+  }, [items, sortMode, foodItems, foodItemIndex]);
+
   return (
-    <MealList title={`${category.label} possibles`} emoji={category.emoji} count={displayItems.length} onExternalDrop={onExternalDrop}
+    <MealList title={`${category.label} possibles`} emoji={category.emoji} count={displayItemsWithAnalysis.length} onExternalDrop={onExternalDrop}
       headerActions={<>
         <Button size="sm" variant="ghost" onClick={onAddDirectly} className="h-6 w-6 p-0" title="Ajouter"><Plus className="h-3 w-3" /></Button>
         <Button size="sm" variant="ghost" onClick={onToggleSort} className="text-[10px] gap-0.5 h-6 px-1.5"><SortIcon className="h-3 w-3" /><span>{sortLabel}</span></Button>
         <Button size="sm" variant="ghost" onClick={onRandomPick} className="h-6 w-6 p-0"><Dice5 className="h-3.5 w-3.5" /></Button>
       </>}>
-      {displayItems.length === 0 && <p className="text-muted-foreground text-sm text-center py-6 italic">Glisse des repas ici →</p>}
-      {displayItems.map((pm, index) => {
+      {displayItemsWithAnalysis.length === 0 && <p className="text-muted-foreground text-sm text-center py-6 italic">Glisse des repas ici →</p>}
+      {displayItemsWithAnalysis.map(({ pm, analysis }, index) => {
         const meal = pm.meals;
-        if (!meal) return null;
-        const currentIngredients = pm.ingredients_override ?? meal.ingredients;
-        const mealForAnalysis = { ...meal, ingredients: currentIngredients };
-        const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
+        if (!meal || !analysis) return null;
         const expiredIngs = analysis.expiredIngredientNames;
         const soonIngs = analysis.expiringSoonIngredientNames;
 
@@ -235,8 +235,7 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
             const ingPro = computeIngredientProtein(displayIngredients);
             const displayCal = ingCal !== null ? String(ingCal) : meal.calories;
             const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
-
-            const analysis = analyzeMealIngredients({ ingredients: displayIngredients }, foodItems);
+            const analysis = analyzeMealIngredients({ ingredients: displayIngredients } as any, foodItems, foodItemIndex);
             const effectiveStart = analysis.earliestCounterDate || popupPm.counter_start_date;
             const counterDays = getAdaptedCounterDays(effectiveStart, popupPm.day_of_week, popupPm.created_at);
 

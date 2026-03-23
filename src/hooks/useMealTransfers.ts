@@ -23,7 +23,16 @@ export function computePlannedCounterDate(dayOfWeek: string, mealTime: string | 
   const todayDow = today.getDay(); // 0=Sun
   const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Mon
   const targetIdx = DAY_KEY_TO_INDEX[dayOfWeek] ?? 0;
-  const diff = targetIdx - todayIdx;
+  
+  let diff = targetIdx - todayIdx;
+  
+  // If the target day is earlier in the week than today, it must be for next week.
+  // If it's today but the meal time might have passed, we could also shift, 
+  // but for simplicity we assume planning for "today" always refers to the upcoming meal.
+  if (diff < 0) {
+    diff += 7;
+  }
+  
   const d = new Date(today);
   d.setDate(d.getDate() + diff);
   d.setHours(mealTime === "soir" ? 19 : 12, 0, 0, 0);
@@ -436,16 +445,9 @@ export function useMealTransfers(foodItems: FoodItem[]) {
       if (!alt) continue;
       // Find food items matching this ingredient that have a counter
       const matchingItems = foodItems.filter(
-        fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter
+        fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && fi.storage_type !== 'surgele' && !fi.no_counter
       );
       for (const fi of matchingItems) {
-        const today = new Date();
-        today.setHours(0, 0, 0, 0);
-        // If the item already has an OLD counter (opened before today), don't touch it.
-        // If it was opened today or later (freshly moved to Possible), allow postponing to the planned date.
-        if (fi.counter_start_date && new Date(fi.counter_start_date) < today) {
-          continue;
-        }
         // Only update if the date actually changes
         if (fi.counter_start_date !== finalDate) {
           await safeMutate("Mise à jour compteur planifié", () =>
