@@ -28,7 +28,7 @@ import {
   normalizeForMatch, normalizeKey, strictNameMatch, accentSafeKeyMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, smartFoodContains,
-  extractIngredientMacros,
+  extractIngredientMacros, computeCounterDays,
 } from "@/lib/ingredientUtils";
 import {
   buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
@@ -40,7 +40,7 @@ import {
   getDisplayedCalories, propagateIngredientMacros,
   type FoodItemIndex,
 } from "@/lib/stockUtils";
-import { useMealTransfers } from "@/hooks/useMealTransfers";
+import { useMealTransfers, computePlannedCounterDate } from "@/hooks/useMealTransfers";
 
 // Robust lazy loader with retry/refresh logic
 const lazyRetry = (importFn: () => Promise<any>, name: string) => {
@@ -464,7 +464,7 @@ const Index = () => {
     const meal = meals.find(m => m.id === mealId);
     if (!meal) return;
 
-    const { snapshots, consumedIds } = await deductIngredientsFromStock(meal);
+    const { snapshots, consumedIds } = await deductIngredientsFromStock(meal, undefined);
     const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
     if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
 
@@ -953,6 +953,9 @@ const Index = () => {
                             updatePlanning.mutate({ id, day_of_week: day, meal_time: time });
                             const pm = possibleMeals.find(p => p.id === id);
                             if (pm) {
+                              const newCounterDate = day ? computePlannedCounterDate(day, time) : null;
+                              updateCounter.mutate({ id, counter_start_date: newCounterDate });
+
                               const ing = pm.ingredients_override ?? pm.meals?.ingredients;
                               updateFoodItemCountersForPlanning(ing, day, time);
                             }
