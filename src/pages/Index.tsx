@@ -224,14 +224,18 @@ const Index = () => {
     return () => clearInterval(interval);
   }, [unlocked]);
 
-  // Force "calories restantes" filter ON at each session for "plat"
+  // Force "calories restantes" filter ON at each session for most categories (except breakfast as requested)
   const calorieFilterForced = useRef(false);
   useEffect(() => {
     if (!unlocked || isPreferencesLoading || calorieFilterForced.current) return;
     calorieFilterForced.current = true;
-    const currentVal = getPreference<boolean>('available_use_remaining_calories_plat', true);
-    if (!currentVal) {
-      setPreference.mutate({ key: 'available_use_remaining_calories_plat', value: true });
+
+    for (const cat of CATEGORIES) {
+      if (cat.value === "petit_dejeuner") continue;
+      const key = `available_use_remaining_calories_${cat.value}`;
+      if (!getPreference<boolean>(key, true)) {
+        setPreference.mutate({ key, value: true });
+      }
     }
   }, [unlocked, isPreferencesLoading]);
 
