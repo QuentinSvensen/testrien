@@ -51,7 +51,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
   };
 
   /** Deduct ingredients from stock when moving to Possible. Returns snapshots of old state + IDs of items fully deleted. */
-  const deductIngredientsFromStock = async (meal: Meal, forcedCounterDate?: string): Promise<{ snapshots: FoodItem[]; consumedIds: string[] }> => {
+  const deductIngredientsFromStock = async (meal: Meal): Promise<{ snapshots: FoodItem[]; consumedIds: string[] }> => {
     if (!meal.ingredients?.trim()) return { snapshots: [], consumedIds: [] };
     const groups = parseIngredientGroups(meal.ingredients);
     const stockMap = buildStockMap(foodItems);
@@ -107,17 +107,13 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             const remainder = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
             if (remainder > 0) {
               const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-              updatesById.set(fi.id, { id: fi.id, quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, remainder), ...(shouldStartCounter ? { counter_start_date: forcedCounterDate || new Date().toISOString() } : {}) });
+              updatesById.set(fi.id, { id: fi.id, quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, remainder), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
             } else if (fullUnits > 0) {
               updatesById.set(fi.id, { id: fi.id, quantity: fullUnits, grams: formatNumeric(perUnit), ...(fi.counter_start_date ? { counter_start_date: null } : {}) });
             } else { updatesById.set(fi.id, { id: fi.id, delete: true }); }
           } else {
             const shouldStartCounter = remaining > 0 && remaining < parseQty(fi.grams) && !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-            updatesById.set(fi.id, { 
-              id: fi.id, 
-              grams: formatNumeric(remaining), 
-              ...(shouldStartCounter ? { counter_start_date: forcedCounterDate || new Date().toISOString() } : {}) 
-            });
+            updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
           }
         }
       }
@@ -128,10 +124,10 @@ export function useMealTransfers(foodItems: FoodItem[]) {
         u.delete
           ? supabase.from("food_items").delete().eq("id", u.id)
           : supabase.from("food_items").update({
-              ...(u.grams !== undefined ? { grams: u.grams } : {}),
-              ...(u.quantity !== undefined ? { quantity: u.quantity } : {}),
-              ...(u.counter_start_date !== undefined ? { counter_start_date: u.counter_start_date } : {}),
-            } as any).eq("id", u.id)
+            ...(u.grams !== undefined ? { grams: u.grams } : {}),
+            ...(u.quantity !== undefined ? { quantity: u.quantity } : {}),
+            ...(u.counter_start_date !== undefined ? { counter_start_date: u.counter_start_date } : {}),
+          } as any).eq("id", u.id)
       ))
     );
     invalidateStock();
@@ -238,8 +234,8 @@ export function useMealTransfers(foodItems: FoodItem[]) {
 
     const oldGroups = oldIngredients ? parseIngredientGroups(oldIngredients) : [];
     const newGroups = newIngredients ? parseIngredientGroups(newIngredients) : [];
-    const buildUsageMap = (groups: Array<Array<{qty: number; count: number; name: string; optional?: boolean}>>) => {
-      const map = new Map<string, {grams: number; count: number}>();
+    const buildUsageMap = (groups: Array<Array<{ qty: number; count: number; name: string; optional?: boolean }>>) => {
+      const map = new Map<string, { grams: number; count: number }>();
       for (const group of groups) {
         // Skip optional ingredient groups — they are not consumed
         if (group.every(alt => (alt as any).optional)) continue;
@@ -303,7 +299,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
         // Prefer the exact food item that was originally deducted (from snapshot)
         const snapshotFi = snapshots?.find(s => strictNameMatch(s.name, ingName));
         const fi = snapshotFi ? (currentFoodItems.find(f => f.id === snapshotFi.id) ?? null) : (matchingItems[0] ?? null);
-        
+
         if (fi) {
           // Item still exists in stock — add grams to it
           const perUnit = parseQty(fi.grams);
@@ -427,10 +423,12 @@ export function useMealTransfers(foodItems: FoodItem[]) {
     ingredients: string | null,
     dayOfWeek: string | null,
     mealTime: string | null,
+    fallbackDate?: string | null
   ) => {
     if (!ingredients?.trim()) return;
     const groups = parseIngredientGroups(ingredients);
     const targetDate = dayOfWeek ? computePlannedCounterDate(dayOfWeek, mealTime) : null;
+    const finalDate = targetDate ?? fallbackDate ?? new Date().toISOString();
 
     for (const group of groups) {
       if (group.every(alt => (alt as any).optional)) continue;
@@ -441,7 +439,6 @@ export function useMealTransfers(foodItems: FoodItem[]) {
         fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter
       );
       for (const fi of matchingItems) {
-        const newDate = targetDate ?? new Date().toISOString();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         // If the item already has an OLD counter (opened before today), don't touch it.
@@ -450,9 +447,9 @@ export function useMealTransfers(foodItems: FoodItem[]) {
           continue;
         }
         // Only update if the date actually changes
-        if (fi.counter_start_date !== newDate) {
+        if (fi.counter_start_date !== finalDate) {
           await safeMutate("Mise à jour compteur planifié", () =>
-            supabase.from("food_items").update({ counter_start_date: newDate } as any).eq("id", fi.id)
+            supabase.from("food_items").update({ counter_start_date: finalDate } as any).eq("id", fi.id)
           );
         }
       }

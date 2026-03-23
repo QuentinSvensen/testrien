@@ -28,7 +28,7 @@ import {
   normalizeForMatch, normalizeKey, strictNameMatch, accentSafeKeyMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, smartFoodContains,
-  extractIngredientMacros, computeCounterDays,
+  extractIngredientMacros,
 } from "@/lib/ingredientUtils";
 import {
   buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
@@ -49,17 +49,17 @@ const lazyRetry = (importFn: () => Promise<any>, name: string) => {
       return await importFn();
     } catch (error: any) {
       console.error(`Error loading chunk for ${name}:`, error);
-      
+
       // If it's a chunk loading error (common on redeploys), refresh the page
-      const isChunkError = error.name === 'ChunkLoadError' || 
-                          error.message?.includes('Failed to fetch dynamically imported module') ||
-                          error.message?.includes('Failed to load module script');
-      
+      const isChunkError = error.name === 'ChunkLoadError' ||
+        error.message?.includes('Failed to fetch dynamically imported module') ||
+        error.message?.includes('Failed to load module script');
+
       if (isChunkError && !sessionStorage.getItem(`retry-${name}`)) {
         sessionStorage.setItem(`retry-${name}`, 'true');
         window.location.reload();
       }
-      
+
       throw error;
     }
   });
@@ -464,15 +464,15 @@ const Index = () => {
     const meal = meals.find(m => m.id === mealId);
     if (!meal) return;
 
-    const { snapshots, consumedIds } = await deductIngredientsFromStock(meal, undefined);
+    const { snapshots, consumedIds } = await deductIngredientsFromStock(meal);
     const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
     if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
 
     const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
-    const result = await moveToPossible.mutateAsync({ 
-      mealId, 
-      expiration_date: an.earliestExpiration, 
-      counter_start_date: an.earliestCounterDate 
+    const result = await moveToPossible.mutateAsync({
+      mealId,
+      expiration_date: an.earliestExpiration,
+      counter_start_date: an.earliestCounterDate
     });
 
     if (result?.id) {
@@ -953,11 +953,12 @@ const Index = () => {
                             updatePlanning.mutate({ id, day_of_week: day, meal_time: time });
                             const pm = possibleMeals.find(p => p.id === id);
                             if (pm) {
-                              const newCounterDate = day ? computePlannedCounterDate(day, time) : null;
+                              const fallbackDate = pm.created_at;
+                              const newCounterDate = day ? computePlannedCounterDate(day, time) : fallbackDate;
                               updateCounter.mutate({ id, counter_start_date: newCounterDate });
 
                               const ing = pm.ingredients_override ?? pm.meals?.ingredients;
-                              updateFoodItemCountersForPlanning(ing, day, time);
+                              updateFoodItemCountersForPlanning(ing, day, time, fallbackDate);
                             }
                           }}
                           onUpdateCounter={(id, d) => updateCounter.mutate({ id, counter_start_date: d })}
