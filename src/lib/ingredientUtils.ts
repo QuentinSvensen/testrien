@@ -37,24 +37,11 @@ export function getDateForDayKey(dayKey: string, ref: Date): Date {
 }
 
 /** 
- * Calculate aging counter (days since start) adapted for planning stability.
- * Anchors the counter to the creation day and target day to ensure it never changes "tout seul".
+ * Calculate aging counter (days since start).
+ * Simplified to return real-time aging relative to the start date.
  */
-export function getAdaptedCounterDays(startDate: string | null, dayKey: string | null, createdAt?: string): number | null {
-  if (!startDate) return null;
-  const start = parseISO(startDate);
-  const created = createdAt ? parseISO(createdAt) : new Date();
-  if (!dayKey) {
-    // For unplanned meals, show age on the day it was moved to Possible.
-    const days = differenceInCalendarDays(created, start);
-    return days < 1 ? null : days;
-  }
-
-  // For planned meals, show age on the planned day of the week it was moved (Stable Consumption Age)
-  // We use new Date() as reference to ensure it maps to the CURRENT planning week, not the card's creation week.
-  const targetDate = getDateForDayKey(dayKey, new Date());
-  const days = differenceInCalendarDays(targetDate, start);
-  return days < 1 ? null : days;
+export function getAdaptedCounterDays(startDate: string | null, _dayKey?: string | null, _createdAt?: string): number | null {
+  return computeCounterDays(startDate);
 }
 
 // ─── Text Normalization (with LRU cache) ────────────────────────────────────

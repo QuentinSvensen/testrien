@@ -51,7 +51,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
   };
 
   /** Deduct ingredients from stock when moving to Possible. Returns snapshots of old state + IDs of items fully deleted. */
-  const deductIngredientsFromStock = async (meal: Meal): Promise<{ snapshots: FoodItem[]; consumedIds: string[] }> => {
+  const deductIngredientsFromStock = async (meal: Meal, forcedCounterDate?: string): Promise<{ snapshots: FoodItem[]; consumedIds: string[] }> => {
     if (!meal.ingredients?.trim()) return { snapshots: [], consumedIds: [] };
     const groups = parseIngredientGroups(meal.ingredients);
     const stockMap = buildStockMap(foodItems);
@@ -107,13 +107,13 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             const remainder = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
             if (remainder > 0) {
               const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-              updatesById.set(fi.id, { id: fi.id, quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, remainder), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
+              updatesById.set(fi.id, { id: fi.id, quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, remainder), ...(shouldStartCounter ? { counter_start_date: forcedCounterDate || new Date().toISOString() } : {}) });
             } else if (fullUnits > 0) {
               updatesById.set(fi.id, { id: fi.id, quantity: fullUnits, grams: formatNumeric(perUnit), ...(fi.counter_start_date ? { counter_start_date: null } : {}) });
             } else { updatesById.set(fi.id, { id: fi.id, delete: true }); }
           } else {
             const shouldStartCounter = remaining > 0 && remaining < parseQty(fi.grams) && !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-            updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: new Date().toISOString() } : {}) });
+            updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: forcedCounterDate || new Date().toISOString() } : {}) });
           }
         }
       }

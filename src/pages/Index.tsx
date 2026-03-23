@@ -464,7 +464,7 @@ const Index = () => {
     const meal = meals.find(m => m.id === mealId);
     if (!meal) return;
 
-    const { snapshots, consumedIds } = await deductIngredientsFromStock(meal);
+    const { snapshots, consumedIds } = await deductIngredientsFromStock(meal, undefined);
     const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
     if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
 
