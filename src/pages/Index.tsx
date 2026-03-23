@@ -262,7 +262,12 @@ const Index = () => {
           console.warn('Realtime sync: Connection failed. Ensure Realtime is enabled in your Supabase Dashboard.');
         }
       });
-    return () => { supabase.removeChannel(channel); };
+    return () => { 
+      // Safely remove the channel to avoid "closed before established" warnings during HMR
+      if (channel) {
+        supabase.removeChannel(channel).catch(() => { /* silent */ });
+      }
+    };
   }, [unlocked, qc]);
 
   // Sunday auto-clear — runs ONCE per week on Sunday 23:59 or first login of the new week

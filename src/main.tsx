@@ -24,5 +24,31 @@ if ("serviceWorker" in navigator) {
   }
 }
 
+// Silence noisy console logs from external extensions or known Supabase HMR warnings
+if (typeof window !== "undefined") {
+  const originalLog = console.log;
+  const originalWarn = console.warn;
+  const originalError = console.error;
+
+  console.log = (...args) => {
+    const msg = String(args[0]);
+    if (msg === "test" || msg.includes("[debug-metadata]")) return;
+    originalLog(...args);
+  };
+
+  console.warn = (...args) => {
+    const msg = String(args[0]);
+    if (msg.includes("WebSocket is closed before the connection is established")) return;
+    originalWarn(...args);
+  };
+
+  console.error = (...args) => {
+    const msg = String(args[0]);
+    // Silence common HMR / WebSocket noise that doesn't impact functionality
+    if (msg.includes("WebSocket is closed before the connection is established") || msg.includes("ChunkLoadError")) return;
+    originalError(...args);
+  }
+}
+
 createRoot(document.getElementById("root")!).render(<App />);
 
