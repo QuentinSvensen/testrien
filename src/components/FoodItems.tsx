@@ -1115,9 +1115,16 @@ function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onD
 
     const onTouchMove = (e: TouchEvent) => {
       if (!touchDragRef.current) {
-        if (longPressTimerRef.current) {
-          clearTimeout(longPressTimerRef.current);
-          longPressTimerRef.current = null;
+        // Only cancel long press if finger moved more than 10px
+        if (longPressTimerRef.current && touchStartPosRef.current) {
+          const touch = e.touches[0];
+          const dx = touch.clientX - touchStartPosRef.current.x;
+          const dy = touch.clientY - touchStartPosRef.current.y;
+          if (Math.sqrt(dx * dx + dy * dy) > 10) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+            touchStartPosRef.current = null;
+          }
         }
         return;
       }
