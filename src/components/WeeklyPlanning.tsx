@@ -638,12 +638,17 @@ export function WeeklyPlanning() {
   const autoConsumeBreakfast = getPreference<Record<string, boolean>>('planning_auto_consume_breakfast', {});
 
 
-  const handleAddExtraItem = (day: string, item: FoodItem) => {
+  const handleAddExtraItem = (day: string, item: FoodItem, remove = false) => {
     const updated = { ...extraSelections };
     const current = updated[day] || [];
-    if (current.includes(item.id)) {
-      updated[day] = current.filter(id => id !== item.id);
+    if (remove) {
+      // Remove one instance
+      const idx = current.lastIndexOf(item.id);
+      if (idx >= 0) {
+        updated[day] = [...current.slice(0, idx), ...current.slice(idx + 1)];
+      }
     } else {
+      // Always add (allow duplicates)
       updated[day] = [...current, item.id];
     }
     setPreference.mutate({ key: 'planning_extra_selections', value: updated });
