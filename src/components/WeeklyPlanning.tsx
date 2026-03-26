@@ -1545,40 +1545,41 @@ export function WeeklyPlanning() {
                           <Zap className="w-3 h-3 text-amber-400 animate-pulse" />
                         </div>
                         <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
-                          {foodItems.filter(fi => fi.storage_type === 'extras').length === 0 ? (
+                          {foodItems.filter(fi => fi.storage_type === 'extras').sort((a, b) => a.sort_order - b.sort_order).length === 0 ? (
                             <div className="text-center py-4 bg-muted/20 rounded-xl">
                               <p className="text-[10px] text-muted-foreground italic">Aucun aliment "Extra" 🍕</p>
                               <p className="text-[9px] text-muted-foreground/60 mt-1">Ajoutez-les dans l'onglet Aliments</p>
                             </div>
                           ) : (
-                            foodItems.filter(fi => fi.storage_type === 'extras').map(fi => {
-                              const isSelected = (extraSelections[day] || []).includes(fi.id);
+                            foodItems.filter(fi => fi.storage_type === 'extras').sort((a, b) => a.sort_order - b.sort_order).map(fi => {
+                              const count = (extraSelections[day] || []).filter(id => id === fi.id).length;
                               return (
-                                <button
+                                <div
                                   key={fi.id}
-                                  onClick={() => handleAddExtraItem(day, fi)}
-                                  className={`w-full text-left p-2 rounded-xl border transition-all group flex items-center gap-3 ${isSelected
+                                  className={`w-full p-2 rounded-xl border transition-all group flex items-center gap-3 ${count > 0
                                       ? 'bg-orange-500/20 border-orange-500/40 shadow-inner'
                                       : 'bg-muted/30 hover:bg-orange-500/10 border-transparent hover:border-orange-500/20'
                                     }`}
                                 >
                                   <div className="flex-1 min-w-0">
-                                    <p className={`text-[11px] font-bold transition-colors truncate ${isSelected ? 'text-orange-600' : 'text-foreground group-hover:text-orange-600'}`}>{fi.name}</p>
+                                    <p className={`text-[11px] font-bold transition-colors truncate ${count > 0 ? 'text-orange-600' : 'text-foreground group-hover:text-orange-600'}`}>{fi.name}</p>
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
-                                    {isSelected && <Zap className="w-3 h-3 text-orange-500 animate-pulse" />}
-                                    {fi.quantity && fi.quantity > 1 && (
-                                      <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-muted-foreground/60 border border-border/10">
-                                        <Hash className="w-2.5 h-2.5" />
-                                        {fi.quantity}
-                                      </div>
+                                    {count > 0 && (
+                                      <>
+                                        <button
+                                          onClick={() => handleAddExtraItem(day, fi, true)}
+                                          className="h-5 w-5 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-500 text-xs font-bold"
+                                          title="Retirer un"
+                                        >−</button>
+                                        <span className="text-[10px] font-black text-orange-500 min-w-[14px] text-center">{count}</span>
+                                      </>
                                     )}
-                                    {fi.grams && (
-                                      <div className="flex items-center gap-1 bg-white/5 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-muted-foreground/60 border border-border/10">
-                                        <Weight className="w-2.5 h-2.5" />
-                                        {fi.grams}
-                                      </div>
-                                    )}
+                                    <button
+                                      onClick={() => handleAddExtraItem(day, fi)}
+                                      className="h-5 w-5 flex items-center justify-center rounded-full bg-orange-500/20 hover:bg-orange-500/40 text-orange-500 text-xs font-bold"
+                                      title="Ajouter un"
+                                    >+</button>
                                     {fi.protein && (
                                       <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-blue-500 border border-blue-500/10">
                                         🍗 {fi.protein}
@@ -1591,7 +1592,7 @@ export function WeeklyPlanning() {
                                       </div>
                                     )}
                                   </div>
-                                </button>
+                                </div>
                               );
                             })
                           )}
