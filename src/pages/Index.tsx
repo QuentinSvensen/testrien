@@ -1188,14 +1188,21 @@ const Index = () => {
 
                               const fiKey = normalizeKey(fi.name);
                               const fiMacro = macroLookup.get(fiKey);
+                              const calFromFi = !!fi.calories;
+                              const proFromFi = !!fi.protein;
                               const baseCalStr = fi.calories || fiMacro?.cal || "0";
                               const baseProStr = fi.protein || fiMacro?.pro || "0";
 
                               const baseCal = parseFloat(String(baseCalStr).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
                               const basePro = parseFloat(String(baseProStr).replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
 
-                              const calories = baseCal > 0 ? formatNumeric(baseCal * ratio) : null;
-                              const protein = basePro > 0 ? formatNumeric(basePro * ratio) : null;
+                              // fi.calories = per-unit → scale by ratio; fiMacro.cal = per-100g → scale by grams/100
+                              const calories = baseCal > 0
+                                ? formatNumeric(calFromFi ? baseCal * ratio : (baseCal / 100) * actualMovedG)
+                                : null;
+                              const protein = basePro > 0
+                                ? formatNumeric(proFromFi ? basePro * ratio : (basePro / 100) * actualMovedG)
+                                : null;
                               const pmResult = await addMealToPossibleDirectly.mutateAsync({
                                 name: fi.name, category: cat.value, calories, protein, grams: displayGrams,
                                 expiration_date: fi.expiration_date, possible_quantity: displayQty,

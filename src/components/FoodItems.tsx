@@ -1089,6 +1089,7 @@ function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onD
   // Touch drag & drop for mobile
   const touchDragRef = useRef<{ itemId: string; itemIdx: number; ghost: HTMLElement; startX: number; startY: number; origTop: number; origLeft: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const [touchDragActive, setTouchDragActive] = useState(false);
 
   useEffect(() => {
@@ -1114,9 +1115,16 @@ function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onD
 
     const onTouchMove = (e: TouchEvent) => {
       if (!touchDragRef.current) {
-        if (longPressTimerRef.current) {
-          clearTimeout(longPressTimerRef.current);
-          longPressTimerRef.current = null;
+        // Only cancel long press if finger moved more than 10px
+        if (longPressTimerRef.current && touchStartPosRef.current) {
+          const touch = e.touches[0];
+          const dx = touch.clientX - touchStartPosRef.current.x;
+          const dy = touch.clientY - touchStartPosRef.current.y;
+          if (Math.sqrt(dx * dx + dy * dy) > 10) {
+            clearTimeout(longPressTimerRef.current);
+            longPressTimerRef.current = null;
+            touchStartPosRef.current = null;
+          }
         }
         return;
       }
@@ -1168,6 +1176,7 @@ function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onD
     const el = e.currentTarget as HTMLElement;
     const rect = el.getBoundingClientRect();
 
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
     longPressTimerRef.current = setTimeout(() => {
