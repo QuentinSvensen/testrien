@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="fr">
+  <head>
+    <script id="console-shield">
+      (function() {
+        // Broad keywords to suppress annoying browser/extension logs
+        const IGNORED = [
+          "asynchronous response by returning true",
+          "message channel closed before a response was received",
+          "asynchronous response",
+          "message channel closed",
+          "chrome-extension",
+          "DevTools",
+          "React Router",
+          "debug-metadata",
+          "inject script test",
+          "react-devtools"
+        ];
+        
+        const isIgnored = (err) => {
+          if (!err) return false;
+          // Exact matches for noisy debug logs
+          if (err === "test") return true;
+          const s = String(err.stack || err.message || err || "").toLowerCase();
+          return IGNORED.some(i => s.includes(i.toLowerCase()));
+        };
+
+        // Aggressive console patching
+        const patch = () => {
+          ['error', 'warn', 'debug', 'log', 'info'].forEach(m => {
+            const original = console[m];
+            if (!original || original.__shielded) return;
+            const wrapper = function(...args) {
+              if (isIgnored(args[0])) return;
+              original.apply(console, args);
+            };
+            wrapper.__shielded = true;
+            try { 
+              Object.defineProperty(console, m, { value: wrapper, writable: true, configurable: true }); 
+            } catch(e) { 
+              console[m] = wrapper; 
+            }
+          });
+        };
+        patch();
+        
+        // Listeners for uncaught errors/rejections
+        const handler = (e) => {
+          const err = e.reason || e.error || e.message || e;
+          if (isIgnored(err)) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return true;
+          }
+        };
+        window.addEventListener("unhandledrejection", handler, true);
+        window.addEventListener("error", handler, true);
+        
+        // Re-patch occasionally in case of late-loading extension overrides
+        setInterval(patch, 2000);
+      })();
+    </script>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MealsCards — Gestionnaire de repas</title>
+    <link rel="icon" href="https://emojicdn.elk.sh/🍽️" />
+    <meta name="description" content="Organise tes repas selon ce que tu as dans le frigo. Gère ton stock, planifie ta semaine et génère ta liste de courses." />
+    <meta name="author" content="MealsCards" />
+    <meta name="robots" content="index, follow" />
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    <link rel="canonical" href="https://mealscards.lovable.app/" />
+
+    <meta property="og:title" content="MealsCards — Gestionnaire de repas" />
+    <meta property="og:description" content="Organise tes repas selon ce que tu as dans le frigo. Planification, stock et liste de courses." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content="https://mealscards.lovable.app/" />
+    <meta property="og:image" content="https://emojicdn.elk.sh/🍽️" />
+
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="MealsCards — Gestionnaire de repas" />
+    <meta name="twitter:description" content="Organise tes repas selon ce que tu as dans le frigo." />
+    <meta name="twitter:image" content="https://emojicdn.elk.sh/🍽️" />
+
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#f97316" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-title" content="MealsCards" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link rel="preconnect" href="https://cdn.gpteng.co" crossorigin />
+    <link rel="preconnect" href="https://pooaktbndvkslgwhfpbv.supabase.co" />
+    <link rel="dns-prefetch" href="https://pooaktbndvkslgwhfpbv.supabase.co" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&display=swap" media="print" onload="this.media='all'" />
+    <noscript>
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&display=swap" />
+      <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Crimson+Pro:wght@400;500;600;700&display=swap" />
+    </noscript>
+  </head>
+
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
