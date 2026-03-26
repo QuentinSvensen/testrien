@@ -4,6 +4,7 @@ import { supabase } from "@/integrations/supabase/client";
 import { computeIngredientCalories } from "@/lib/ingredientUtils";
 import { getDisplayedPMCalories } from "@/lib/stockUtils";
 import { toast } from "@/hooks/use-toast";
+import { computePlannedCounterDate } from "@/hooks/useMealTransfers";
 
 export type MealCategory = 'petit_dejeuner' | 'entree' | 'plat' | 'dessert' | 'bonus';
 
@@ -458,17 +459,25 @@ export function useMeals(options?: { enabled?: boolean }) {
 
   const updatePlanning = useMutation({
     mutationFn: async ({ id, day_of_week, meal_time }: { id: string; day_of_week: string | null; meal_time: string | null }) => {
+      // When planning is set: freeze counter to start at the planned future date
+      // When planning is cleared: remove counter (set to null)
+      const counter_start_date = day_of_week
+        ? computePlannedCounterDate(day_of_week, meal_time)
+        : null;
       const { error } = await supabase
         .from("possible_meals")
-        .update({ day_of_week, meal_time })
+        .update({ day_of_week, meal_time, counter_start_date })
         .eq("id", id);
       if (error) throw error;
     },
     onMutate: async ({ id, day_of_week, meal_time }) => {
       await qc.cancelQueries({ queryKey: ["possible_meals"] });
       const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
+      const counter_start_date = day_of_week
+        ? computePlannedCounterDate(day_of_week, meal_time)
+        : null;
       qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
-        old?.map(pm => pm.id === id ? { ...pm, day_of_week, meal_time } : pm) ?? []
+        old?.map(pm => pm.id === id ? { ...pm, day_of_week, meal_time, counter_start_date } : pm) ?? []
       );
       return { prev };
     },

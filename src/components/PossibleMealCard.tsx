@@ -161,7 +161,7 @@ export function PossibleMealCard({
     return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   })() : false;
   const effectiveCounterStart = realtimeCounterStartDate !== undefined ? realtimeCounterStartDate : pm.counter_start_date;
-  const counterDays = getAdaptedCounterDays(effectiveCounterStart, pm.day_of_week, pm.created_at);
+  const counterDays = getAdaptedCounterDays(effectiveCounterStart, pm.day_of_week, pm.created_at, pm.meal_time);
 
   // Stop blinking if the meal's day is in the past!
   let isPast = false;
@@ -408,11 +408,10 @@ export function PossibleMealCard({
             const displayCal = getDisplayedPMCalories(pm, detectedRatio ?? undefined);
             const isComputed = computeIngredientCalories(displayIngredients, isAvailableCb) !== null;
             return displayCal ? (
-              <button 
-                onClick={() => { setEditValue(meal.calories || ""); setEditing("calories"); }} 
-                className={`text-[10px] text-white px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 ${
-                  isComputed ? 'bg-orange-500/50 font-bold hover:bg-orange-500/60' : 'bg-black/30 text-white/90 hover:bg-black/40'
-                }`}
+              <button
+                onClick={() => { setEditValue(meal.calories || ""); setEditing("calories"); }}
+                className={`text-[10px] text-white px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 ${isComputed ? 'bg-orange-500/50 font-bold hover:bg-orange-500/60' : 'bg-black/30 text-white/90 hover:bg-black/40'
+                  }`}
               >
                 <Flame className="h-2.5 w-2.5" />{displayCal}
               </button>
@@ -422,9 +421,8 @@ export function PossibleMealCard({
             const displayPro = getDisplayedPMProtein(pm, detectedRatio ?? undefined);
             const isComputedPro = computeIngredientProtein(displayIngredients, isAvailableCb) !== null;
             return displayPro && displayPro !== 0 ? (
-              <span className={`text-[10px] px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-semibold ${
-                isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/90 bg-blue-500/40'
-              }`}>
+              <span className={`text-[10px] px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-semibold ${isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/90 bg-blue-500/40'
+                }`}>
                 🍗 {displayPro}
               </span>
             ) : null;

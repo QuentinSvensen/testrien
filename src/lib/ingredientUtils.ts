@@ -37,11 +37,25 @@ export function getDateForDayKey(dayKey: string, ref: Date): Date {
 }
 
 /** 
- * Calculate aging counter (days since start).
- * Simplified to return real-time aging relative to the start date.
+ * Calculate counter days for a Possible meal card.
+ * counter_start_date is the source of truth:
+ *   - In the future → null (card is scheduled, show 📅)
+ *   - In the past   → days elapsed since then (hide if < 1)
+ * dayKey/createdAt/mealTime kept for backward compat but no longer used.
  */
-export function getAdaptedCounterDays(startDate: string | null, _dayKey?: string | null, _createdAt?: string): number | null {
-  return computeCounterDays(startDate);
+export function getAdaptedCounterDays(
+  startDate: string | null,
+  _dayKey?: string | null,
+  _createdAt?: string,
+  _mealTime?: string | null,
+): number | null {
+  if (!startDate) return null;
+  const start = parseISO(startDate);
+  const now = new Date();
+  // Future → scheduled (show 📅 badge)
+  if (start > now) return null;
+  // Past → show elapsed calendar days
+  return differenceInCalendarDays(now, start);
 }
 
 // ─── Text Normalization (with LRU cache) ────────────────────────────────────

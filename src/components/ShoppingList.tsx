@@ -25,6 +25,8 @@ type DragPayload =
   | { kind: "item"; id: string; groupId: string | null }
   | { kind: "group"; id: string };
 
+const EMPTY_NEEDS = {};
+
 export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_props, ref) {
   const {
     groups, ungroupedItems, items,
@@ -75,7 +77,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
 
   // Compute which items have ambiguous partial matches with menu ingredients (ONLY multi-match)
   // Returns ALL items in ambiguous groups, plus tracks which needKey has a confirmed item
-  const needsRaw = getPreference<Record<string, { grams: number; count: number; rawName?: string }>>('menu_generator_needs_v1', {});
+  const needsRaw = getPreference<Record<string, { grams: number; count: number; rawName?: string }>>('menu_generator_needs_v1', EMPTY_NEEDS);
 
   const { ambiguousItemData, confirmedAmbiguous } = useMemo(() => {
     const needs = needsRaw;
@@ -148,22 +150,15 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
   const [editingGroup, setEditingGroup] = useState<string | null>(null);
   const [editGroupName, setEditGroupName] = useState("");
 
-  // Session defaults: mobile=collapsed, desktop=expanded — always applied fresh each session
-  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(() => {
-    if (isMobile) {
-      return new Set(["__ungrouped"]);
-    }
-    return new Set();
-  });
-  // Apply after groups load
+  // On mobile: track explicitly EXPANDED groups (default = collapsed)
+  // On desktop: track explicitly COLLAPSED groups (default = expanded)
+  const [collapsedGroups, setCollapsedGroups] = useState<Set<string>>(new Set());
+  // Apply session defaults after groups load (desktop only — mobile defaults to all collapsed)
   const sessionDefaultApplied = useRef(false);
   useEffect(() => {
     if (sessionDefaultApplied.current || groups.length === 0) return;
     sessionDefaultApplied.current = true;
-    if (isMobile) {
-      const allIds = ["__ungrouped", ...groups.map(g => g.id)];
-      setCollapsedGroups(new Set(allIds));
-    } else {
+    if (!isMobile) {
       setCollapsedGroups(new Set());
     }
   }, [isMobile, groups]);
@@ -255,6 +250,14 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
     updateItemQuantity.mutate({ id: item.id, quantity: val || null });
     // Always close editing on commit (whether empty or not)
     setEditingField(prev => ({ ...prev, [item.id]: null }));
+  };
+
+  const isGroupCollapsed = (id: string) => {
+    if (isMobile) {
+      // On mobile: collapsed unless explicitly expanded (tracked in collapsedGroups as "expanded" set)
+      return !collapsedGroups.has(id);
+    }
+    return collapsedGroups.has(id);
   };
 
   const toggleCollapse = (id: string) => {
@@ -435,11 +438,10 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
                   toggleSecondaryCheck.mutate({ id: item.id, secondary_checked: false });
                 }
               }}
-              className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold transition-colors ${
-                item.secondary_checked 
-                  ? `bg-green-400 border-green-400 text-white` 
-                  : `${color.borderLight} ${color.text} ${color.hover}`
-              }`}
+              className={`shrink-0 w-4 h-4 rounded border flex items-center justify-center text-[10px] font-bold transition-colors ${item.secondary_checked
+                ? `bg-green-400 border-green-400 text-white`
+                : `${color.borderLight} ${color.text} ${color.hover}`
+                }`}
               title="Plusieurs articles correspondent à un ingrédient du menu"
             >
               {item.secondary_checked ? '✓' : '?'}
@@ -594,7 +596,7 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
               // Check ambiguous data first
               const ambData = ambiguousItemData.get(item.id);
               const checkKey = ambData?.needKey;
-              
+
               for (const [nk, need] of Object.entries(needsRaw)) {
                 if (checkKey ? nk === checkKey : (normalizeKey(item.name) === normalizeKey(nk))) {
                   const nb = item.content_quantity ? parseFloat(item.content_quantity.replace(/[^0-9.,]/g, '').replace(',', '.')) : 0;
@@ -612,10 +614,10 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
               }
               return null;
             };
-            
+
             const greenQty = computeGreenQty();
             const userQty = qty; // manual quantity from the item
-            
+
             if (showGreenChecks && greenQty) {
               // Show green qty overlaying user qty
               return (
@@ -695,15 +697,15 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
           onDrop={(e) => handleDropOnGroup(e, null)}
         >
           <button onClick={() => toggleCollapse("__ungrouped")} className="flex items-center gap-2 w-full text-left mb-1.5">
-            {collapsedGroups.has("__ungrouped") ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
+            {isGroupCollapsed("__ungrouped") ? <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" /> : <ChevronDown className="h-4 w-4 text-muted-foreground shrink-0" />}
             <h3 className="text-xs font-extrabold text-foreground/60 uppercase tracking-widest">Articles</h3>
             <span className="text-[10px] font-bold text-foreground bg-foreground/10 rounded-full px-2 py-0.5 shrink-0">{ungroupedItems.filter(matchesSearch).length}</span>
           </button>
-          {collapsedGroups.has("__ungrouped")
+          {isGroupCollapsed("__ungrouped")
             ? ungroupedItems.filter(matchesSearch).filter(i => i.checked).map(renderItem)
             : ungroupedItems.filter(matchesSearch).map(renderItem)
           }
-          {!collapsedGroups.has("__ungrouped") && renderAddInput(null)}
+          {!isGroupCollapsed("__ungrouped") && renderAddInput(null)}
         </div>
       )}
 
@@ -711,10 +713,10 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
       {groups.map((group) => {
         const groupItems = getItemsByGroup(group.id).filter(matchesSearch);
         const groupMatchesName = searchQuery.trim() && normalizeSearch(group.name).includes(normalizeSearch(searchQuery));
-        
+
         if (searchQuery.trim() && !groupMatchesName && groupItems.length === 0) return null;
 
-        const isCollapsed = collapsedGroups.has(group.id);
+        const isCollapsed = isGroupCollapsed(group.id);
         const isGroupOver = dragOverKey === `group:${group.id}`;
         return (
           <div key={group.id}
@@ -749,11 +751,11 @@ export const ShoppingList = forwardRef<HTMLDivElement>(function ShoppingList(_pr
             {isCollapsed
               ? groupItems.filter(i => i.checked).map(renderItem)
               : (
-              <>
-                {groupItems.map(renderItem)}
-                {renderAddInput(group.id)}
-              </>
-            )}
+                <>
+                  {groupItems.map(renderItem)}
+                  {renderAddInput(group.id)}
+                </>
+              )}
           </div>
         );
       })}

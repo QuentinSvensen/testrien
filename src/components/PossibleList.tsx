@@ -127,7 +127,7 @@ interface PossibleListProps {
   onUpdateQuantity: (id: string, qty: number) => void;
   onSplitQuantity?: (id: string, ratio: number, baseIngredients: string | null) => void;
   onReorder: (fromIndex: number, toIndex: number) => void;
-  onExternalDrop: (mealId: string, source: string) => void;
+  onExternalDrop: (mealId: string, source: string, pmId?: string | null) => void;
   highlightedId: string | null;
   foodItems: FoodItem[];
   onAddDirectly: () => void;
@@ -146,8 +146,8 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
   const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "planning" ? CalendarClock : ArrowUpDown;
   const displayItemsWithAnalysis = useMemo(() => {
     const list = sortMode !== "expiration" ? items : [...items].sort((a, b) => {
-      const aCounter = getAdaptedCounterDays(a.counter_start_date, null, a.created_at);
-      const bCounter = getAdaptedCounterDays(b.counter_start_date, null, b.created_at);
+      const aCounter = getAdaptedCounterDays(a.counter_start_date, a.day_of_week, a.created_at, a.meal_time);
+      const bCounter = getAdaptedCounterDays(b.counter_start_date, b.day_of_week, b.created_at, b.meal_time);
       if (aCounter === null || bCounter === null || aCounter !== bCounter) return 0;
       if (aCounter !== 0) {
         const aDate = a.expiration_date;
@@ -237,7 +237,7 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
             const displayPro = ingPro !== null ? String(ingPro) : meal.protein;
             const analysis = analyzeMealIngredients({ ingredients: displayIngredients } as any, foodItems, foodItemIndex);
             const effectiveStart = analysis.earliestCounterDate || popupPm.counter_start_date;
-            const counterDays = getAdaptedCounterDays(effectiveStart, popupPm.day_of_week, popupPm.created_at);
+            const counterDays = getAdaptedCounterDays(effectiveStart, popupPm.day_of_week, popupPm.created_at, popupPm.meal_time);
 
             const expired = popupPm.expiration_date && new Date(popupPm.expiration_date) < new Date();
 

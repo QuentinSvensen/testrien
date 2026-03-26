@@ -48,9 +48,9 @@ export function getOverrideScaleRatio(
   const baseIngStr = meal.ingredients
     ? meal.ingredients
     : (() => {
-        const bg = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, "").replace(",", ".")) || 0;
-        return bg > 0 ? `${bg}g ${meal.name}` : `1 ${meal.name}`;
-      })();
+      const bg = parseFloat((meal.grams || "0").replace(/[^0-9.,]/g, "").replace(",", ".")) || 0;
+      return bg > 0 ? `${bg}g ${meal.name}` : `1 ${meal.name}`;
+    })();
 
   const origGroups = baseIngStr.split(/(?:\n|,(?!\d))/).map((s) => s.trim()).filter(Boolean);
   const overGroups = ingredientsOverride.split(/(?:\n|,(?!\d))/).map((s) => s.trim()).filter(Boolean);
@@ -183,7 +183,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) =>
           s + getCardDisplayCalories(pm, calOverrides[pm.id], isAvailable)
-        , 0);
+          , 0);
       }
       return total + (manualCalories[`${day}-${time}`] || 0);
     }, 0);
@@ -255,7 +255,7 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     } else {
       breakfastPro = breakfastManualProteins[day] || 0;
     }
-    
+
     const extraManual = extraProteins[day] || 0;
     const extraSelections = getPreference<Record<string, string[]>>('planning_extra_selections', {});
     const selectedExtraIds = extraSelections[day] || [];
@@ -276,12 +276,12 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     let daysCount = 0;
 
     for (let i = 0; i < todayIndex; i++) {
-        const pastDayKey = DAYS[i];
-        const consumed = getDayCalories(pastDayKey);
-        if (consumed > 0) {
-            differencesSum += (consumed - DAILY_GOAL);
-            daysCount++;
-        }
+      const pastDayKey = DAYS[i];
+      const consumed = getDayCalories(pastDayKey);
+      if (consumed > 0) {
+        differencesSum += (consumed - DAILY_GOAL);
+        daysCount++;
+      }
     }
 
     const avgDifference = daysCount > 0 ? (differencesSum / daysCount) : 0;

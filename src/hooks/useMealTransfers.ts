@@ -23,16 +23,9 @@ export function computePlannedCounterDate(dayOfWeek: string, mealTime: string | 
   const todayDow = today.getDay(); // 0=Sun
   const todayIdx = todayDow === 0 ? 6 : todayDow - 1; // 0=Mon
   const targetIdx = DAY_KEY_TO_INDEX[dayOfWeek] ?? 0;
-  
-  let diff = targetIdx - todayIdx;
-  
-  // If the target day is earlier in the week than today, it must be for next week.
-  // If it's today but the meal time might have passed, we could also shift, 
-  // but for simplicity we assume planning for "today" always refers to the upcoming meal.
-  if (diff < 0) {
-    diff += 7;
-  }
-  
+
+  const diff = targetIdx - todayIdx;
+
   const d = new Date(today);
   d.setDate(d.getDate() + diff);
   d.setHours(mealTime === "soir" ? 19 : 12, 0, 0, 0);
@@ -115,14 +108,25 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             const fullUnits = Math.floor(remaining / perUnit);
             const remainder = Math.round((remaining - fullUnits * perUnit) * 10) / 10;
             if (remainder > 0) {
-              const shouldStartCounter = !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-              updatesById.set(fi.id, { id: fi.id, quantity: Math.max(1, fullUnits + 1), grams: encodeStoredGrams(perUnit, remainder), ...(shouldStartCounter ? { counter_start_date: forcedCounterDate || new Date().toISOString() } : {}) });
+              const counterToSet = forcedCounterDate || (!fi.counter_start_date ? new Date().toISOString() : undefined);
+              const shouldStart = fi.storage_type !== 'surgele' && !fi.no_counter;
+              updatesById.set(fi.id, { 
+                id: fi.id, 
+                quantity: Math.max(1, fullUnits + 1), 
+                grams: encodeStoredGrams(perUnit, remainder), 
+                ...(shouldStart && counterToSet !== undefined ? { counter_start_date: counterToSet } : {}) 
+              });
             } else if (fullUnits > 0) {
               updatesById.set(fi.id, { id: fi.id, quantity: fullUnits, grams: formatNumeric(perUnit), ...(fi.counter_start_date ? { counter_start_date: null } : {}) });
             } else { updatesById.set(fi.id, { id: fi.id, delete: true }); }
           } else {
-            const shouldStartCounter = remaining > 0 && remaining < parseQty(fi.grams) && !fi.counter_start_date && fi.storage_type !== 'surgele' && !fi.no_counter;
-            updatesById.set(fi.id, { id: fi.id, grams: formatNumeric(remaining), ...(shouldStartCounter ? { counter_start_date: forcedCounterDate || new Date().toISOString() } : {}) });
+            const counterToSet = forcedCounterDate || (!fi.counter_start_date ? new Date().toISOString() : undefined);
+            const shouldStart = remaining > 0 && remaining < parseQty(fi.grams) && fi.storage_type !== 'surgele' && !fi.no_counter;
+            updatesById.set(fi.id, { 
+              id: fi.id, 
+              grams: formatNumeric(remaining), 
+              ...(shouldStart && counterToSet !== undefined ? { counter_start_date: counterToSet } : {}) 
+            });
           }
         }
       }
@@ -448,12 +452,10 @@ export function useMealTransfers(foodItems: FoodItem[]) {
         fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && fi.storage_type !== 'surgele' && !fi.no_counter
       );
       for (const fi of matchingItems) {
-        // Only update if the date actually changes
-        if (fi.counter_start_date !== finalDate) {
-          await safeMutate("Mise à jour compteur planifié", () =>
-            supabase.from("food_items").update({ counter_start_date: finalDate } as any).eq("id", fi.id)
-          );
-        }
+        // Reset or set the counter based on planning
+        await safeMutate("Mise à jour compteur planifié", () =>
+          supabase.from("food_items").update({ counter_start_date: finalDate } as any).eq("id", fi.id)
+        );
       }
     }
     invalidateStock();

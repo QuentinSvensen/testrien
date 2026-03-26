@@ -273,7 +273,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                   <Timer className="h-2.5 w-2.5" />
                   {counterDays}j
                 </span>
-              ) : pm.counter_start_date ? (
+              ) : pm.counter_start_date && new Date(pm.counter_start_date) > new Date() ? (
                 <span
                   className="text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border bg-blue-500/40 text-white border-blue-300/30"
                   title={`Programmé pour le ${format(parseISO(pm.counter_start_date), 'EEEE d MMMM', { locale: fr })}`}
@@ -385,7 +385,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                 🍗 {displayPro}
               </span>
             )}
-            {counterDays !== null ? (
+            {counterDays !== null && counterDays >= 1 && (
               <span
                 className={`text-[9px] font-black px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border
                 ${counterUrgent ? "bg-red-600 text-white border-red-300 shadow-md" : "bg-black/50 text-white border-white/30"}`}
@@ -393,15 +393,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                 <Timer className="h-2.5 w-2.5" />
                 {counterDays}j
               </span>
-            ) : pm.counter_start_date ? (
-              <span
-                className="text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border bg-blue-500/40 text-white border-blue-300/30"
-                title={`Programmé pour le ${format(parseISO(pm.counter_start_date), 'EEEE d MMMM', { locale: fr })}`}
-              >
-                <Timer className="h-2.5 w-2.5" />
-                📅
-              </span>
-            ) : null}
+            )}
           </div>
         )}
       </div>
@@ -670,7 +662,17 @@ export function WeeklyPlanning() {
     setSlotDragOver(null);
     const draggedPmId = e.dataTransfer.getData("pmId");
     if (!draggedPmId || draggedPmId === targetPm.id) return;
-    const slot = getMealsForSlot(targetPm.day_of_week!, targetPm.meal_time!);
+
+    const targetDay = targetPm.day_of_week!;
+    const targetTime = targetPm.meal_time!;
+    const draggedPm = possibleMeals.find(p => p.id === draggedPmId);
+
+    // If card comes from another slot or is unplanned, update its planning first
+    if (!draggedPm || draggedPm.day_of_week !== targetDay || draggedPm.meal_time !== targetTime) {
+      updatePlanningWithCounters(draggedPmId, targetDay, targetTime);
+    }
+
+    const slot = getMealsForSlot(targetDay, targetTime);
     const filtered = slot.filter((p) => p.id !== draggedPmId);
     const targetIdx = filtered.findIndex((p) => p.id === targetPm.id);
     const insertAt = targetIdx === -1 ? filtered.length : targetIdx;
@@ -816,7 +818,7 @@ export function WeeklyPlanning() {
     const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
 
     const effectiveStart = analysis.earliestCounterDate || pm.counter_start_date;
-    const counterDays = getAdaptedCounterDays(effectiveStart, pm.day_of_week, pm.created_at);
+    const counterDays = getAdaptedCounterDays(effectiveStart, pm.day_of_week, pm.created_at, pm.meal_time);
     const counterUrgent = counterDays !== null && counterDays >= 3;
 
     const expiredIngs = analysis.expiredIngredientNames;
@@ -994,10 +996,10 @@ export function WeeklyPlanning() {
     for (const [key, snap] of Object.entries(snaps)) {
       const s = snap as any;
       if (key.startsWith('manual-')) { const k = key.replace('manual-', ''); if (s.cal) rMC[k] = s.cal; if (s.prot) rMP[k] = s.prot; }
-      else if (key.startsWith('extra-')) { 
-        const k = key.replace('extra-', ''); 
-        if (s.cal) rEC[k] = s.cal; 
-        if (s.prot) rEP[k] = s.prot; 
+      else if (key.startsWith('extra-')) {
+        const k = key.replace('extra-', '');
+        if (s.cal) rEC[k] = s.cal;
+        if (s.prot) rEP[k] = s.prot;
         if (s.itemIds) rES[k] = s.itemIds;
       }
       else if (key.startsWith('breakfast-')) { const k = key.replace('breakfast-', ''); if (s.cal) rBC[k] = s.cal; if (s.prot) rBP[k] = s.prot; if (s.mealId) keptBreakfast[k] = s.mealId; }
@@ -1550,11 +1552,10 @@ export function WeeklyPlanning() {
                                 <button
                                   key={fi.id}
                                   onClick={() => handleAddExtraItem(day, fi)}
-                                  className={`w-full text-left p-2 rounded-xl border transition-all group flex items-center gap-3 ${
-                                    isSelected 
-                                      ? 'bg-orange-500/20 border-orange-500/40 shadow-inner' 
+                                  className={`w-full text-left p-2 rounded-xl border transition-all group flex items-center gap-3 ${isSelected
+                                      ? 'bg-orange-500/20 border-orange-500/40 shadow-inner'
                                       : 'bg-muted/30 hover:bg-orange-500/10 border-transparent hover:border-orange-500/20'
-                                  }`}
+                                    }`}
                                 >
                                   <div className="flex-1 min-w-0">
                                     <p className={`text-[11px] font-bold transition-colors truncate ${isSelected ? 'text-orange-600' : 'text-foreground group-hover:text-orange-600'}`}>{fi.name}</p>
@@ -1680,7 +1681,7 @@ export function WeeklyPlanning() {
             const effectiveStart = analysis.earliestCounterDate || popupPm.counter_start_date;
             const displayCal = String(getCardDisplayCalories(popupPm, undefined, isAvailableCb));
             const displayPro = String(getCardDisplayProtein(popupPm, isAvailableCb));
-            const counterDays = getAdaptedCounterDays(effectiveStart, popupPm.day_of_week, popupPm.created_at);
+            const counterDays = getAdaptedCounterDays(effectiveStart, popupPm.day_of_week, popupPm.created_at, popupPm.meal_time);
             const expired = isExpiredOnDay(popupPm.expiration_date, popupPm.day_of_week);
             return (
               <div className="rounded-2xl p-5 text-white" style={{ backgroundColor: getMealColor(meal.ingredients, meal.name) }}>
@@ -1701,9 +1702,14 @@ export function WeeklyPlanning() {
                       <Weight className="h-3.5 w-3.5" /> {meal.grams}
                     </span>
                   )}
-                  {counterDays !== null && (
+                  {counterDays !== null && counterDays >= 1 && (
                     <span className={`text-sm font-bold px-2.5 py-1 rounded-full flex items-center gap-1 ${counterDays >= 3 ? 'bg-red-600' : 'bg-black/40'}`}>
                       <Timer className="h-3.5 w-3.5" /> {counterDays}j
+                    </span>
+                  )}
+                  {counterDays === null && popupPm.counter_start_date && (
+                    <span className="text-sm font-bold bg-blue-500/40 px-2.5 py-1 rounded-full flex items-center gap-1 border border-blue-300/30">
+                      <Timer className="h-3.5 w-3.5" /> 📅 Programmé
                     </span>
                   )}
                 </div>
