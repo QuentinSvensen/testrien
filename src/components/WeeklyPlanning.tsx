@@ -1027,6 +1027,26 @@ export function WeeklyPlanning() {
       }
       else if (key.startsWith('breakfast-')) { const k = key.replace('breakfast-', ''); if (s.cal) rBC[k] = s.cal; if (s.prot) rBP[k] = s.prot; if (s.mealId) keptBreakfast[k] = s.mealId; }
     }
+    // Merge next_week values for days without snapshots
+    for (const day of DAYS) {
+      for (const time of TIMES) {
+        const k = `${day}-${time}`;
+        if (!rMC[k] && nextManualCalories[k]) rMC[k] = nextManualCalories[k];
+        if (!rMP[k] && nextManualProteins[k]) rMP[k] = nextManualProteins[k];
+      }
+      if (!rEC[day] && nextExtraCalories[day]) rEC[day] = nextExtraCalories[day];
+      if (!rEP[day] && nextExtraProteins[day]) rEP[day] = nextExtraProteins[day];
+      if (!rES[day] && nextExtraSelections[day]?.length > 0) rES[day] = nextExtraSelections[day];
+      if (!rBC[day] && nextBreakfastManualCalories[day]) rBC[day] = nextBreakfastManualCalories[day];
+      if (!rBP[day] && nextBreakfastManualProteins[day]) rBP[day] = nextBreakfastManualProteins[day];
+      if (!keptBreakfast[day] && nextBreakfastSelections[day]) keptBreakfast[day] = nextBreakfastSelections[day];
+    }
+    // Merge next week drink checks
+    const mergedDrinks: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(nextDrinkChecks)) {
+      if (v) mergedDrinks[k] = true;
+    }
+
     setPreference.mutate({ key: 'planning_manual_calories', value: rMC });
     setPreference.mutate({ key: 'planning_manual_proteins', value: rMP });
     setPreference.mutate({ key: 'planning_extra_calories', value: rEC });
@@ -1035,9 +1055,19 @@ export function WeeklyPlanning() {
     setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: rBC });
     setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: rBP });
     setPreference.mutate({ key: 'planning_breakfast', value: keptBreakfast });
-    setPreference.mutate({ key: 'planning_drink_checks', value: {} });
+    setPreference.mutate({ key: 'planning_drink_checks', value: mergedDrinks });
     setPreference.mutate({ key: 'planning_auto_consumed_days', value: {} });
     setPreference.mutate({ key: 'last_weekly_reset', value: new Date().toISOString() });
+    // Clear next_week preferences after migration
+    setPreference.mutate({ key: 'next_week_breakfast', value: {} });
+    setPreference.mutate({ key: 'next_week_manual_calories', value: {} });
+    setPreference.mutate({ key: 'next_week_manual_proteins', value: {} });
+    setPreference.mutate({ key: 'next_week_extra_calories', value: {} });
+    setPreference.mutate({ key: 'next_week_extra_proteins', value: {} });
+    setPreference.mutate({ key: 'next_week_extra_selections', value: {} });
+    setPreference.mutate({ key: 'next_week_breakfast_manual_calories', value: {} });
+    setPreference.mutate({ key: 'next_week_breakfast_manual_proteins', value: {} });
+    setPreference.mutate({ key: 'next_week_drink_checks', value: {} });
     qc.invalidateQueries({ queryKey: ["possible_meals"] });
   };
 
