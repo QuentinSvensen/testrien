@@ -402,7 +402,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
 }
 
 export function WeeklyPlanning() {
-  const { possibleMeals, updatePlanning, reorderPossibleMeals, getMealsByCategory } = useMeals();
+  const { possibleMeals, meals, updatePlanning, reorderPossibleMeals, getMealsByCategory } = useMeals();
   const qc = useQueryClient();
   const { getPreference, setPreference, isLoading: prefsLoading } = usePreferences();
   const { items: foodItems } = useFoodItems();
