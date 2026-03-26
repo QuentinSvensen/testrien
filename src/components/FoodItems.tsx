@@ -1089,6 +1089,7 @@ function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onD
   // Touch drag & drop for mobile
   const touchDragRef = useRef<{ itemId: string; itemIdx: number; ghost: HTMLElement; startX: number; startY: number; origTop: number; origLeft: number } | null>(null);
   const longPressTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const touchStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const [touchDragActive, setTouchDragActive] = useState(false);
 
   useEffect(() => {
