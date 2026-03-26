@@ -1045,40 +1045,61 @@ export function WeeklyPlanning() {
     <div className={`max-w-4xl mx-auto space-y-3 overflow-x-hidden planning-responsive ${touchDragActive ? "touch-none" : ""}`}>
       {/* Global planning header */}
       <div className="rounded-2xl bg-card/80 backdrop-blur-sm p-3 flex items-center gap-3 flex-wrap">
-        <button onClick={handleManualReset} className="text-xs font-semibold bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg px-3 py-1.5 transition-colors">🔄 Reset</button>
-        <button onClick={handleRestoreBackup} className="text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg px-3 py-1.5 transition-colors">↩ Restaurer</button>
+        {/* Week navigation */}
         <div className="flex items-center gap-1">
-          <Flame className="h-3 w-3 text-orange-500" />
-          <input
-            type="number"
-            inputMode="numeric"
-            defaultValue={DAILY_GOAL}
-            key={`global-cal-${DAILY_GOAL}`}
-            onBlur={(e) => {
-              const val = parseInt(e.target.value);
-              if (val && val > 0) setPreference.mutate({ key: 'planning_daily_goal', value: val });
-            }}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-            className="w-16 h-6 text-xs bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 focus:outline-none focus:border-orange-400/50 text-center"
-          />
-          <span className="text-[9px] text-muted-foreground">kcal/j</span>
+          <button
+            onClick={() => setWeekOffset(-1)}
+            className={`h-7 w-7 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${weekOffset === -1 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+          >◀</button>
+          <button
+            onClick={() => setWeekOffset(0)}
+            className={`text-[10px] font-bold px-2 py-1 rounded-lg transition-colors min-w-[100px] text-center ${weekOffset === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+          >
+            {weekOffset === -1 ? 'Sem. précédente' : weekOffset === 1 ? 'Sem. prochaine' : 'Cette semaine'}
+          </button>
+          <button
+            onClick={() => setWeekOffset(1)}
+            className={`h-7 w-7 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${weekOffset === 1 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+          >▶</button>
         </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs">🍗</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            defaultValue={DAILY_PROTEIN_GOAL_PREF}
-            key={`global-prot-${DAILY_PROTEIN_GOAL_PREF}`}
-            onBlur={(e) => {
-              const val = parseInt(e.target.value);
-              if (val && val > 0) setPreference.mutate({ key: 'planning_protein_goal', value: val });
-            }}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-            className="w-14 h-6 text-xs bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 focus:outline-none focus:border-blue-400/50 text-center"
-          />
-          <span className="text-[9px] text-muted-foreground">prot/j</span>
-        </div>
+        {weekOffset === 0 && (
+          <>
+            <button onClick={handleManualReset} className="text-xs font-semibold bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg px-3 py-1.5 transition-colors">🔄 Reset</button>
+            <button onClick={handleRestoreBackup} className="text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg px-3 py-1.5 transition-colors">↩ Restaurer</button>
+            <div className="flex items-center gap-1">
+              <Flame className="h-3 w-3 text-orange-500" />
+              <input
+                type="number"
+                inputMode="numeric"
+                defaultValue={DAILY_GOAL}
+                key={`global-cal-${DAILY_GOAL}`}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (val && val > 0) setPreference.mutate({ key: 'planning_daily_goal', value: val });
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                className="w-16 h-6 text-xs bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 focus:outline-none focus:border-orange-400/50 text-center"
+              />
+              <span className="text-[9px] text-muted-foreground">kcal/j</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs">🍗</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                defaultValue={DAILY_PROTEIN_GOAL_PREF}
+                key={`global-prot-${DAILY_PROTEIN_GOAL_PREF}`}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (val && val > 0) setPreference.mutate({ key: 'planning_protein_goal', value: val });
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                className="w-14 h-6 text-xs bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 focus:outline-none focus:border-blue-400/50 text-center"
+              />
+              <span className="text-[9px] text-muted-foreground">prot/j</span>
+            </div>
+          </>
+        )}
       </div>
 
       {DAYS.map((day) => {
