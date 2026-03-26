@@ -402,7 +402,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
 }
 
 export function WeeklyPlanning() {
-  const { possibleMeals, updatePlanning, reorderPossibleMeals, getMealsByCategory } = useMeals();
+  const { possibleMeals, meals, updatePlanning, reorderPossibleMeals, getMealsByCategory } = useMeals();
   const qc = useQueryClient();
   const { getPreference, setPreference, isLoading: prefsLoading } = usePreferences();
   const { items: foodItems } = useFoodItems();
@@ -513,6 +513,7 @@ export function WeeklyPlanning() {
   const [popupBreakfast, setPopupBreakfast] = useState<{ meal: any; day: string } | null>(null);
   const [additiveModes, setAdditiveModes] = useState<Record<string, { active: boolean; value: string }>>({});
   const [openExtrasDay, setOpenExtrasDay] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     if (todayRef.current) {
@@ -637,6 +638,23 @@ export function WeeklyPlanning() {
   const breakfastManualCalories = getPreference<Record<string, number>>('planning_breakfast_manual_calories', {});
   const autoConsumeBreakfast = getPreference<Record<string, boolean>>('planning_auto_consume_breakfast', {});
 
+  // Next week preferences (survive reset)
+  const nextBreakfastSelections = getPreference<Record<string, string>>('next_week_breakfast', {});
+  const nextManualCalories = getPreference<Record<string, number>>('next_week_manual_calories', {});
+  const nextManualProteins = getPreference<Record<string, number>>('next_week_manual_proteins', {});
+  const nextExtraCalories = getPreference<Record<string, number>>('next_week_extra_calories', {});
+  const nextExtraProteins = getPreference<Record<string, number>>('next_week_extra_proteins', {});
+  const nextExtraSelections = getPreference<Record<string, string[]>>('next_week_extra_selections', {});
+  const nextBreakfastManualCalories = getPreference<Record<string, number>>('next_week_breakfast_manual_calories', {});
+  const nextBreakfastManualProteins = getPreference<Record<string, number>>('next_week_breakfast_manual_proteins', {});
+  const nextDrinkChecks = getPreference<Record<string, boolean>>('next_week_drink_checks', {});
+
+  // Meal lookup for backup view
+  const allMealsById = useMemo(() => {
+    const map = new Map<string, Meal>();
+    for (const m of meals) map.set(m.id, m);
+    return map;
+  }, [meals]);
 
   const handleAddExtraItem = (day: string, item: FoodItem, remove = false) => {
     const updated = { ...extraSelections };
@@ -1009,6 +1027,26 @@ export function WeeklyPlanning() {
       }
       else if (key.startsWith('breakfast-')) { const k = key.replace('breakfast-', ''); if (s.cal) rBC[k] = s.cal; if (s.prot) rBP[k] = s.prot; if (s.mealId) keptBreakfast[k] = s.mealId; }
     }
+    // Merge next_week values for days without snapshots
+    for (const day of DAYS) {
+      for (const time of TIMES) {
+        const k = `${day}-${time}`;
+        if (!rMC[k] && nextManualCalories[k]) rMC[k] = nextManualCalories[k];
+        if (!rMP[k] && nextManualProteins[k]) rMP[k] = nextManualProteins[k];
+      }
+      if (!rEC[day] && nextExtraCalories[day]) rEC[day] = nextExtraCalories[day];
+      if (!rEP[day] && nextExtraProteins[day]) rEP[day] = nextExtraProteins[day];
+      if (!rES[day] && nextExtraSelections[day]?.length > 0) rES[day] = nextExtraSelections[day];
+      if (!rBC[day] && nextBreakfastManualCalories[day]) rBC[day] = nextBreakfastManualCalories[day];
+      if (!rBP[day] && nextBreakfastManualProteins[day]) rBP[day] = nextBreakfastManualProteins[day];
+      if (!keptBreakfast[day] && nextBreakfastSelections[day]) keptBreakfast[day] = nextBreakfastSelections[day];
+    }
+    // Merge next week drink checks
+    const mergedDrinks: Record<string, boolean> = {};
+    for (const [k, v] of Object.entries(nextDrinkChecks)) {
+      if (v) mergedDrinks[k] = true;
+    }
+
     setPreference.mutate({ key: 'planning_manual_calories', value: rMC });
     setPreference.mutate({ key: 'planning_manual_proteins', value: rMP });
     setPreference.mutate({ key: 'planning_extra_calories', value: rEC });
@@ -1017,9 +1055,19 @@ export function WeeklyPlanning() {
     setPreference.mutate({ key: 'planning_breakfast_manual_calories', value: rBC });
     setPreference.mutate({ key: 'planning_breakfast_manual_proteins', value: rBP });
     setPreference.mutate({ key: 'planning_breakfast', value: keptBreakfast });
-    setPreference.mutate({ key: 'planning_drink_checks', value: {} });
+    setPreference.mutate({ key: 'planning_drink_checks', value: mergedDrinks });
     setPreference.mutate({ key: 'planning_auto_consumed_days', value: {} });
     setPreference.mutate({ key: 'last_weekly_reset', value: new Date().toISOString() });
+    // Clear next_week preferences after migration
+    setPreference.mutate({ key: 'next_week_breakfast', value: {} });
+    setPreference.mutate({ key: 'next_week_manual_calories', value: {} });
+    setPreference.mutate({ key: 'next_week_manual_proteins', value: {} });
+    setPreference.mutate({ key: 'next_week_extra_calories', value: {} });
+    setPreference.mutate({ key: 'next_week_extra_proteins', value: {} });
+    setPreference.mutate({ key: 'next_week_extra_selections', value: {} });
+    setPreference.mutate({ key: 'next_week_breakfast_manual_calories', value: {} });
+    setPreference.mutate({ key: 'next_week_breakfast_manual_proteins', value: {} });
+    setPreference.mutate({ key: 'next_week_drink_checks', value: {} });
     qc.invalidateQueries({ queryKey: ["possible_meals"] });
   };
 
@@ -1027,42 +1075,64 @@ export function WeeklyPlanning() {
     <div className={`max-w-4xl mx-auto space-y-3 overflow-x-hidden planning-responsive ${touchDragActive ? "touch-none" : ""}`}>
       {/* Global planning header */}
       <div className="rounded-2xl bg-card/80 backdrop-blur-sm p-3 flex items-center gap-3 flex-wrap">
-        <button onClick={handleManualReset} className="text-xs font-semibold bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg px-3 py-1.5 transition-colors">🔄 Reset</button>
-        <button onClick={handleRestoreBackup} className="text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg px-3 py-1.5 transition-colors">↩ Restaurer</button>
+        {/* Week navigation */}
         <div className="flex items-center gap-1">
-          <Flame className="h-3 w-3 text-orange-500" />
-          <input
-            type="number"
-            inputMode="numeric"
-            defaultValue={DAILY_GOAL}
-            key={`global-cal-${DAILY_GOAL}`}
-            onBlur={(e) => {
-              const val = parseInt(e.target.value);
-              if (val && val > 0) setPreference.mutate({ key: 'planning_daily_goal', value: val });
-            }}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-            className="w-16 h-6 text-xs bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 focus:outline-none focus:border-orange-400/50 text-center"
-          />
-          <span className="text-[9px] text-muted-foreground">kcal/j</span>
+          <button
+            onClick={() => setWeekOffset(-1)}
+            className={`h-7 w-7 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${weekOffset === -1 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+          >◀</button>
+          <button
+            onClick={() => setWeekOffset(0)}
+            className={`text-[10px] font-bold px-2 py-1 rounded-lg transition-colors min-w-[100px] text-center ${weekOffset === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+          >
+            {weekOffset === -1 ? 'Sem. précédente' : weekOffset === 1 ? 'Sem. prochaine' : 'Cette semaine'}
+          </button>
+          <button
+            onClick={() => setWeekOffset(1)}
+            className={`h-7 w-7 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${weekOffset === 1 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
+          >▶</button>
         </div>
-        <div className="flex items-center gap-1">
-          <span className="text-xs">🍗</span>
-          <input
-            type="number"
-            inputMode="numeric"
-            defaultValue={DAILY_PROTEIN_GOAL_PREF}
-            key={`global-prot-${DAILY_PROTEIN_GOAL_PREF}`}
-            onBlur={(e) => {
-              const val = parseInt(e.target.value);
-              if (val && val > 0) setPreference.mutate({ key: 'planning_protein_goal', value: val });
-            }}
-            onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-            className="w-14 h-6 text-xs bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 focus:outline-none focus:border-blue-400/50 text-center"
-          />
-          <span className="text-[9px] text-muted-foreground">prot/j</span>
-        </div>
+        {weekOffset === 0 && (
+          <>
+            <button onClick={handleManualReset} className="text-xs font-semibold bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg px-3 py-1.5 transition-colors">🔄 Reset</button>
+            <button onClick={handleRestoreBackup} className="text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg px-3 py-1.5 transition-colors">↩ Restaurer</button>
+            <div className="flex items-center gap-1">
+              <Flame className="h-3 w-3 text-orange-500" />
+              <input
+                type="number"
+                inputMode="numeric"
+                defaultValue={DAILY_GOAL}
+                key={`global-cal-${DAILY_GOAL}`}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (val && val > 0) setPreference.mutate({ key: 'planning_daily_goal', value: val });
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                className="w-16 h-6 text-xs bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 focus:outline-none focus:border-orange-400/50 text-center"
+              />
+              <span className="text-[9px] text-muted-foreground">kcal/j</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs">🍗</span>
+              <input
+                type="number"
+                inputMode="numeric"
+                defaultValue={DAILY_PROTEIN_GOAL_PREF}
+                key={`global-prot-${DAILY_PROTEIN_GOAL_PREF}`}
+                onBlur={(e) => {
+                  const val = parseInt(e.target.value);
+                  if (val && val > 0) setPreference.mutate({ key: 'planning_protein_goal', value: val });
+                }}
+                onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
+                className="w-14 h-6 text-xs bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 focus:outline-none focus:border-blue-400/50 text-center"
+              />
+              <span className="text-[9px] text-muted-foreground">prot/j</span>
+            </div>
+          </>
+        )}
       </div>
 
+      {weekOffset === 0 ? (<>
       {DAYS.map((day) => {
         const isToday_ = day === todayKey;
         const dayCalories = getDayCalories(day);
@@ -1675,7 +1745,280 @@ export function WeeklyPlanning() {
         )}
       </div>
 
-      {/* Double-click popup dialog */}
+      </>) : weekOffset === -1 ? (
+        /* ─── Previous Week (Backup View) ─── */
+        (() => {
+          const backupRaw = getPreference<any>('possible_meals_backup', null);
+          if (!backupRaw) return (
+            <div className="rounded-2xl bg-card/80 backdrop-blur-sm p-6 text-center">
+              <p className="text-sm text-muted-foreground italic">Aucune sauvegarde disponible</p>
+              <p className="text-xs text-muted-foreground/60 mt-1">Une sauvegarde est créée automatiquement lors du reset</p>
+            </div>
+          );
+          const isNF = backupRaw && !Array.isArray(backupRaw) && backupRaw.cards;
+          const cards: any[] = isNF ? backupRaw.cards : (Array.isArray(backupRaw) ? backupRaw : []);
+          const bMC = isNF ? (backupRaw.manualCalories || {}) : {};
+          const bMP = isNF ? (backupRaw.manualProteins || {}) : {};
+          const bEC = isNF ? (backupRaw.extraCalories || {}) : {};
+          const bEP = isNF ? (backupRaw.extraProteins || {}) : {};
+          const bES = isNF ? (backupRaw.extraSelections || {}) : {};
+          const bBC = isNF ? (backupRaw.breakfastManualCalories || {}) : {};
+          const bBS = isNF ? (backupRaw.breakfastSelections || {}) : {};
+          const bDC = isNF ? (backupRaw.drinkChecks || {}) : {};
+          const bCO = isNF ? (backupRaw.calOverrides || {}) : {};
+
+          const renderBackupCards = (slotCards: any[]) => slotCards.map((c: any, i: number) => {
+            const m = allMealsById.get(c.meal_id);
+            if (!m) return <div key={i} className="rounded-xl px-2 py-1 bg-muted text-[10px] text-muted-foreground">Repas supprimé</div>;
+            return (
+              <div key={i} className="rounded-xl px-2 py-1 text-white text-[10px] font-semibold" style={{ backgroundColor: getMealColor(c.ingredients_override ?? m.ingredients, m.name) }}>
+                {getCategoryEmoji(m.category)} {m.name}
+                {bCO[c.id] && <span className="ml-1 opacity-80">🔥{bCO[c.id]}</span>}
+              </div>
+            );
+          });
+
+          return (
+            <div className="space-y-3">
+              <div className="rounded-2xl bg-amber-500/10 border border-amber-500/20 p-3 text-center">
+                <p className="text-xs font-bold text-amber-600 dark:text-amber-400">📋 Lecture seule — Dernière sauvegarde avant reset</p>
+              </div>
+              {DAYS.map(day => {
+                const dayCards = cards.filter((c: any) => c.day_of_week === day);
+                const midiCards = dayCards.filter((c: any) => c.meal_time === 'midi');
+                const soirCards = dayCards.filter((c: any) => c.meal_time === 'soir');
+                const matinCards = dayCards.filter((c: any) => c.meal_time === 'matin');
+
+                let dayTotal = 0;
+                const bfSel = bBS[day];
+                if (bfSel?.startsWith('meal:')) {
+                  const m = allMealsById.get(bfSel.slice(5));
+                  if (m) dayTotal += parseCalories(m.calories);
+                } else { dayTotal += bBC[day] || 0; }
+                for (const c of [...matinCards, ...midiCards, ...soirCards]) {
+                  const override = bCO[c.id];
+                  if (override) { dayTotal += parseFloat(override) || 0; continue; }
+                  const m = allMealsById.get(c.meal_id);
+                  if (m) dayTotal += parseCalories(m.calories);
+                }
+                if (midiCards.length === 0) dayTotal += bMC[`${day}-midi`] || 0;
+                if (soirCards.length === 0) dayTotal += bMC[`${day}-soir`] || 0;
+                dayTotal += bEC[day] || 0;
+                for (const id of (bES[day] || [])) {
+                  const fi = foodItems.find((f: any) => f.id === id);
+                  if (fi) dayTotal += parseCalories(fi.calories);
+                }
+                for (const time of TIMES) { if (bDC[`${day}-${time}`]) dayTotal += 150; }
+
+                return (
+                  <div key={day} className="rounded-2xl bg-card/80 backdrop-blur-sm p-3">
+                    <div className="flex items-center justify-between mb-2">
+                      <h3 className="text-sm font-bold text-foreground">{DAY_LABELS[day]}</h3>
+                      {dayTotal > 0 && (
+                        <span className="flex items-center gap-1 text-[11px] font-bold text-orange-500">
+                          <Flame className="h-3 w-3" /> {Math.round(dayTotal)}
+                        </span>
+                      )}
+                    </div>
+                    {(() => {
+                      const bfMeal = bfSel?.startsWith('meal:') ? allMealsById.get(bfSel.slice(5)) : null;
+                      if (bfMeal) return <p className="text-[10px] text-orange-400 mb-1">🥐 {bfMeal.name}</p>;
+                      if ((bBC[day] || 0) > 0) return <p className="text-[10px] text-orange-400 mb-1">🥐 {bBC[day]} kcal</p>;
+                      return null;
+                    })()}
+                    {matinCards.length > 0 && (
+                      <div className="mb-1">
+                        <p className="text-[9px] font-semibold text-muted-foreground uppercase mb-0.5">Matin</p>
+                        <div className="flex flex-wrap gap-1">{renderBackupCards(matinCards)}</div>
+                      </div>
+                    )}
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <p className="text-[9px] font-semibold text-muted-foreground uppercase mb-0.5">Midi</p>
+                        <div className="space-y-1">{renderBackupCards(midiCards)}</div>
+                        {midiCards.length === 0 && (bMC[`${day}-midi`] || 0) > 0 && (
+                          <p className="text-[10px] text-muted-foreground italic">✏️ {bMC[`${day}-midi`]} kcal</p>
+                        )}
+                      </div>
+                      <div>
+                        <p className="text-[9px] font-semibold text-muted-foreground uppercase mb-0.5">Soir</p>
+                        <div className="space-y-1">{renderBackupCards(soirCards)}</div>
+                        {soirCards.length === 0 && (bMC[`${day}-soir`] || 0) > 0 && (
+                          <p className="text-[10px] text-muted-foreground italic">✏️ {bMC[`${day}-soir`]} kcal</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })()
+      ) : (
+        /* ─── Next Week Planning ─── */
+        <div className="space-y-3">
+          <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-3 text-center">
+            <p className="text-xs font-bold text-blue-600 dark:text-blue-400">📅 Planification semaine prochaine</p>
+            <p className="text-[10px] text-muted-foreground mt-0.5">Petits déj, extras et calories — conservés après le reset</p>
+          </div>
+          {DAYS.map(day => {
+            const nBfSel = nextBreakfastSelections[day];
+            const nBfMeal = nBfSel?.startsWith('meal:') ? allMealsById.get(nBfSel.slice(5)) : null;
+            let dayTotal = 0;
+            if (nBfMeal) dayTotal += parseCalories(nBfMeal.calories);
+            else dayTotal += nextBreakfastManualCalories[day] || 0;
+            dayTotal += nextManualCalories[`${day}-midi`] || 0;
+            dayTotal += nextManualCalories[`${day}-soir`] || 0;
+            dayTotal += nextExtraCalories[day] || 0;
+            for (const id of (nextExtraSelections[day] || [])) {
+              const fi = foodItems.find(f => f.id === id);
+              if (fi) dayTotal += parseCalories(fi.calories);
+            }
+            for (const time of TIMES) { if (nextDrinkChecks[`${day}-${time}`]) dayTotal += 150; }
+
+            return (
+              <div key={day} className="rounded-2xl bg-card/80 backdrop-blur-sm p-3">
+                <div className="flex items-center gap-2 mb-2 flex-wrap">
+                  <h3 className="text-sm font-bold text-foreground">{DAY_LABELS[day]}</h3>
+                  {/* Breakfast selector */}
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <button className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors truncate max-w-[120px]">
+                        {nBfMeal ? nBfMeal.name : '🥐 Petit déj'}
+                      </button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-52 p-2" align="start">
+                      <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-wide mb-1">Petit déjeuner</p>
+                      <div className="space-y-0.5 max-h-48 overflow-y-auto">
+                        <button onClick={() => {
+                          const updated = { ...nextBreakfastSelections }; delete updated[day];
+                          setPreference.mutate({ key: 'next_week_breakfast', value: updated });
+                        }} className="w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors">— Aucun</button>
+                        {petitDejMeals.map(m => {
+                          const mealSelId = `meal:${m.id}`;
+                          const isSelected = nextBreakfastSelections[day] === mealSelId;
+                          return (
+                            <button key={m.id} onClick={() => {
+                              const updated = { ...nextBreakfastSelections };
+                              if (isSelected) delete updated[day]; else updated[day] = mealSelId;
+                              setPreference.mutate({ key: 'next_week_breakfast', value: updated });
+                            }} className={`w-full text-left text-xs px-2 py-1.5 rounded hover:bg-muted transition-colors ${isSelected ? 'bg-primary/10 font-bold' : ''}`}>
+                              {m.name} {m.calories && <span className="text-muted-foreground text-[10px]">🔥{m.calories}</span>}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </PopoverContent>
+                  </Popover>
+                  {!nBfMeal && (
+                    <>
+                      <PlanningInput storageKey={`next-bf-cal-${day}`} currentValue={nextBreakfastManualCalories[day] || 0}
+                        onSave={(val) => { const u = { ...nextBreakfastManualCalories }; if (val > 0) u[day] = val; else delete u[day]; setPreference.mutate({ key: 'next_week_breakfast_manual_calories', value: u }); }}
+                        placeholder="kcal" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40" />
+                      <PlanningInput storageKey={`next-bf-prot-${day}`} currentValue={nextBreakfastManualProteins[day] || 0}
+                        onSave={(val) => { const u = { ...nextBreakfastManualProteins }; if (val > 0) u[day] = val; else delete u[day]; setPreference.mutate({ key: 'next_week_breakfast_manual_proteins', value: u }); }}
+                        placeholder="prot" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40" />
+                    </>
+                  )}
+                  <div className="flex-1" />
+                  {dayTotal > 0 && (
+                    <span className="flex items-center gap-1 text-[11px] font-bold text-orange-500">
+                      <Flame className="h-3 w-3" /> {Math.round(dayTotal)} <span className="text-muted-foreground/50 font-normal">/ {DAILY_GOAL}</span>
+                    </span>
+                  )}
+                </div>
+                <div className="grid grid-cols-[1fr_1fr_auto] gap-2">
+                  {TIMES.map(time => (
+                    <div key={time} className="min-h-[44px] rounded-xl border border-dashed border-border/40 p-1.5">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-[9px] font-semibold text-muted-foreground uppercase tracking-wide">{TIME_LABELS[time]}</span>
+                        <button onClick={() => {
+                          const k = `${day}-${time}`; const u = { ...nextDrinkChecks }; if (u[k]) delete u[k]; else u[k] = true;
+                          setPreference.mutate({ key: 'next_week_drink_checks', value: u });
+                        }} className={`flex items-center gap-0.5 text-[7px] rounded-full px-1 py-px transition-colors ${nextDrinkChecks[`${day}-${time}`] ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold' : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60'}`}>
+                          🥤 {nextDrinkChecks[`${day}-${time}`] ? '+150' : ''}
+                        </button>
+                      </div>
+                      <div className="flex flex-col gap-0.5">
+                        <PlanningInput storageKey={`next-mc-${day}-${time}`} currentValue={nextManualCalories[`${day}-${time}`] || 0}
+                          onSave={(val) => { const k = `${day}-${time}`; const u = { ...nextManualCalories }; if (val > 0) u[k] = val; else delete u[k]; setPreference.mutate({ key: 'next_week_manual_calories', value: u }); }}
+                          placeholder="kcal" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-muted-foreground/20 rounded px-1 text-muted-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 text-center" />
+                        <PlanningInput storageKey={`next-mp-${day}-${time}`} currentValue={nextManualProteins[`${day}-${time}`] || 0}
+                          onSave={(val) => { const k = `${day}-${time}`; const u = { ...nextManualProteins }; if (val > 0) u[k] = val; else delete u[k]; setPreference.mutate({ key: 'next_week_manual_proteins', value: u }); }}
+                          placeholder="prot" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center" />
+                      </div>
+                    </div>
+                  ))}
+                  {/* Extras */}
+                  <div className="flex flex-col items-center gap-1 justify-start pt-1">
+                    <span className="text-[8px] font-bold text-muted-foreground/60 uppercase">Extras</span>
+                    <PlanningInput storageKey={`next-ec-${day}`}
+                      currentValue={(() => { const m = nextExtraCalories[day] || 0; const ids = nextExtraSelections[day] || []; return m + ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); })()}
+                      onSave={(val) => { const ids = nextExtraSelections[day] || []; const sel = ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); const m = Math.max(0, val - sel); const u = { ...nextExtraCalories }; if (m > 0) u[day] = m; else delete u[day]; setPreference.mutate({ key: 'next_week_extra_calories', value: u }); }}
+                      placeholder="kcal" className="w-full h-5 text-[11px] bg-transparent border border-dashed border-orange-300/20 rounded px-1 text-orange-400 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40 text-center" />
+                    <PlanningInput storageKey={`next-ep-${day}`}
+                      currentValue={(() => { const m = nextExtraProteins[day] || 0; const ids = nextExtraSelections[day] || []; return m + ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); })()}
+                      onSave={(val) => { const ids = nextExtraSelections[day] || []; const sel = ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); const m = Math.max(0, val - sel); const u = { ...nextExtraProteins }; if (m > 0) u[day] = m; else delete u[day]; setPreference.mutate({ key: 'next_week_extra_proteins', value: u }); }}
+                      placeholder="prot" className="w-full h-5 text-[11px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center" />
+                    <Popover open={openExtrasDay === `next-${day}`} onOpenChange={(open) => setOpenExtrasDay(open ? `next-${day}` : null)}>
+                      <PopoverTrigger asChild>
+                        <button className={`h-5 w-5 flex items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95 ${(nextExtraSelections[day]?.length || 0) > 0 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-500/10 text-orange-500 hover:bg-orange-500/20'}`} title="Ajouter un Extra">
+                          <Plus className="h-3 w-3" />
+                        </button>
+                      </PopoverTrigger>
+                      <PopoverContent className="w-64 p-3 bg-card/95 backdrop-blur-md border-orange-200/20 shadow-2xl rounded-2xl" align="center">
+                        <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest mb-3 flex items-center gap-1.5"><Sparkles className="w-3 h-3" /> Extras</p>
+                        <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+                          {foodItems.filter(fi => fi.storage_type === 'extras').sort((a, b) => a.sort_order - b.sort_order).map(fi => {
+                            const count = (nextExtraSelections[day] || []).filter(id => id === fi.id).length;
+                            return (
+                              <div key={fi.id} className={`w-full p-2 rounded-xl border transition-all flex items-center gap-3 ${count > 0 ? 'bg-orange-500/20 border-orange-500/40' : 'bg-muted/30 hover:bg-orange-500/10 border-transparent'}`}>
+                                <p className={`flex-1 text-[11px] font-bold truncate ${count > 0 ? 'text-orange-600' : 'text-foreground'}`}>{fi.name}</p>
+                                <div className="flex items-center gap-1.5 shrink-0">
+                                  {count > 0 && (<>
+                                    <button onClick={() => { const u = { ...nextExtraSelections }; const c = u[day] || []; const idx = c.lastIndexOf(fi.id); if (idx >= 0) u[day] = [...c.slice(0, idx), ...c.slice(idx + 1)]; setPreference.mutate({ key: 'next_week_extra_selections', value: u }); }} className="h-5 w-5 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-500 text-xs font-bold">−</button>
+                                    <span className="text-[10px] font-black text-orange-500 min-w-[14px] text-center">{count}</span>
+                                  </>)}
+                                  <button onClick={() => { const u = { ...nextExtraSelections }; u[day] = [...(u[day] || []), fi.id]; setPreference.mutate({ key: 'next_week_extra_selections', value: u }); }} className="h-5 w-5 flex items-center justify-center rounded-full bg-orange-500/20 hover:bg-orange-500/40 text-orange-500 text-xs font-bold">+</button>
+                                  {fi.calories && <span className="text-[9px] font-black text-orange-500">🔥{fi.calories}</span>}
+                                </div>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </PopoverContent>
+                    </Popover>
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+          {/* Next week total */}
+          {(() => {
+            let total = 0;
+            for (const day of DAYS) {
+              const nBfSel = nextBreakfastSelections[day];
+              const nBfMeal = nBfSel?.startsWith('meal:') ? allMealsById.get(nBfSel.slice(5)) : null;
+              if (nBfMeal) total += parseCalories(nBfMeal.calories);
+              else total += nextBreakfastManualCalories[day] || 0;
+              total += nextManualCalories[`${day}-midi`] || 0;
+              total += nextManualCalories[`${day}-soir`] || 0;
+              total += nextExtraCalories[day] || 0;
+              for (const id of (nextExtraSelections[day] || [])) { const fi = foodItems.find(f => f.id === id); if (fi) total += parseCalories(fi.calories); }
+              for (const time of TIMES) { if (nextDrinkChecks[`${day}-${time}`]) total += 150; }
+            }
+            return (
+              <div className="rounded-2xl bg-card/80 backdrop-blur-sm px-4 py-3 flex items-center justify-between">
+                <span className="text-sm font-bold text-foreground">Total prévu</span>
+                <span className="flex items-center gap-1.5 text-sm font-black text-orange-500">
+                  <Flame className="h-4 w-4" /> {Math.round(total)} <span className="text-muted-foreground/50 font-normal text-xs">/ {WEEKLY_GOAL}</span>
+                </span>
+              </div>
+            );
+          })()}
+        </div>
+      )}
+
       <Dialog open={!!popupPm} onOpenChange={(open) => { if (!open) setPopupPm(null); }}>
         <DialogContent className="max-w-md p-0 overflow-hidden" aria-describedby={undefined}>
           <DialogTitle className="sr-only">Détails du repas</DialogTitle>
