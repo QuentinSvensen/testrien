@@ -43,7 +43,7 @@ function makeMeal(overrides: Partial<Meal> & { name: string }): Meal {
     id: crypto.randomUUID(),
     name: overrides.name,
     category: "plat",
-    color: "hsl(0,0%,50%)",
+    
     sort_order: 0,
     created_at: new Date().toISOString(),
     is_available: true,

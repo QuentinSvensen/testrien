@@ -317,7 +317,7 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
             <span className="text-[11px] opacity-70 shrink-0">{getCategoryEmoji(meal.category)}</span>
             <span className="font-semibold text-xs min-w-0 break-words leading-tight">{meal.name}</span>
           </div>
-          {!compact && (pm.expiration_date || meal.grams || meal.ingredients) && (
+          {!compact && (pm.expiration_date || meal.grams || pm.ingredients_override || meal.ingredients) && (
             <div className="pt-0.5">
               {meal.grams && (
                 <div className="flex items-center gap-1">
