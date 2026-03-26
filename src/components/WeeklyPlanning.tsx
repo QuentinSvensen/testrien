@@ -638,6 +638,23 @@ export function WeeklyPlanning() {
   const breakfastManualCalories = getPreference<Record<string, number>>('planning_breakfast_manual_calories', {});
   const autoConsumeBreakfast = getPreference<Record<string, boolean>>('planning_auto_consume_breakfast', {});
 
+  // Next week preferences (survive reset)
+  const nextBreakfastSelections = getPreference<Record<string, string>>('next_week_breakfast', {});
+  const nextManualCalories = getPreference<Record<string, number>>('next_week_manual_calories', {});
+  const nextManualProteins = getPreference<Record<string, number>>('next_week_manual_proteins', {});
+  const nextExtraCalories = getPreference<Record<string, number>>('next_week_extra_calories', {});
+  const nextExtraProteins = getPreference<Record<string, number>>('next_week_extra_proteins', {});
+  const nextExtraSelections = getPreference<Record<string, string[]>>('next_week_extra_selections', {});
+  const nextBreakfastManualCalories = getPreference<Record<string, number>>('next_week_breakfast_manual_calories', {});
+  const nextBreakfastManualProteins = getPreference<Record<string, number>>('next_week_breakfast_manual_proteins', {});
+  const nextDrinkChecks = getPreference<Record<string, boolean>>('next_week_drink_checks', {});
+
+  // Meal lookup for backup view
+  const allMealsById = useMemo(() => {
+    const map = new Map<string, Meal>();
+    for (const m of meals) map.set(m.id, m);
+    return map;
+  }, [meals]);
 
   const handleAddExtraItem = (day: string, item: FoodItem, remove = false) => {
     const updated = { ...extraSelections };
