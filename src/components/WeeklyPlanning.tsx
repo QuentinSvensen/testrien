@@ -513,6 +513,7 @@ export function WeeklyPlanning() {
   const [popupBreakfast, setPopupBreakfast] = useState<{ meal: any; day: string } | null>(null);
   const [additiveModes, setAdditiveModes] = useState<Record<string, { active: boolean; value: string }>>({});
   const [openExtrasDay, setOpenExtrasDay] = useState<string | null>(null);
+  const [weekOffset, setWeekOffset] = useState(0);
 
   useEffect(() => {
     if (todayRef.current) {
