@@ -1102,6 +1102,7 @@ export function WeeklyPlanning() {
         )}
       </div>
 
+      {weekOffset === 0 ? (<>
       {DAYS.map((day) => {
         const isToday_ = day === todayKey;
         const dayCalories = getDayCalories(day);
