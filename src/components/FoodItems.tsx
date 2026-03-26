@@ -1176,6 +1176,7 @@ function FoodSection({ emoji, title, storageType, items, onUpdate, onDelete, onD
     const el = e.currentTarget as HTMLElement;
     const rect = el.getBoundingClientRect();
 
+    touchStartPosRef.current = { x: touch.clientX, y: touch.clientY };
     if (longPressTimerRef.current) clearTimeout(longPressTimerRef.current);
 
     longPressTimerRef.current = setTimeout(() => {
