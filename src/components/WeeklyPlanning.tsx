@@ -832,7 +832,7 @@ export function WeeklyPlanning() {
     const mealForAnalysis = { ...meal, ingredients: displayIngredients };
     const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
 
-    const effectiveStart = analysis.earliestCounterDate || pm.counter_start_date;
+    const effectiveStart = analysis.earliestCounterDate !== undefined ? analysis.earliestCounterDate : pm.counter_start_date;
     const counterDays = getAdaptedCounterDays(effectiveStart, pm.day_of_week, pm.created_at, pm.meal_time);
     const counterUrgent = counterDays !== null && counterDays >= 3;
 
@@ -1885,6 +1885,7 @@ export function WeeklyPlanning() {
               <div key={day} className="rounded-2xl bg-card/80 backdrop-blur-sm p-2 sm:p-4">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <h3 className="text-sm sm:text-base font-bold text-foreground">{DAY_LABELS[day]}</h3>
+                  {/* Petit déj selector */}
                   <div className="flex items-center gap-1">
                     <Popover>
                       <PopoverTrigger asChild>

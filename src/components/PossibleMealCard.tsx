@@ -405,7 +405,8 @@ export function PossibleMealCard({
           )}
           {/* ratio badge moved to absolute top-right */}
           {(() => {
-            const displayCal = getDisplayedPMCalories(pm, detectedRatio ?? undefined);
+            const rawDisplayCal = getDisplayedPMCalories(pm, detectedRatio ?? undefined);
+            const displayCal = rawDisplayCal ? Math.round(rawDisplayCal) : null;
             const isComputed = computeIngredientCalories(displayIngredients, isAvailableCb) !== null;
             return displayCal ? (
               <button
@@ -418,7 +419,8 @@ export function PossibleMealCard({
             ) : null;
           })()}
           {(() => {
-            const displayPro = getDisplayedPMProtein(pm, detectedRatio ?? undefined);
+            const rawDisplayPro = getDisplayedPMProtein(pm, detectedRatio ?? undefined);
+            const displayPro = rawDisplayPro ? Math.round(rawDisplayPro) : null;
             const isComputedPro = computeIngredientProtein(displayIngredients, isAvailableCb) !== null;
             return displayPro && displayPro !== 0 ? (
               <span className={`text-[10px] px-1 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-semibold ${isComputedPro ? 'bg-blue-600/60 text-white' : 'text-white/90 bg-blue-500/40'
