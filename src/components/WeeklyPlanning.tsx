@@ -2058,18 +2058,19 @@ export function WeeklyPlanning() {
             let total = 0;
             let totalPro = 0;
             for (const day of DAYS) {
-              const nBfSel = nextBreakfastSelections[day];
-              const nBfMeal = nBfSel?.startsWith('meal:') ? allMealsById.get(nBfSel.slice(5)) : null;
-              if (nBfMeal) { total += parseCalories(nBfMeal.calories); totalPro += parseProtein(nBfMeal.protein); }
-              else { total += nextBreakfastManualCalories[day] || 0; totalPro += nextBreakfastManualProteins[day] || 0; }
+              const eBfSel = nextBreakfastSelections[day] ?? breakfastSelections[day];
+              const eBfMeal = eBfSel?.startsWith('meal:') ? allMealsById.get(eBfSel.slice(5)) : null;
+              if (eBfMeal) { total += parseCalories(eBfMeal.calories); totalPro += parseProtein(eBfMeal.protein); }
+              else { total += nextBreakfastManualCalories[day] ?? breakfastManualCalories[day] ?? 0; totalPro += nextBreakfastManualProteins[day] ?? breakfastManualProteins[day] ?? 0; }
               for (const time of TIMES) {
-                total += nextManualCalories[`${day}-${time}`] || 0;
-                totalPro += nextManualProteins[`${day}-${time}`] || 0;
-                if (nextDrinkChecks[`${day}-${time}`]) total += 150;
+                const k = `${day}-${time}`;
+                total += nextManualCalories[k] ?? manualCalories[k] ?? 0;
+                totalPro += nextManualProteins[k] ?? manualProteins[k] ?? 0;
+                if (nextDrinkChecks[k] ?? drinkChecks[k]) total += 150;
               }
-              total += nextExtraCalories[day] || 0;
-              totalPro += nextExtraProteins[day] || 0;
-              for (const id of (nextExtraSelections[day] || [])) {
+              total += nextExtraCalories[day] ?? extraCalories[day] ?? 0;
+              totalPro += nextExtraProteins[day] ?? extraProteins[day] ?? 0;
+              for (const id of (nextExtraSelections[day] ?? extraSelections[day] ?? [])) {
                 const fi = foodItems.find(f => f.id === id);
                 if (fi) { total += parseCalories(fi.calories); totalPro += parseProtein(fi.protein); }
               }
