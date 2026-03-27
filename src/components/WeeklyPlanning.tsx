@@ -832,7 +832,7 @@ export function WeeklyPlanning() {
     const mealForAnalysis = { ...meal, ingredients: displayIngredients };
     const analysis = analyzeMealIngredients(mealForAnalysis, foodItems);
 
-    const effectiveStart = analysis.earliestCounterDate || pm.counter_start_date;
+    const effectiveStart = analysis.earliestCounterDate !== undefined ? analysis.earliestCounterDate : pm.counter_start_date;
     const counterDays = getAdaptedCounterDays(effectiveStart, pm.day_of_week, pm.created_at, pm.meal_time);
     const counterUrgent = counterDays !== null && counterDays >= 3;
 
