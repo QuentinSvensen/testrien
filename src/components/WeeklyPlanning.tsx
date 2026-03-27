@@ -1929,7 +1929,7 @@ export function WeeklyPlanning() {
                         </div>
                       </PopoverContent>
                     </Popover>
-                    {!nBfMeal && (
+                    {!effBfMeal && (
                       <>
                         <PlanningInput storageKey={`next-bf-cal-${day}`} currentValue={nextBreakfastManualCalories[day] || 0}
                           onSave={(val) => { const u = { ...nextBreakfastManualCalories }; if (val > 0) u[day] = val; else delete u[day]; setPreference.mutate({ key: 'next_week_breakfast_manual_calories', value: u }); }}
