@@ -2007,11 +2007,11 @@ export function WeeklyPlanning() {
                     <span className="text-[7px] sm:text-[8px] font-semibold text-orange-400/60 uppercase tracking-wide">Extra</span>
                     <div className="flex flex-col items-center gap-0.5 mt-1 w-full">
                       <PlanningInput storageKey={`next-ec-${day}`}
-                        currentValue={(() => { const m = nextExtraCalories[day] ?? extraCalories[day] ?? 0; const ids = effExtraSel; return m + ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); })()}
+                        currentValue={(() => { const m = nextExtraCalories[day] ?? baseExtraCal; const ids = effExtraSel; return m + ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); })()}
                         onSave={(val) => { const ids = effExtraSel; const sel = ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); const m = Math.max(0, val - sel); const u = { ...nextExtraCalories }; if (m > 0) u[day] = m; else delete u[day]; setPreference.mutate({ key: 'next_week_extra_calories', value: u }); }}
                         placeholder="kcal" className="w-full h-5 text-[11px] bg-transparent border border-dashed border-orange-300/20 rounded px-1 text-orange-400 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40 text-center" />
                       <PlanningInput storageKey={`next-ep-${day}`}
-                        currentValue={(() => { const m = nextExtraProteins[day] ?? extraProteins[day] ?? 0; const ids = effExtraSel; return m + ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); })()}
+                        currentValue={(() => { const m = nextExtraProteins[day] ?? baseExtraPro; const ids = effExtraSel; return m + ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); })()}
                         onSave={(val) => { const ids = effExtraSel; const sel = ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); const m = Math.max(0, val - sel); const u = { ...nextExtraProteins }; if (m > 0) u[day] = m; else delete u[day]; setPreference.mutate({ key: 'next_week_extra_proteins', value: u }); }}
                         placeholder="prot" className="w-full h-5 text-[11px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center" />
                       <div className="flex items-center gap-1 mt-1">
