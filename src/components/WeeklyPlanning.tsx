@@ -1967,19 +1967,19 @@ export function WeeklyPlanning() {
                           <div className="flex items-center gap-1">
                             <span className="text-[8px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{TIME_LABELS[time]}</span>
                             <button onClick={() => {
-                              const u = { ...nextDrinkChecks }; if (u[k]) delete u[k]; else u[k] = true;
+                              const u = { ...nextDrinkChecks }; if (nextDrinkChecks[k] ?? drinkChecks[k]) { u[k] = false; } else { u[k] = true; }
                               setPreference.mutate({ key: 'next_week_drink_checks', value: u });
-                            }} className={`flex items-center gap-0.5 text-[7px] sm:text-[8px] rounded-full px-1 py-px transition-colors ${nextDrinkChecks[k] ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold' : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60'}`}>
-                              🥤 {nextDrinkChecks[k] ? '+150' : ''}
+                            }} className={`flex items-center gap-0.5 text-[7px] sm:text-[8px] rounded-full px-1 py-px transition-colors ${(nextDrinkChecks[k] ?? drinkChecks[k]) ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold' : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60'}`}>
+                              🥤 {(nextDrinkChecks[k] ?? drinkChecks[k]) ? '+150' : ''}
                             </button>
                           </div>
                         </div>
                         <div className="mt-0.5 space-y-1">
                           <div className="flex flex-col items-start gap-0.5">
-                            <PlanningInput storageKey={`next-mc-${k}`} currentValue={nextManualCalories[k] || 0}
+                            <PlanningInput storageKey={`next-mc-${k}`} currentValue={nextManualCalories[k] ?? manualCalories[k] ?? 0}
                               onSave={(val) => { const u = { ...nextManualCalories }; if (val > 0) u[k] = val; else delete u[k]; setPreference.mutate({ key: 'next_week_manual_calories', value: u }); }}
                               placeholder="kcal" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-muted-foreground/20 rounded px-1 text-muted-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 text-center" />
-                            <PlanningInput storageKey={`next-mp-${k}`} currentValue={nextManualProteins[k] || 0}
+                            <PlanningInput storageKey={`next-mp-${k}`} currentValue={nextManualProteins[k] ?? manualProteins[k] ?? 0}
                               onSave={(val) => { const u = { ...nextManualProteins }; if (val > 0) u[k] = val; else delete u[k]; setPreference.mutate({ key: 'next_week_manual_proteins', value: u }); }}
                               placeholder="prot" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center" />
                           </div>
