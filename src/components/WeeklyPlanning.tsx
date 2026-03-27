@@ -1856,30 +1856,40 @@ export function WeeklyPlanning() {
           );
         })()
       ) : (
-        /* ─── Next Week Planning ─── */
+         /* ─── Next Week Planning ─── */
         <div className="space-y-3">
           <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-2 text-center">
-            <p className="text-[10px] text-muted-foreground">📅 Éléments conservés après le reset hebdomadaire</p>
+            <p className="text-[10px] text-muted-foreground">📅 Aperçu semaine prochaine — inclut les éléments conservés après reset</p>
           </div>
           {DAYS.map(day => {
-            const nBfSel = nextBreakfastSelections[day];
-            const nBfMeal = nBfSel?.startsWith('meal:') ? allMealsById.get(nBfSel.slice(5)) : null;
+            // Merge: next week overrides > current week fallback
+            const effBfSel = nextBreakfastSelections[day] ?? breakfastSelections[day];
+            const effBfMeal = effBfSel?.startsWith('meal:') ? allMealsById.get(effBfSel.slice(5)) : null;
+            const effBfManualCal = nextBreakfastManualCalories[day] ?? breakfastManualCalories[day] ?? 0;
+            const effBfManualPro = nextBreakfastManualProteins[day] ?? breakfastManualProteins[day] ?? 0;
+            const effExtraCal = nextExtraCalories[day] ?? extraCalories[day] ?? 0;
+            const effExtraPro = nextExtraProteins[day] ?? extraProteins[day] ?? 0;
+            const effExtraSel = nextExtraSelections[day] ?? extraSelections[day] ?? [];
             let dayTotal = 0;
-            if (nBfMeal) dayTotal += parseCalories(nBfMeal.calories);
-            else dayTotal += nextBreakfastManualCalories[day] || 0;
+            if (effBfMeal) dayTotal += parseCalories(effBfMeal.calories);
+            else dayTotal += effBfManualCal;
             for (const time of TIMES) {
-              dayTotal += nextManualCalories[`${day}-${time}`] || 0;
-              if (nextDrinkChecks[`${day}-${time}`]) dayTotal += 150;
+              const k = `${day}-${time}`;
+              dayTotal += nextManualCalories[k] ?? manualCalories[k] ?? 0;
+              if (nextDrinkChecks[k] ?? drinkChecks[k]) dayTotal += 150;
             }
-            dayTotal += nextExtraCalories[day] || 0;
-            for (const id of (nextExtraSelections[day] || [])) {
+            dayTotal += effExtraCal;
+            for (const id of effExtraSel) {
               const fi = foodItems.find(f => f.id === id);
               if (fi) dayTotal += parseCalories(fi.calories);
             }
-            let nxtDayPro = nBfMeal ? parseProtein(nBfMeal.protein) : (nextBreakfastManualProteins[day] || 0);
-            for (const time of TIMES) nxtDayPro += nextManualProteins[`${day}-${time}`] || 0;
-            nxtDayPro += nextExtraProteins[day] || 0;
-            for (const id of (nextExtraSelections[day] || [])) {
+            let nxtDayPro = effBfMeal ? parseProtein(effBfMeal.protein) : effBfManualPro;
+            for (const time of TIMES) {
+              const k = `${day}-${time}`;
+              nxtDayPro += nextManualProteins[k] ?? manualProteins[k] ?? 0;
+            }
+            nxtDayPro += effExtraPro;
+            for (const id of effExtraSel) {
               const fi = foodItems.find(f => f.id === id);
               if (fi) nxtDayPro += parseProtein(fi.protein);
             }
