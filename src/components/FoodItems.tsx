@@ -225,6 +225,14 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
   const [editValue, setEditValue] = useState("");
   const [calOpen, setCalOpen] = useState(false);
 
+  const isFuture = item.counter_start_date ? new Date(item.counter_start_date) > new Date() : false;
+  const counterDays = computeCounterDays(item.counter_start_date);
+  const counterHours = computeCounterHours(item.counter_start_date);
+  const formattedProgDate = isFuture && item.counter_start_date ? (() => {
+    const s = format(parseISO(item.counter_start_date), "EEEE HH'h'", { locale: fr });
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  })() : null;
+  const counterUrgent = counterDays !== null && counterDays >= 3;
   const expired = isExpiredDate(item.expiration_date);
   const expIsToday = item.expiration_date ? (() => {
     const d = new Date(item.expiration_date!);
@@ -590,10 +598,12 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
         <button
           onClick={() => onUpdate({ counter_start_date: item.counter_start_date ? null : new Date().toISOString() })}
           className="text-[10px] text-white/40 bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
-          title={item.counter_start_date ? `Arrêter compteur${counterHours !== null ? ` (${counterHours}h)` : ''}` : 'Démarrer compteur'}
+          title={item.counter_start_date 
+            ? (isFuture ? `prog : ${formattedProgDate}` : `Arrêter compteur${counterHours !== null ? ` (${counterHours}h)` : ''}`) 
+            : 'Démarrer compteur'}
         >
           <Timer className="h-2.5 w-2.5" />
-          {item.counter_start_date ? (new Date(item.counter_start_date) > new Date() ? 'Prog.' : 'Stop') : 'Compteur'}
+          {item.counter_start_date ? (isFuture ? 'Prog.' : 'Stop') : 'Compteur'}
         </button>
 
         {/* No-counter toggle (auto-counter logic) */}
