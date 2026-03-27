@@ -1068,23 +1068,6 @@ export function WeeklyPlanning() {
     <div className={`max-w-4xl mx-auto space-y-3 overflow-x-hidden planning-responsive ${touchDragActive ? "touch-none" : ""}`}>
       {/* Global planning header */}
       <div className="rounded-2xl bg-card/80 backdrop-blur-sm p-3 flex items-center gap-3 flex-wrap">
-        {/* Week navigation */}
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => setWeekOffset(-1)}
-            className={`h-7 w-7 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${weekOffset === -1 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
-          >◀</button>
-          <button
-            onClick={() => setWeekOffset(0)}
-            className={`text-[10px] font-bold px-2 py-1 rounded-lg transition-colors min-w-[100px] text-center ${weekOffset === 0 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
-          >
-            {weekOffset === -1 ? 'Sem. précédente' : weekOffset === 1 ? 'Sem. prochaine' : 'Cette semaine'}
-          </button>
-          <button
-            onClick={() => setWeekOffset(1)}
-            className={`h-7 w-7 flex items-center justify-center rounded-lg text-sm font-bold transition-colors ${weekOffset === 1 ? 'bg-primary text-primary-foreground' : 'bg-muted/60 text-muted-foreground hover:bg-muted'}`}
-          >▶</button>
-        </div>
         {weekOffset === 0 && (
           <>
             <button onClick={handleManualReset} className="text-xs font-semibold bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg px-3 py-1.5 transition-colors">🔄 Reset</button>
@@ -1123,6 +1106,23 @@ export function WeeklyPlanning() {
             </div>
           </>
         )}
+        {/* Spacer to push nav to right */}
+        <div className="flex-1" />
+        {/* Week navigation — right aligned, segmented pill */}
+        <div className="flex items-center bg-muted/50 rounded-full p-0.5 gap-0.5">
+          <button
+            onClick={() => setWeekOffset(-1)}
+            className={`h-7 px-2.5 flex items-center justify-center rounded-full text-[10px] font-bold transition-all ${weekOffset === -1 ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'}`}
+          >◀ Préc.</button>
+          <button
+            onClick={() => setWeekOffset(0)}
+            className={`h-7 px-3 flex items-center justify-center rounded-full text-[10px] font-bold transition-all ${weekOffset === 0 ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'}`}
+          >Actuelle</button>
+          <button
+            onClick={() => setWeekOffset(1)}
+            className={`h-7 px-2.5 flex items-center justify-center rounded-full text-[10px] font-bold transition-all ${weekOffset === 1 ? 'bg-primary text-primary-foreground shadow-sm' : 'text-muted-foreground hover:text-foreground hover:bg-muted/80'}`}
+          >Suiv. ▶</button>
+        </div>
       </div>
 
       {weekOffset === 0 ? (<>
