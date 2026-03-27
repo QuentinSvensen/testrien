@@ -265,21 +265,13 @@ function PlanningMiniCard({ pm, meal, expired, counterDays, counterUrgent, isPas
                   🍗 {displayPro}
                 </span>
               )}
-              {counterDays !== null ? (
+              {counterDays !== null && counterDays >= 1 ? (
                 <span
                   className={`text-[9px] font-black px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border
                   ${counterUrgent ? `bg-red-600 text-white border-red-300 shadow-md ${!isPast ? 'animate-pulse' : ''}` : "bg-black/50 text-white border-white/30"}`}
                 >
                   <Timer className="h-2.5 w-2.5" />
                   {counterDays}j
-                </span>
-              ) : pm.counter_start_date && new Date(pm.counter_start_date) > new Date() ? (
-                <span
-                  className="text-[9px] font-bold px-1.5 py-0.5 rounded-full mt-0.5 flex items-center gap-0.5 border bg-blue-500/40 text-white border-blue-300/30"
-                  title={`Programmé pour le ${format(parseISO(pm.counter_start_date), 'EEEE d MMMM', { locale: fr })}`}
-                >
-                  <Timer className="h-2.5 w-2.5" />
-                  📅
                 </span>
               ) : null}
             </div>
