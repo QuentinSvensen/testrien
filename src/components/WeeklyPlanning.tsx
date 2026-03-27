@@ -1069,10 +1069,14 @@ export function WeeklyPlanning() {
     <div className={`max-w-4xl mx-auto space-y-3 overflow-x-hidden planning-responsive ${touchDragActive ? "touch-none" : ""}`}>
       {/* Global planning header */}
       <div className="rounded-2xl bg-card/80 backdrop-blur-sm p-3 flex items-center gap-3 flex-wrap">
-        {weekOffset === 0 && (
+      {weekOffset === 0 && (
           <>
             <button onClick={handleManualReset} className="text-xs font-semibold bg-destructive/10 hover:bg-destructive/20 text-destructive rounded-lg px-3 py-1.5 transition-colors">🔄 Reset</button>
             <button onClick={handleRestoreBackup} className="text-xs font-semibold bg-primary/10 hover:bg-primary/20 text-primary rounded-lg px-3 py-1.5 transition-colors">↩ Restaurer</button>
+          </>
+        )}
+        {(weekOffset === 0 || weekOffset === 1) && (
+          <>
             <div className="flex items-center gap-1">
               <Flame className="h-3 w-3 text-orange-500" />
               <input
@@ -1854,9 +1858,8 @@ export function WeeklyPlanning() {
       ) : (
         /* ─── Next Week Planning ─── */
         <div className="space-y-3">
-          <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-3 text-center">
-            <p className="text-xs font-bold text-blue-600 dark:text-blue-400">📅 Planification semaine prochaine</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Petits déj, extras et calories — conservés après le reset</p>
+          <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-2 text-center">
+            <p className="text-[10px] text-muted-foreground">📅 Éléments conservés après le reset hebdomadaire</p>
           </div>
           {DAYS.map(day => {
             const nBfSel = nextBreakfastSelections[day];
