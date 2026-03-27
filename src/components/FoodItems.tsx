@@ -11,7 +11,7 @@ import { fr } from "date-fns/locale";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "@/hooks/use-toast";
-import { colorFromName, computeCounterDays } from "@/lib/ingredientUtils";
+import { colorFromName, computeCounterDays, computeCounterHours } from "@/lib/ingredientUtils";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useSortModes, FoodSortMode } from "@/hooks/useSortModes";
 
@@ -232,6 +232,7 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
     return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   })() : false;
   const counterDays = computeCounterDays(item.counter_start_date);
+  const counterHours = computeCounterHours(item.counter_start_date);
   const counterUrgent = counterDays !== null && counterDays >= 3;
   const gramsData = parseStoredGrams(item.grams);
   const displayDefaultGrams = gramsData.unit !== null ? `${formatNumeric(gramsData.unit)}g` : item.grams;
@@ -359,7 +360,7 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
             <button
               onClick={() => onUpdate({ counter_start_date: null })}
               className={`text-[11px] font-black px-1.5 py-0.5 rounded-full flex items-center gap-0.5 border shrink-0 transition-all ${counterUrgent ? 'bg-red-600 text-white border-red-300 shadow-md animate-pulse' : 'bg-black/40 text-white border-white/30'}`}
-              title="Cliquer pour arrêter le compteur"
+              title={`Arrêter le compteur${counterHours !== null ? ` (${counterHours}h écoulées)` : ''}`}
             >
               <Timer className="h-2.5 w-2.5" />{counterDays}j
             </button>
@@ -589,7 +590,7 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
         <button
           onClick={() => onUpdate({ counter_start_date: item.counter_start_date ? null : new Date().toISOString() })}
           className="text-[10px] text-white/40 bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
-          title={item.counter_start_date ? 'Arrêter compteur' : 'Démarrer compteur'}
+          title={item.counter_start_date ? `Arrêter compteur${counterHours !== null ? ` (${counterHours}h)` : ''}` : 'Démarrer compteur'}
         >
           <Timer className="h-2.5 w-2.5" />
           {item.counter_start_date ? (new Date(item.counter_start_date) > new Date() ? 'Prog.' : 'Stop') : 'Compteur'}

@@ -24,6 +24,16 @@ export function computeCounterDays(counterStartDate: string | null | undefined):
   return days < 1 ? null : days;
 }
 
+/** Compute total hours elapsed since counter_start_date. */
+export function computeCounterHours(counterStartDate: string | null | undefined): number | null {
+  if (!counterStartDate) return null;
+  const start = parseISO(counterStartDate);
+  const now = new Date();
+  const diffMs = now.getTime() - start.getTime();
+  if (diffMs < 0) return null;
+  return Math.floor(diffMs / (1000 * 60 * 60));
+}
+
 /** Get a stable Date for a given day Key relative to a reference Date (e.g. card creation date) */
 export function getDateForDayKey(dayKey: string, ref: Date): Date {
   const d = startOfDay(ref);
