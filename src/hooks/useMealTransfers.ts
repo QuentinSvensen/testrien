@@ -452,7 +452,11 @@ export function useMealTransfers(foodItems: FoodItem[]) {
         fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && fi.storage_type !== 'surgele' && !fi.no_counter
       );
       for (const fi of matchingItems) {
-        // Reset or set the counter based on planning
+        // Only update if no counter exists yet, or if the current counter is in the FUTURE (not yet effectively started).
+        // If an ingredient is already opened (past date), we must respect that opening date for food safety.
+        const currentIsStarted = fi.counter_start_date && new Date(fi.counter_start_date) <= new Date();
+        if (currentIsStarted) continue;
+
         await safeMutate("Mise à jour compteur planifié", () =>
           supabase.from("food_items").update({ counter_start_date: finalDate } as any).eq("id", fi.id)
         );
