@@ -1858,9 +1858,8 @@ export function WeeklyPlanning() {
       ) : (
         /* ─── Next Week Planning ─── */
         <div className="space-y-3">
-          <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-3 text-center">
-            <p className="text-xs font-bold text-blue-600 dark:text-blue-400">📅 Planification semaine prochaine</p>
-            <p className="text-[10px] text-muted-foreground mt-0.5">Petits déj, extras et calories — conservés après le reset</p>
+          <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-2 text-center">
+            <p className="text-[10px] text-muted-foreground">📅 Éléments conservés après le reset hebdomadaire</p>
           </div>
           {DAYS.map(day => {
             const nBfSel = nextBreakfastSelections[day];
