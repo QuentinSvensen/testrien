@@ -405,7 +405,8 @@ export function PossibleMealCard({
           )}
           {/* ratio badge moved to absolute top-right */}
           {(() => {
-            const displayCal = getDisplayedPMCalories(pm, detectedRatio ?? undefined);
+            const rawDisplayCal = getDisplayedPMCalories(pm, detectedRatio ?? undefined);
+            const displayCal = rawDisplayCal ? Math.round(rawDisplayCal) : null;
             const isComputed = computeIngredientCalories(displayIngredients, isAvailableCb) !== null;
             return displayCal ? (
               <button
