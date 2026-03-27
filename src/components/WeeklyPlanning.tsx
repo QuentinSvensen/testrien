@@ -1600,7 +1600,7 @@ export function WeeklyPlanning() {
                           <Plus className="h-3 w-3" />
                         </button>
                       </PopoverTrigger>
-                      <PopoverContent className="w-64 p-3 bg-card/95 backdrop-blur-md border-orange-200/20 shadow-2xl rounded-2xl" align="center">
+                      <PopoverContent className="w-80 p-3 bg-card/95 backdrop-blur-md border-orange-200/20 shadow-2xl rounded-2xl" align="center">
                         <div className="flex items-center justify-between mb-3">
                           <p className="text-[10px] font-black text-orange-500 uppercase tracking-widest flex items-center gap-1.5">
                             <Sparkles className="w-3 h-3" /> Extras disponibles
