@@ -1862,21 +1862,34 @@ export function WeeklyPlanning() {
             <p className="text-[10px] text-muted-foreground">📅 Aperçu semaine prochaine — inclut les éléments conservés après reset</p>
           </div>
           {DAYS.map(day => {
-            // Merge: next week overrides > current week fallback
-            const effBfSel = nextBreakfastSelections[day] ?? breakfastSelections[day];
+            // Post-reset base: saved snapshots only (what survives reset)
+            const bfSnap = savedSnapshots[`breakfast-${day}`] as any;
+            const baseBfMealId = bfSnap?.mealId || undefined;
+            const baseBfManualCal = bfSnap?.cal || 0;
+            const baseBfManualPro = bfSnap?.prot || 0;
+            const extraSnap = savedSnapshots[`extra-${day}`] as any;
+            const baseExtraCal = extraSnap?.cal || 0;
+            const baseExtraPro = extraSnap?.prot || 0;
+            const baseExtraSel: string[] = extraSnap?.itemIds || [];
+
+            // Next week overrides > post-reset base
+            const effBfSel = nextBreakfastSelections[day] ?? baseBfMealId;
             const effBfMeal = effBfSel?.startsWith('meal:') ? allMealsById.get(effBfSel.slice(5)) : null;
-            const effBfManualCal = nextBreakfastManualCalories[day] ?? breakfastManualCalories[day] ?? 0;
-            const effBfManualPro = nextBreakfastManualProteins[day] ?? breakfastManualProteins[day] ?? 0;
-            const effExtraCal = nextExtraCalories[day] ?? extraCalories[day] ?? 0;
-            const effExtraPro = nextExtraProteins[day] ?? extraProteins[day] ?? 0;
-            const effExtraSel = nextExtraSelections[day] ?? extraSelections[day] ?? [];
+            const effBfManualCal = nextBreakfastManualCalories[day] ?? baseBfManualCal;
+            const effBfManualPro = nextBreakfastManualProteins[day] ?? baseBfManualPro;
+            const effExtraCal = nextExtraCalories[day] ?? baseExtraCal;
+            const effExtraPro = nextExtraProteins[day] ?? baseExtraPro;
+            const effExtraSel = nextExtraSelections[day] ?? baseExtraSel;
+
             let dayTotal = 0;
             if (effBfMeal) dayTotal += parseCalories(effBfMeal.calories);
             else dayTotal += effBfManualCal;
             for (const time of TIMES) {
               const k = `${day}-${time}`;
-              dayTotal += nextManualCalories[k] ?? manualCalories[k] ?? 0;
-              if (nextDrinkChecks[k] ?? drinkChecks[k]) dayTotal += 150;
+              const manualSnap = savedSnapshots[`manual-${k}`] as any;
+              const baseManualCal = manualSnap?.cal || 0;
+              dayTotal += nextManualCalories[k] ?? baseManualCal;
+              if (nextDrinkChecks[k]) dayTotal += 150;
             }
             dayTotal += effExtraCal;
             for (const id of effExtraSel) {
@@ -1886,7 +1899,9 @@ export function WeeklyPlanning() {
             let nxtDayPro = effBfMeal ? parseProtein(effBfMeal.protein) : effBfManualPro;
             for (const time of TIMES) {
               const k = `${day}-${time}`;
-              nxtDayPro += nextManualProteins[k] ?? manualProteins[k] ?? 0;
+              const manualSnap = savedSnapshots[`manual-${k}`] as any;
+              const baseManualPro = manualSnap?.prot || 0;
+              nxtDayPro += nextManualProteins[k] ?? baseManualPro;
             }
             nxtDayPro += effExtraPro;
             for (const id of effExtraSel) {
