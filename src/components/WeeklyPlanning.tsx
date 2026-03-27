@@ -1856,30 +1856,40 @@ export function WeeklyPlanning() {
           );
         })()
       ) : (
-        /* ─── Next Week Planning ─── */
+         /* ─── Next Week Planning ─── */
         <div className="space-y-3">
           <div className="rounded-2xl bg-blue-500/10 border border-blue-500/20 p-2 text-center">
-            <p className="text-[10px] text-muted-foreground">📅 Éléments conservés après le reset hebdomadaire</p>
+            <p className="text-[10px] text-muted-foreground">📅 Aperçu semaine prochaine — inclut les éléments conservés après reset</p>
           </div>
           {DAYS.map(day => {
-            const nBfSel = nextBreakfastSelections[day];
-            const nBfMeal = nBfSel?.startsWith('meal:') ? allMealsById.get(nBfSel.slice(5)) : null;
+            // Merge: next week overrides > current week fallback
+            const effBfSel = nextBreakfastSelections[day] ?? breakfastSelections[day];
+            const effBfMeal = effBfSel?.startsWith('meal:') ? allMealsById.get(effBfSel.slice(5)) : null;
+            const effBfManualCal = nextBreakfastManualCalories[day] ?? breakfastManualCalories[day] ?? 0;
+            const effBfManualPro = nextBreakfastManualProteins[day] ?? breakfastManualProteins[day] ?? 0;
+            const effExtraCal = nextExtraCalories[day] ?? extraCalories[day] ?? 0;
+            const effExtraPro = nextExtraProteins[day] ?? extraProteins[day] ?? 0;
+            const effExtraSel = nextExtraSelections[day] ?? extraSelections[day] ?? [];
             let dayTotal = 0;
-            if (nBfMeal) dayTotal += parseCalories(nBfMeal.calories);
-            else dayTotal += nextBreakfastManualCalories[day] || 0;
+            if (effBfMeal) dayTotal += parseCalories(effBfMeal.calories);
+            else dayTotal += effBfManualCal;
             for (const time of TIMES) {
-              dayTotal += nextManualCalories[`${day}-${time}`] || 0;
-              if (nextDrinkChecks[`${day}-${time}`]) dayTotal += 150;
+              const k = `${day}-${time}`;
+              dayTotal += nextManualCalories[k] ?? manualCalories[k] ?? 0;
+              if (nextDrinkChecks[k] ?? drinkChecks[k]) dayTotal += 150;
             }
-            dayTotal += nextExtraCalories[day] || 0;
-            for (const id of (nextExtraSelections[day] || [])) {
+            dayTotal += effExtraCal;
+            for (const id of effExtraSel) {
               const fi = foodItems.find(f => f.id === id);
               if (fi) dayTotal += parseCalories(fi.calories);
             }
-            let nxtDayPro = nBfMeal ? parseProtein(nBfMeal.protein) : (nextBreakfastManualProteins[day] || 0);
-            for (const time of TIMES) nxtDayPro += nextManualProteins[`${day}-${time}`] || 0;
-            nxtDayPro += nextExtraProteins[day] || 0;
-            for (const id of (nextExtraSelections[day] || [])) {
+            let nxtDayPro = effBfMeal ? parseProtein(effBfMeal.protein) : effBfManualPro;
+            for (const time of TIMES) {
+              const k = `${day}-${time}`;
+              nxtDayPro += nextManualProteins[k] ?? manualProteins[k] ?? 0;
+            }
+            nxtDayPro += effExtraPro;
+            for (const id of effExtraSel) {
               const fi = foodItems.find(f => f.id === id);
               if (fi) nxtDayPro += parseProtein(fi.protein);
             }
@@ -1893,7 +1903,7 @@ export function WeeklyPlanning() {
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors truncate max-w-[120px]">
-                          {nBfMeal ? nBfMeal.name : '🥐 Petit déj'}
+                          {effBfMeal ? effBfMeal.name : '🥐 Petit déj'}
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-52 p-2" align="start">
@@ -1919,12 +1929,12 @@ export function WeeklyPlanning() {
                         </div>
                       </PopoverContent>
                     </Popover>
-                    {!nBfMeal && (
+                    {!effBfMeal && (
                       <>
-                        <PlanningInput storageKey={`next-bf-cal-${day}`} currentValue={nextBreakfastManualCalories[day] || 0}
+                        <PlanningInput storageKey={`next-bf-cal-${day}`} currentValue={nextBreakfastManualCalories[day] ?? breakfastManualCalories[day] ?? 0}
                           onSave={(val) => { const u = { ...nextBreakfastManualCalories }; if (val > 0) u[day] = val; else delete u[day]; setPreference.mutate({ key: 'next_week_breakfast_manual_calories', value: u }); }}
                           placeholder="kcal" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40" />
-                        <PlanningInput storageKey={`next-bf-prot-${day}`} currentValue={nextBreakfastManualProteins[day] || 0}
+                        <PlanningInput storageKey={`next-bf-prot-${day}`} currentValue={nextBreakfastManualProteins[day] ?? breakfastManualProteins[day] ?? 0}
                           onSave={(val) => { const u = { ...nextBreakfastManualProteins }; if (val > 0) u[day] = val; else delete u[day]; setPreference.mutate({ key: 'next_week_breakfast_manual_proteins', value: u }); }}
                           placeholder="prot" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40" />
                       </>
@@ -1957,19 +1967,19 @@ export function WeeklyPlanning() {
                           <div className="flex items-center gap-1">
                             <span className="text-[8px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{TIME_LABELS[time]}</span>
                             <button onClick={() => {
-                              const u = { ...nextDrinkChecks }; if (u[k]) delete u[k]; else u[k] = true;
+                              const u = { ...nextDrinkChecks }; if (nextDrinkChecks[k] ?? drinkChecks[k]) { u[k] = false; } else { u[k] = true; }
                               setPreference.mutate({ key: 'next_week_drink_checks', value: u });
-                            }} className={`flex items-center gap-0.5 text-[7px] sm:text-[8px] rounded-full px-1 py-px transition-colors ${nextDrinkChecks[k] ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold' : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60'}`}>
-                              🥤 {nextDrinkChecks[k] ? '+150' : ''}
+                            }} className={`flex items-center gap-0.5 text-[7px] sm:text-[8px] rounded-full px-1 py-px transition-colors ${(nextDrinkChecks[k] ?? drinkChecks[k]) ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold' : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60'}`}>
+                              🥤 {(nextDrinkChecks[k] ?? drinkChecks[k]) ? '+150' : ''}
                             </button>
                           </div>
                         </div>
                         <div className="mt-0.5 space-y-1">
                           <div className="flex flex-col items-start gap-0.5">
-                            <PlanningInput storageKey={`next-mc-${k}`} currentValue={nextManualCalories[k] || 0}
+                            <PlanningInput storageKey={`next-mc-${k}`} currentValue={nextManualCalories[k] ?? manualCalories[k] ?? 0}
                               onSave={(val) => { const u = { ...nextManualCalories }; if (val > 0) u[k] = val; else delete u[k]; setPreference.mutate({ key: 'next_week_manual_calories', value: u }); }}
                               placeholder="kcal" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-muted-foreground/20 rounded px-1 text-muted-foreground placeholder:text-muted-foreground/30 focus:outline-none focus:border-primary/40 text-center" />
-                            <PlanningInput storageKey={`next-mp-${k}`} currentValue={nextManualProteins[k] || 0}
+                            <PlanningInput storageKey={`next-mp-${k}`} currentValue={nextManualProteins[k] ?? manualProteins[k] ?? 0}
                               onSave={(val) => { const u = { ...nextManualProteins }; if (val > 0) u[k] = val; else delete u[k]; setPreference.mutate({ key: 'next_week_manual_proteins', value: u }); }}
                               placeholder="prot" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center" />
                           </div>
@@ -1982,17 +1992,17 @@ export function WeeklyPlanning() {
                     <span className="text-[7px] sm:text-[8px] font-semibold text-orange-400/60 uppercase tracking-wide">Extra</span>
                     <div className="flex flex-col items-center gap-0.5 mt-1 w-full">
                       <PlanningInput storageKey={`next-ec-${day}`}
-                        currentValue={(() => { const m = nextExtraCalories[day] || 0; const ids = nextExtraSelections[day] || []; return m + ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); })()}
-                        onSave={(val) => { const ids = nextExtraSelections[day] || []; const sel = ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); const m = Math.max(0, val - sel); const u = { ...nextExtraCalories }; if (m > 0) u[day] = m; else delete u[day]; setPreference.mutate({ key: 'next_week_extra_calories', value: u }); }}
+                        currentValue={(() => { const m = nextExtraCalories[day] ?? extraCalories[day] ?? 0; const ids = effExtraSel; return m + ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); })()}
+                        onSave={(val) => { const ids = effExtraSel; const sel = ids.reduce((s, id) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0); const m = Math.max(0, val - sel); const u = { ...nextExtraCalories }; if (m > 0) u[day] = m; else delete u[day]; setPreference.mutate({ key: 'next_week_extra_calories', value: u }); }}
                         placeholder="kcal" className="w-full h-5 text-[11px] bg-transparent border border-dashed border-orange-300/20 rounded px-1 text-orange-400 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40 text-center" />
                       <PlanningInput storageKey={`next-ep-${day}`}
-                        currentValue={(() => { const m = nextExtraProteins[day] || 0; const ids = nextExtraSelections[day] || []; return m + ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); })()}
-                        onSave={(val) => { const ids = nextExtraSelections[day] || []; const sel = ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); const m = Math.max(0, val - sel); const u = { ...nextExtraProteins }; if (m > 0) u[day] = m; else delete u[day]; setPreference.mutate({ key: 'next_week_extra_proteins', value: u }); }}
+                        currentValue={(() => { const m = nextExtraProteins[day] ?? extraProteins[day] ?? 0; const ids = effExtraSel; return m + ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); })()}
+                        onSave={(val) => { const ids = effExtraSel; const sel = ids.reduce((s, id) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0); const m = Math.max(0, val - sel); const u = { ...nextExtraProteins }; if (m > 0) u[day] = m; else delete u[day]; setPreference.mutate({ key: 'next_week_extra_proteins', value: u }); }}
                         placeholder="prot" className="w-full h-5 text-[11px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40 text-center" />
                       <div className="flex items-center gap-1 mt-1">
                         <Popover open={openExtrasDay === `next-${day}`} onOpenChange={(open) => setOpenExtrasDay(open ? `next-${day}` : null)}>
                           <PopoverTrigger asChild>
-                            <button className={`h-5 w-5 flex items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95 ${(nextExtraSelections[day]?.length || 0) > 0 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-500/10 text-orange-500 hover:bg-orange-500/20'}`} title="Ajouter un Extra">
+                            <button className={`h-5 w-5 flex items-center justify-center rounded-full transition-all hover:scale-110 active:scale-95 ${effExtraSel.length > 0 ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/20' : 'bg-orange-500/10 text-orange-500 hover:bg-orange-500/20'}`} title="Ajouter un Extra">
                               <Plus className="h-3 w-3" />
                             </button>
                           </PopoverTrigger>
@@ -2003,7 +2013,7 @@ export function WeeklyPlanning() {
                             </div>
                             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
                               {foodItems.filter(fi => fi.storage_type === 'extras').sort((a, b) => a.sort_order - b.sort_order).map(fi => {
-                                const count = (nextExtraSelections[day] || []).filter(id => id === fi.id).length;
+                                const count = effExtraSel.filter(id => id === fi.id).length;
                                 return (
                                   <div key={fi.id} className={`w-full p-2 rounded-xl border transition-all group flex items-center gap-3 ${count > 0 ? 'bg-orange-500/20 border-orange-500/40 shadow-inner' : 'bg-muted/30 hover:bg-orange-500/10 border-transparent hover:border-orange-500/20'}`}>
                                     <div className="flex-1 min-w-0">
@@ -2048,18 +2058,19 @@ export function WeeklyPlanning() {
             let total = 0;
             let totalPro = 0;
             for (const day of DAYS) {
-              const nBfSel = nextBreakfastSelections[day];
-              const nBfMeal = nBfSel?.startsWith('meal:') ? allMealsById.get(nBfSel.slice(5)) : null;
-              if (nBfMeal) { total += parseCalories(nBfMeal.calories); totalPro += parseProtein(nBfMeal.protein); }
-              else { total += nextBreakfastManualCalories[day] || 0; totalPro += nextBreakfastManualProteins[day] || 0; }
+              const eBfSel = nextBreakfastSelections[day] ?? breakfastSelections[day];
+              const eBfMeal = eBfSel?.startsWith('meal:') ? allMealsById.get(eBfSel.slice(5)) : null;
+              if (eBfMeal) { total += parseCalories(eBfMeal.calories); totalPro += parseProtein(eBfMeal.protein); }
+              else { total += nextBreakfastManualCalories[day] ?? breakfastManualCalories[day] ?? 0; totalPro += nextBreakfastManualProteins[day] ?? breakfastManualProteins[day] ?? 0; }
               for (const time of TIMES) {
-                total += nextManualCalories[`${day}-${time}`] || 0;
-                totalPro += nextManualProteins[`${day}-${time}`] || 0;
-                if (nextDrinkChecks[`${day}-${time}`]) total += 150;
+                const k = `${day}-${time}`;
+                total += nextManualCalories[k] ?? manualCalories[k] ?? 0;
+                totalPro += nextManualProteins[k] ?? manualProteins[k] ?? 0;
+                if (nextDrinkChecks[k] ?? drinkChecks[k]) total += 150;
               }
-              total += nextExtraCalories[day] || 0;
-              totalPro += nextExtraProteins[day] || 0;
-              for (const id of (nextExtraSelections[day] || [])) {
+              total += nextExtraCalories[day] ?? extraCalories[day] ?? 0;
+              totalPro += nextExtraProteins[day] ?? extraProteins[day] ?? 0;
+              for (const id of (nextExtraSelections[day] ?? extraSelections[day] ?? [])) {
                 const fi = foodItems.find(f => f.id === id);
                 if (fi) { total += parseCalories(fi.calories); totalPro += parseProtein(fi.protein); }
               }
