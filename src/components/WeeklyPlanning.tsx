@@ -1626,6 +1626,9 @@ export function WeeklyPlanning() {
                                 >
                                   <div className="flex-1 min-w-0">
                                     <p className={`text-[11px] font-bold transition-colors truncate ${count > 0 ? 'text-orange-600' : 'text-foreground group-hover:text-orange-600'}`}>{fi.name}</p>
+                                    {(fi.grams || fi.quantity) && (
+                                      <p className="text-[9px] text-muted-foreground/60">{fi.grams ? `${fi.grams}` : ''}{fi.grams && fi.quantity ? ' · ' : ''}{fi.quantity ? `x${fi.quantity}` : ''}</p>
+                                    )}
                                   </div>
                                   <div className="flex items-center gap-1.5 shrink-0">
                                     {count > 0 && (
