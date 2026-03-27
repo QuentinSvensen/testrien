@@ -860,9 +860,10 @@ export function WeeklyPlanning() {
       }
     }
 
-    // Use centralized macro logic
-    const displayCal = overrideCal || String(getCardDisplayCalories(pm, undefined, isAvailableCb));
-    const displayPro = String(getCardDisplayProtein(pm, isAvailableCb));
+    // Use centralized macro logic — always round to integers (no decimals)
+    const rawCal = overrideCal || String(getCardDisplayCalories(pm, undefined, isAvailableCb));
+    const displayCal = String(Math.round(parseFloat(rawCal) || 0)) === '0' ? '0' : String(Math.round(parseFloat(rawCal) || 0));
+    const displayPro = String(Math.round(getCardDisplayProtein(pm, isAvailableCb)));
 
     const isComputedCal = !overrideCal && computeIngredientCalories(displayIngredients, isAvailableCb) !== null;
     const isComputedPro = computeIngredientProtein(displayIngredients, isAvailableCb) !== null;
