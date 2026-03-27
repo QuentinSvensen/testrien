@@ -2013,7 +2013,7 @@ export function WeeklyPlanning() {
                             </div>
                             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
                               {foodItems.filter(fi => fi.storage_type === 'extras').sort((a, b) => a.sort_order - b.sort_order).map(fi => {
-                                const count = (nextExtraSelections[day] || []).filter(id => id === fi.id).length;
+                                const count = effExtraSel.filter(id => id === fi.id).length;
                                 return (
                                   <div key={fi.id} className={`w-full p-2 rounded-xl border transition-all group flex items-center gap-3 ${count > 0 ? 'bg-orange-500/20 border-orange-500/40 shadow-inner' : 'bg-muted/30 hover:bg-orange-500/10 border-transparent hover:border-orange-500/20'}`}>
                                     <div className="flex-1 min-w-0">
