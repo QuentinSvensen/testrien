@@ -853,9 +853,10 @@ export function WeeklyPlanning() {
     }
 
     // Use centralized macro logic — always round to integers (no decimals)
-    const rawCal = overrideCal || String(getCardDisplayCalories(pm, undefined, isAvailableCb));
-    const displayCal = String(Math.round(parseFloat(rawCal) || 0)) === '0' ? '0' : String(Math.round(parseFloat(rawCal) || 0));
-    const displayPro = String(Math.round(getCardDisplayProtein(pm, isAvailableCb)));
+    const rawCalNum = overrideCal ? (parseFloat(overrideCal) || 0) : getCardDisplayCalories(pm, undefined, isAvailableCb);
+    const displayCal = rawCalNum ? String(Math.round(rawCalNum)) : null;
+    const rawProNum = getCardDisplayProtein(pm, isAvailableCb);
+    const displayPro = rawProNum ? String(Math.round(rawProNum)) : null;
 
     const isComputedCal = !overrideCal && computeIngredientCalories(displayIngredients, isAvailableCb) !== null;
     const isComputedPro = computeIngredientProtein(displayIngredients, isAvailableCb) !== null;
