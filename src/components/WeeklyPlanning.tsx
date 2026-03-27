@@ -1946,10 +1946,10 @@ export function WeeklyPlanning() {
                     </Popover>
                     {!effBfMeal && (
                       <>
-                        <PlanningInput storageKey={`next-bf-cal-${day}`} currentValue={nextBreakfastManualCalories[day] ?? breakfastManualCalories[day] ?? 0}
+                        <PlanningInput storageKey={`next-bf-cal-${day}`} currentValue={nextBreakfastManualCalories[day] ?? baseBfManualCal}
                           onSave={(val) => { const u = { ...nextBreakfastManualCalories }; if (val > 0) u[day] = val; else delete u[day]; setPreference.mutate({ key: 'next_week_breakfast_manual_calories', value: u }); }}
                           placeholder="kcal" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 placeholder:text-orange-300/20 focus:outline-none focus:border-orange-400/40" />
-                        <PlanningInput storageKey={`next-bf-prot-${day}`} currentValue={nextBreakfastManualProteins[day] ?? breakfastManualProteins[day] ?? 0}
+                        <PlanningInput storageKey={`next-bf-prot-${day}`} currentValue={nextBreakfastManualProteins[day] ?? baseBfManualPro}
                           onSave={(val) => { const u = { ...nextBreakfastManualProteins }; if (val > 0) u[day] = val; else delete u[day]; setPreference.mutate({ key: 'next_week_breakfast_manual_proteins', value: u }); }}
                           placeholder="prot" className="w-14 h-5 text-[10px] bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 placeholder:text-blue-400/30 focus:outline-none focus:border-blue-400/40" />
                       </>
