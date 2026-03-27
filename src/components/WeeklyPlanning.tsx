@@ -1885,6 +1885,7 @@ export function WeeklyPlanning() {
               <div key={day} className="rounded-2xl bg-card/80 backdrop-blur-sm p-2 sm:p-4">
                 <div className="flex items-center gap-2 mb-2 flex-wrap">
                   <h3 className="text-sm sm:text-base font-bold text-foreground">{DAY_LABELS[day]}</h3>
+                  {/* Petit déj selector */}
                   <div className="flex items-center gap-1">
                     <Popover>
                       <PopoverTrigger asChild>
