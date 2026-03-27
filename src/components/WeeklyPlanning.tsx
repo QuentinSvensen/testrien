@@ -1982,10 +1982,10 @@ export function WeeklyPlanning() {
                           <div className="flex items-center gap-1">
                             <span className="text-[8px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{TIME_LABELS[time]}</span>
                             <button onClick={() => {
-                              const u = { ...nextDrinkChecks }; if (nextDrinkChecks[k] ?? drinkChecks[k]) { u[k] = false; } else { u[k] = true; }
+                            const u = { ...nextDrinkChecks }; if (nextDrinkChecks[k]) { u[k] = false; } else { u[k] = true; }
                               setPreference.mutate({ key: 'next_week_drink_checks', value: u });
-                            }} className={`flex items-center gap-0.5 text-[7px] sm:text-[8px] rounded-full px-1 py-px transition-colors ${(nextDrinkChecks[k] ?? drinkChecks[k]) ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold' : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60'}`}>
-                              🥤 {(nextDrinkChecks[k] ?? drinkChecks[k]) ? '+150' : ''}
+                            }} className={`flex items-center gap-0.5 text-[7px] sm:text-[8px] rounded-full px-1 py-px transition-colors ${(nextDrinkChecks[k]) ? 'bg-amber-500/20 text-amber-600 dark:text-amber-400 font-bold' : 'bg-muted/40 text-muted-foreground/40 hover:text-muted-foreground/60'}`}>
+                              🥤 {(nextDrinkChecks[k]) ? '+150' : ''}
                             </button>
                           </div>
                         </div>
