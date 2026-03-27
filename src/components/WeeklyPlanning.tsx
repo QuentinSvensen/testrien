@@ -1903,7 +1903,7 @@ export function WeeklyPlanning() {
                     <Popover>
                       <PopoverTrigger asChild>
                         <button className="text-[10px] bg-orange-100 dark:bg-orange-900/30 text-orange-700 dark:text-orange-300 px-2 py-0.5 rounded-full font-semibold hover:bg-orange-200 dark:hover:bg-orange-900/50 transition-colors truncate max-w-[120px]">
-                          {nBfMeal ? nBfMeal.name : '🥐 Petit déj'}
+                          {effBfMeal ? effBfMeal.name : '🥐 Petit déj'}
                         </button>
                       </PopoverTrigger>
                       <PopoverContent className="w-52 p-2" align="start">
