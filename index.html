@@ -4,7 +4,7 @@
 <head>
   <script id="console-shield">
     (function () {
-      const IGNORED = ["test", "[debug-metadata]", "DevTools", "React Router", "message channel", "asynchronous response"];
+      const IGNORED = ["test", "[debug-metadata]", "DevTools", "React Router", "message channel", "asynchronous response", "WebSocket is closed", "ChunkLoadError"];
       const shouldIgnore = (args) => {
         try {
           const str = JSON.stringify(args).toLowerCase();
