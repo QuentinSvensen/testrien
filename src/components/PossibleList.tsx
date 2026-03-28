@@ -1,6 +1,7 @@
 import React, { useMemo, useState } from "react";
 import { Plus, Dice5, ArrowUpDown, CalendarDays, CalendarClock, Flame, Weight, Timer, Thermometer } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Separator } from "@/components/ui/separator";
 import { MealList } from "@/components/MealList";
 import { PossibleMealCard } from "@/components/PossibleMealCard";
 import type { PossibleMeal } from "@/hooks/useMeals";
@@ -179,13 +180,12 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
           return (
             <React.Fragment key={pm.id}>
               {showSeparator && (
-                <div className="relative py-2 px-1">
-                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
-                    <div className="w-full border-t border-white/20"></div>
-                  </div>
-                  <div className="relative flex justify-center">
-                    <span className="bg-[#121212] px-2 text-[10px] uppercase tracking-wider font-bold text-white/40">Aujourd'hui</span>
-                  </div>
+                <div key="sep-today" className="flex items-center gap-2 my-2">
+                  <Separator className="flex-1 opacity-40" />
+                  <span className="text-[10px] uppercase tracking-widest font-black text-muted-foreground/60 flex items-center gap-1">
+                    <CalendarDays className="h-3 w-3" /> Aujourd'hui
+                  </span>
+                  <Separator className="flex-1 opacity-40" />
                 </div>
               )}
               <MemoizedPossibleMealCard pm={pm} stockMap={stockMap}
