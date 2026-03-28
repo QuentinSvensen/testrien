@@ -436,7 +436,7 @@ export function WeeklyPlanning() {
     if (pm) {
       const ing = pm.ingredients_override ?? pm.meals?.ingredients;
       const fallbackDate = pm.created_at;
-      updateFoodItemCountersForPlanning(ing, day, time, fallbackDate, pm.created_at);
+      updateFoodItemCountersForPlanning(pmId, ing, day, time, fallbackDate, pm.created_at, possibleMeals);
     }
   };
 
@@ -2199,7 +2199,7 @@ export function WeeklyPlanning() {
                     </div>
 
                     <div className="grid grid-cols-[1fr_1fr_auto] gap-1 sm:gap-3">
-                      {TIMES.filter(t => t !== 'matin').map(time => {
+                      {TIMES.map(time => {
                         const slotCards = dayCards.filter((c: any) => c.meal_time === time);
                         const kIso = `${iso}-${time}`;
                         const kKey = `${key}-${time}`;
@@ -2458,11 +2458,11 @@ export function WeeklyPlanning() {
                       <div
                         key={time}
                         data-slot={slotId}
-                        data-day={key}
+                        data-day={iso}
                         data-time={time}
                         onDragOver={(e) => { e.preventDefault(); setDragOverSlot(slotId); }}
                         onDragLeave={() => setDragOverSlot(null)}
-                        onDrop={(e) => { e.preventDefault(); handleDrop(e, key, time); }}
+                        onDrop={(e) => { e.preventDefault(); handleDrop(e, iso, time); }}
                         className={`min-h-[44px] sm:min-h-[52px] rounded-xl border border-dashed p-1 sm:p-1.5 transition-all ${isOver ? 'bg-primary/20 border-primary scale-[1.02] shadow-lg ring-2 ring-primary/40' : 'border-border/40'}`}
                       >
                         <div className="flex items-center justify-between mb-0.5">

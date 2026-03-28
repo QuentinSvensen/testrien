@@ -51,15 +51,26 @@ const lazyRetry = (importFn: () => Promise<any>, name: string) => {
       console.error(`Error loading chunk for ${name}:`, error);
 
       // If it's a chunk loading error (common on redeploys), refresh the page
+      // If it's a chunk loading error (common on redeploys), clear cache and refresh
       const isChunkError = error.name === 'ChunkLoadError' ||
         error.message?.includes('Failed to fetch dynamically imported module') ||
         error.message?.includes('Failed to load module script');
 
       if (isChunkError && !sessionStorage.getItem(`retry-${name}`)) {
         sessionStorage.setItem(`retry-${name}`, 'true');
-        window.location.reload();
+        if ('serviceWorker' in navigator) {
+          navigator.serviceWorker.getRegistrations().then((regs) => regs.forEach(r => r.unregister()));
+        }
+        if (typeof caches !== "undefined") {
+          caches.keys().then((keys) => {
+            Promise.all(keys.map(k => caches.delete(k))).then(() => {
+              location.reload();
+            });
+          }).catch(() => location.reload());
+        } else {
+          location.reload();
+        }
       }
-
       throw error;
     }
   });
@@ -514,7 +525,6 @@ const Index = () => {
     let finalCounterDate: string | null = null;
     if (oldestCounter) finalCounterDate = oldestCounter;
     else if (anBefore.earliestCounterDate) finalCounterDate = anBefore.earliestCounterDate;
-    else if (hasCounterable) finalCounterDate = new Date().toISOString();
 
     const result = await moveToPossible.mutateAsync({
       mealId,
@@ -980,13 +990,35 @@ const Index = () => {
                             updateSnapshots(prev => { const next = { ...prev }; delete next[id]; return next; });
                             removeFromPossible.mutate(id);
                             setUnParUnSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+
+                            if (pm) {
+                              const remainingMeals = possibleMeals.filter(p => p.id !== id);
+                              const ing = pm.ingredients_override ?? pm.meals?.ingredients;
+                              updateFoodItemCountersForPlanning(null, ing, null, null, null, null, remainingMeals);
+                            }
                           }}
                           onReturnToMaster={(id) => {
+                            const pm = getPossibleByCategory(cat.value).find(p => p.id === id);
                             removeFromPossible.mutate(id);
                             setMasterSourcePmIds(prev => { const next = new Set(prev); next.delete(id); return next; });
+
+                            if (pm) {
+                              const remainingMeals = possibleMeals.filter(p => p.id !== id);
+                              const ing = pm.ingredients_override ?? pm.meals?.ingredients;
+                              updateFoodItemCountersForPlanning(null, ing, null, null, null, null, remainingMeals);
+                            }
                           }}
                           onSplitQuantity={(id, ratio, baseIng) => splitPossibleMealQuantity.mutate({ id, ratio, baseIngredients: baseIng })}
-                          onDelete={(id) => { deletePossibleMeal.mutate(id); }}
+                          onDelete={(id) => { 
+                            const pm = possibleMeals.find(p => p.id === id);
+                            deletePossibleMeal.mutate(id); 
+
+                            if (pm) {
+                              const remainingMeals = possibleMeals.filter(p => p.id !== id);
+                              const ing = pm.ingredients_override ?? pm.meals?.ingredients;
+                              updateFoodItemCountersForPlanning(null, ing, null, null, null, null, remainingMeals);
+                            }
+                          }}
                           onDuplicate={async (id) => {
                             const pm = possibleMeals.find(p => p.id === id);
                             if (pm?.meals) {
@@ -1009,7 +1041,7 @@ const Index = () => {
                             if (pm) {
                               const fallbackDate = pm.created_at;
                               const ing = pm.ingredients_override ?? pm.meals?.ingredients;
-                              updateFoodItemCountersForPlanning(ing, day, time, fallbackDate, pm.created_at);
+                              updateFoodItemCountersForPlanning(id, ing, day, time, fallbackDate, pm.created_at, possibleMeals);
                             }
                           }}
                           onUpdateCounter={(id, d) => updateCounter.mutate({ id, counter_start_date: d })}
