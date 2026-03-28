@@ -72,7 +72,8 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
   const { getTargetCalorieThreshold, getDayProtein, DAILY_PROTEIN_GOAL } = useCalorieBalance(isAvailableCb);
   const baseCalorieThreshold = getTargetCalorieThreshold();
   const JS_DAY_TO_KEY: Record<number, string> = { 1:"lundi",2:"mardi",3:"mercredi",4:"jeudi",5:"vendredi",6:"samedi",0:"dimanche" };
-  const todayProtein = getDayProtein(JS_DAY_TO_KEY[new Date().getDay()]);
+  const todayIso = format(new Date(), 'yyyy-MM-dd');
+  const todayProtein = getDayProtein(JS_DAY_TO_KEY[new Date().getDay()], todayIso);
   const remainingProtein = Math.max(0, DAILY_PROTEIN_GOAL - todayProtein);
   const [tempCalorieOverride, setTempCalorieOverride] = useState<number | null>(null);
   const calorieThreshold = tempCalorieOverride ?? baseCalorieThreshold;
@@ -565,7 +566,8 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           onDragStart={(e) => { e.dataTransfer.setData("mealId", fi.id); e.dataTransfer.setData("source", "available"); if (unifiedIdx !== undefined) setAvDragIndex(unifiedIdx); }}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
-          expirationLabel={expLabel} expirationDate={fi.expiration_date} expirationIsToday={expIsTodayFi} maxIngredientCounter={counterDays} />
+          expirationLabel={expLabel} expirationDate={fi.expiration_date} expirationIsToday={expIsTodayFi} 
+          maxIngredientCounter={counterDays} earliestCounterDate={fi.counter_start_date} />
         {fi.quantity && fi.quantity > 1 && (
           <div className="absolute top-1 right-2 z-10 bg-black/60 text-white text-[10px] font-black px-1.5 py-0.5 rounded-full shadow flex items-center gap-0.5">
             x{fi.quantity}
@@ -613,7 +615,8 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           onDragStart={(e) => { e.dataTransfer.setData("mealId", meal.id); e.dataTransfer.setData("source", "available"); if (unifiedIdx !== undefined) setAvDragIndex(unifiedIdx); }}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
-          hideDelete expirationLabel={expLabel} expirationDate={fi.expiration_date} expirationIsToday={expIsTodayNm} maxIngredientCounter={counterDays} />
+          hideDelete expirationLabel={expLabel} expirationDate={fi.expiration_date} expirationIsToday={expIsTodayNm} 
+          maxIngredientCounter={counterDays} earliestCounterDate={fi.counter_start_date} />
         {fi.is_infinite ? (
           editingRatioId === nmKey ? (
             <div className="absolute top-1 right-2 z-20">
@@ -687,7 +690,8 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
           hideDelete expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayAv}
           expiringIngredientName={expiringIng} expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames}
-          counterIngredientNames={analysis.counterIngredientNames} maxIngredientCounter={analysis.maxIngredientCounter} />
+          counterIngredientNames={analysis.counterIngredientNames} maxIngredientCounter={analysis.maxIngredientCounter} 
+          earliestCounterDate={analysis.earliestCounterDate} />
         {multiple !== null && (
           editingRatioId === meal.id ? (
             <div className="absolute top-1 right-2 z-20">
@@ -755,7 +759,10 @@ export function AvailableList({ category, meals, foodItems, allMeals, stockMap, 
           onDragStart={(e) => { e.dataTransfer.setData("mealId", meal.id); e.dataTransfer.setData("source", "available"); if (unifiedIdx !== undefined) setAvDragIndex(unifiedIdx); }}
           onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
           onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (sortMode === "manual" && avDragIndex !== null && unifiedIdx !== undefined && avDragIndex !== unifiedIdx) handleAvReorder(avDragIndex, unifiedIdx); setAvDragIndex(null); }}
-          hideDelete expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayPa} expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames} counterIngredientNames={analysis.counterIngredientNames} maxIngredientCounter={analysis.maxIngredientCounter} />
+          hideDelete expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayPa} 
+          expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames} 
+          counterIngredientNames={analysis.counterIngredientNames} maxIngredientCounter={analysis.maxIngredientCounter} 
+          earliestCounterDate={analysis.earliestCounterDate} />
         {editingRatioId === partialKey ? (
           <div className="absolute top-1 right-2 z-20">
             <Input autoFocus value={ratioInput}

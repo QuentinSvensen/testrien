@@ -1,10 +1,11 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { supabase } from "@/integrations/supabase/client";
-import { computeIngredientCalories } from "@/lib/ingredientUtils";
+import { computeIngredientCalories, getTargetDate } from "@/lib/ingredientUtils";
 import { getDisplayedPMCalories } from "@/lib/stockUtils";
 import { toast } from "@/hooks/use-toast";
 import { computePlannedCounterDate } from "@/hooks/useMealTransfers";
+import { parseISO } from "date-fns";
 
 export type MealCategory = 'petit_dejeuner' | 'entree' | 'plat' | 'dessert' | 'bonus';
 
@@ -185,7 +186,7 @@ export function useMeals(options?: { enabled?: boolean }) {
           sort_order: maxOrder,
           quantity: normalizedQuantity,
           ...(expiration_date ? { expiration_date } : {}),
-          ...(counter_start_date ? { counter_start_date } : {}),
+          counter_start_date: counter_start_date !== undefined ? counter_start_date : new Date().toISOString(),
         })
         .select()
         .single();
@@ -324,9 +325,12 @@ export function useMeals(options?: { enabled?: boolean }) {
   const moveToPossible = useMutation({
     mutationFn: async ({ mealId, expiration_date, counter_start_date }: { mealId: string; expiration_date?: string | null; counter_start_date?: string | null }) => {
       const maxOrder = possibleMeals.length;
-      const insertData: Record<string, unknown> = { meal_id: mealId, sort_order: maxOrder };
+      const insertData: Record<string, unknown> = { 
+        meal_id: mealId, 
+        sort_order: maxOrder,
+        counter_start_date: counter_start_date !== undefined ? counter_start_date : new Date().toISOString()
+      };
       if (expiration_date) insertData.expiration_date = expiration_date;
-      if (counter_start_date) insertData.counter_start_date = counter_start_date;
       const { data, error } = await supabase
         .from("possible_meals")
         .insert(insertData as any)
@@ -459,11 +463,25 @@ export function useMeals(options?: { enabled?: boolean }) {
 
   const updatePlanning = useMutation({
     mutationFn: async ({ id, day_of_week, meal_time }: { id: string; day_of_week: string | null; meal_time: string | null }) => {
-      // When planning is set: freeze counter to start at the planned future date
-      // When planning is cleared: remove counter (set to null)
-      const counter_start_date = day_of_week
-        ? computePlannedCounterDate(day_of_week, meal_time)
-        : null;
+      const pm = possibleMeals.find(p => p.id === id);
+      const existing = pm?.counter_start_date;
+      
+      let counter_start_date = existing || null;
+      
+      if (day_of_week) {
+        // If it's a fresh meal (no existing counter), program it for the planning date.
+        // If it already had a counter (running), we KEEP it (age calculated relative to target).
+        if (!existing) {
+          counter_start_date = computePlannedCounterDate(day_of_week, meal_time);
+        }
+      } else {
+        // Unplanning: if it was a future-scheduled one (not started yet), 
+        // start it NOW since it's back in "Possible"
+        if (existing && new Date(existing) > new Date()) {
+          counter_start_date = new Date().toISOString();
+        }
+      }
+
       const { error } = await supabase
         .from("possible_meals")
         .update({ day_of_week, meal_time, counter_start_date })
@@ -473,11 +491,23 @@ export function useMeals(options?: { enabled?: boolean }) {
     onMutate: async ({ id, day_of_week, meal_time }) => {
       await qc.cancelQueries({ queryKey: ["possible_meals"] });
       const prev = qc.getQueryData<PossibleMeal[]>(["possible_meals"]);
-      const counter_start_date = day_of_week
-        ? computePlannedCounterDate(day_of_week, meal_time)
-        : null;
+      const pm = prev?.find(p => p.id === id);
+      const existing = pm?.counter_start_date;
+      
+      let counter_start_date = existing || null;
+      if (day_of_week) {
+        if (!existing) {
+          const target = getTargetDate(day_of_week, new Date(), null, meal_time);
+          counter_start_date = target.toISOString();
+        }
+      } else {
+        if (existing && new Date(existing) > new Date()) {
+          counter_start_date = new Date().toISOString();
+        }
+      }
+
       qc.setQueryData<PossibleMeal[]>(["possible_meals"], old =>
-        old?.map(pm => pm.id === id ? { ...pm, day_of_week, meal_time, counter_start_date } : pm) ?? []
+        old?.map(p => p.id === id ? { ...p, day_of_week, meal_time, counter_start_date } : p) ?? []
       );
       return { prev };
     },
@@ -593,93 +623,85 @@ export function useMeals(options?: { enabled?: boolean }) {
     return getDisplayedPMCalories(pm);
   };
 
-  const sortByExpiration = (items: PossibleMeal[]) =>
-    [...items].sort((a, b) => {
+  const sortByExpiration = (items: PossibleMeal[]) => {
+    const fixedNow = new Date();
+    return [...items].sort((a, b) => {
       const getStableCounter = (pm: PossibleMeal) => {
         if (!pm.counter_start_date) return null;
-        const start = new Date(pm.counter_start_date).getTime();
-        const created = pm.created_at ? new Date(pm.created_at) : new Date();
-        const ref = start > created.getTime() ? Date.now() : created.getTime();
-        const baseDays = Math.floor((ref - start) / 86400000);
-
-        if (!pm.day_of_week) return baseDays;
-
-        const createdDow = created.getDay();
-        const createdIdx = createdDow === 0 ? 6 : createdDow - 1;
-        const targetIdx = DAY_INDEX[pm.day_of_week] ?? 0;
-        const dayOffset = targetIdx - createdIdx;
-
-        return Math.max(0, baseDays + dayOffset);
+        const start = parseISO(pm.counter_start_date);
+        
+        // Match the logic in ingredientUtils.getAdaptedCounterDays
+        if (start.getTime() > fixedNow.getTime()) return null;
+        
+        const target = getTargetDate(pm.day_of_week, fixedNow, pm.counter_start_date, pm.meal_time);
+        const diffMs = target.getTime() - start.getTime();
+        const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+        return Math.max(0, days);
       };
 
-      const aCounter = getStableCounter(a);
-      const bCounter = getStableCounter(b);
+      const rawAC = getStableCounter(a);
+      const rawBC = getStableCounter(b);
+      
+      // RULE: counter < 1.0j is strictly seen as "null" (no counter) for the sort group.
+      const ac = (rawAC !== null && rawAC >= 1) ? rawAC : null;
+      const bc = (rawBC !== null && rawBC >= 1) ? rawBC : null;
+
       const aHasDate = !!a.expiration_date;
       const bHasDate = !!b.expiration_date;
-      const aHasCounter = aCounter !== null;
-      const bHasCounter = bCounter !== null;
+      const aHasC = ac !== null;
+      const bHasC = bc !== null;
 
-      const aGroup = aHasCounter ? 0 : aHasDate ? 1 : 2;
-      const bGroup = bHasCounter ? 0 : bHasDate ? 1 : 2;
+      const aG = aHasC ? 0 : aHasDate ? 1 : 2;
+      const bG = bHasC ? 0 : bHasDate ? 1 : 2;
 
-      if (aGroup !== bGroup) return aGroup - bGroup;
+      if (aG !== bG) return aG - bG;
 
-      if (aGroup === 0) {
-        if (aCounter !== bCounter) return bCounter! - aCounter!;
-
-        // Same counter days (non-zero): sort by expiration date first
-        if (aCounter !== 0) {
-          if (aHasDate && bHasDate) {
-            const dateCmp = a.expiration_date!.localeCompare(b.expiration_date!);
-            if (dateCmp !== 0) return dateCmp;
-          }
-          if (aHasDate && !bHasDate) return -1;
-          if (!aHasDate && bHasDate) return 1;
-        }
-
-        // Same counter + same date (or counter=0): sort by calories ascending
-        const aCal = extractSortableCalories(a);
-        const bCal = extractSortableCalories(b);
-        if (aCal !== null && bCal !== null && aCal !== bCal) return aCal - bCal;
-        if (aCal !== null && bCal === null) return -1;
-        if (aCal === null && bCal !== null) return 1;
-
-        // Fallback for counter=0: date then name
+      if (aG === 0) {
+        if (ac !== bc) return bc! - ac!;
         if (aHasDate && bHasDate) return a.expiration_date!.localeCompare(b.expiration_date!);
         if (aHasDate) return -1;
         if (bHasDate) return 1;
-
-        return (a.meals?.name ?? '').localeCompare(b.meals?.name ?? '');
-      }
-
-      if (aGroup === 1) {
+      } else if (aG === 1) {
         const dateCmp = a.expiration_date!.localeCompare(b.expiration_date!);
         if (dateCmp !== 0) return dateCmp;
-        // Same date without counter: sort by calories ascending
-        const aCal = extractSortableCalories(a);
-        const bCal = extractSortableCalories(b);
-        if (aCal !== null && bCal !== null && aCal !== bCal) return aCal - bCal;
-        if (aCal !== null && bCal === null) return -1;
-        if (aCal === null && bCal !== null) return 1;
-        return (a.meals?.name ?? '').localeCompare(b.meals?.name ?? '');
       }
 
-      return 0;
-    });
+      // Tie-breakers: calories then name
+      const aCal = extractSortableCalories(a);
+      const bCal = extractSortableCalories(b);
+      if (aCal !== null && bCal !== null && aCal !== bCal) return aCal - bCal;
+      if (aCal !== null && bCal === null) return -1;
+      if (aCal === null && bCal !== null) return 1;
 
-  const sortByPlanning = (items: PossibleMeal[]) =>
-    [...items].sort((a, b) => {
-      const dayA = a.day_of_week ? (DAY_INDEX[a.day_of_week] ?? 99) : 99;
-      const dayB = b.day_of_week ? (DAY_INDEX[b.day_of_week] ?? 99) : 99;
-      if (dayA !== dayB) return dayA - dayB;
-      const getTimeIndex = (time?: string | null) => {
-        if (time === 'matin') return 0;
-        if (time === 'midi') return 1;
-        if (time === 'soir') return 2;
-        return 3;
-      };
-      return getTimeIndex(a.meal_time) - getTimeIndex(b.meal_time);
+      return (a.sort_order - b.sort_order) || (a.meals?.name ?? '').localeCompare(b.meals?.name ?? '');
     });
+  };
+
+  const sortByPlanning = (items: PossibleMeal[]) => {
+    const fixedNow = new Date();
+    return [...items].sort((a, b) => {
+      const aHasPlan = !!a.day_of_week;
+      const bHasPlan = !!b.day_of_week;
+
+      if (aHasPlan || bHasPlan) {
+        if (aHasPlan && bHasPlan) {
+          const dateA = getTargetDate(a.day_of_week, fixedNow, a.counter_start_date, a.meal_time);
+          const dateB = getTargetDate(b.day_of_week, fixedNow, b.counter_start_date, b.meal_time);
+          if (dateA.getTime() !== dateB.getTime()) return dateA.getTime() - dateB.getTime();
+        } else if (aHasPlan) {
+          return -1;
+        } else if (bHasPlan) {
+          return 1;
+        }
+      } else {
+        const dateA = getTargetDate(null, fixedNow, null, a.meal_time);
+        const dateB = getTargetDate(null, fixedNow, null, b.meal_time);
+        if (dateA.getTime() !== dateB.getTime()) return dateA.getTime() - dateB.getTime();
+      }
+
+      return (a.sort_order - b.sort_order) || (a.meals?.name ?? '').localeCompare(b.meals?.name ?? '');
+    });
+  };
 
   const getRandomPossible = (cat: string): PossibleMeal | null => {
     const items = getPossibleByCategory(cat);

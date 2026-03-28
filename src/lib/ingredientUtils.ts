@@ -7,7 +7,15 @@ import type { FoodItem } from "@/components/FoodItems";
 import { colorFromName } from "./foodColors";
 export { colorFromName };
 
-import { differenceInCalendarDays, parseISO, startOfDay } from "date-fns";
+import { differenceInCalendarDays, parseISO, startOfDay, addDays } from "date-fns";
+
+/** Check if an ISO date string is strictly in the past (before today 00:00). */
+export function isExpiredDate(dateIso: string | null | undefined): boolean {
+  if (!dateIso) return false;
+  const d = startOfDay(parseISO(dateIso));
+  const today = startOfDay(new Date());
+  return d.getTime() < today.getTime();
+}
 
 // ─── Counter Utility ────────────────────────────────────────────────────────
 
@@ -20,29 +28,68 @@ export function computeCounterDays(counterStartDate: string | null | undefined):
   if (!counterStartDate) return null;
   const start = parseISO(counterStartDate);
   const now = new Date();
+  if (now < start) return null;
   const days = differenceInCalendarDays(now, start);
-  return days < 1 ? null : days;
+  return days;
 }
 
 /** Compute total hours elapsed since counter_start_date. */
-export function computeCounterHours(counterStartDate: string | null | undefined): number | null {
+export function computeCounterHours(counterStartDate: string | null | undefined, target?: Date): number | null {
   if (!counterStartDate) return null;
   const start = parseISO(counterStartDate);
-  const now = new Date();
+  const now = target || new Date();
   const diffMs = now.getTime() - start.getTime();
-  if (diffMs < 0) return null;
+  if (diffMs < 0) return 0;
   return Math.floor(diffMs / (1000 * 60 * 60));
 }
 
-/** Get a stable Date for a given day Key relative to a reference Date (e.g. card creation date) */
-export function getDateForDayKey(dayKey: string, ref: Date): Date {
+/** Get a stable Date for a given day Key or ISO date relative to a reference Date */
+export function getDateForDayKey(dayKey: string, ref: Date = new Date()): Date {
+  // If dayKey is already a date (YYYY-MM-DD), use it directly
+  if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+    return startOfDay(parseISO(dayKey));
+  }
+
   const d = startOfDay(ref);
   const refDow = d.getDay(); // 0=Sun
   const refIdx = refDow === 0 ? 6 : refDow - 1; // 0=Mon
-  const targetIdx = DAY_KEY_TO_INDEX[dayKey] ?? 0;
+  const lowKey = (dayKey || "").toLowerCase();
+  const targetIdx = DAY_KEY_TO_INDEX[lowKey] ?? 0;
   const diff = targetIdx - refIdx;
   const target = new Date(d);
   target.setDate(d.getDate() + diff);
+  return target;
+}
+
+/** Get the target planning date, wrapping to next week if it occurs before the counter start */
+export function getTargetDate(dayKey: string | null | undefined, refDate: Date, startDate?: string | null, mealTime?: string | null): Date {
+  let target: Date;
+  
+  if (!dayKey) {
+    target = new Date(refDate);
+  } else if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
+    target = parseISO(dayKey);
+  } else {
+    target = getDateForDayKey(dayKey, refDate);
+  }
+
+  // Apply meal time precision (Midi=12h, Soir=19h)
+  const lowTime = (mealTime || "").toLowerCase();
+  if (lowTime === "soir") {
+    target.setHours(19, 0, 0, 0);
+  } else if (lowTime === "midi") {
+    target.setHours(12, 0, 0, 0);
+  } else if (lowTime === "matin") {
+    target.setHours(8, 0, 0, 0);
+  }
+
+  if (!startDate) return target;
+  
+  const start = parseISO(startDate);
+  if (start > target && !(/^\d{4}-\d{2}-\d{2}$/.test(dayKey || ""))) {
+    const nextWeek = addDays(target, 7);
+    if (nextWeek >= start) return nextWeek;
+  }
   return target;
 }
 
@@ -51,21 +98,41 @@ export function getDateForDayKey(dayKey: string, ref: Date): Date {
  * counter_start_date is the source of truth:
  *   - In the future → null (card is scheduled, show 📅)
  *   - In the past   → days elapsed since then (hide if < 1)
- * dayKey/createdAt/mealTime kept for backward compat but no longer used.
  */
 export function getAdaptedCounterDays(
   startDate: string | null,
-  _dayKey?: string | null,
-  _createdAt?: string,
-  _mealTime?: string | null,
+  dayKey?: string | null,
+  createdAt?: string,
+  mealTime?: string | null,
+  fixedNow?: Date
 ): number | null {
   if (!startDate) return null;
+  
+  const now = fixedNow || new Date();
   const start = parseISO(startDate);
-  const now = new Date();
-  // Future → scheduled (show 📅 badge)
-  if (start > now) return null;
-  // Past → show elapsed calendar days
-  return differenceInCalendarDays(now, start);
+
+  // If the counter starts in the future compared to NOW, it's not "running" yet.
+  if (start.getTime() > now.getTime()) return null;
+
+  // Si on a un created_at mais pas de jour planifié, on FIGE le compteur au moment où la carte est apparue dans "Possible".
+  if (!dayKey && createdAt) {
+    const createdDate = parseISO(createdAt);
+    // On compare le startDate à la date de création de la carte (moment de la consommation virtuelle)
+    const diffMs = createdDate.getTime() - start.getTime();
+    const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+    return days < 0 ? 0 : days; // Ne jamais afficher null si c'est figé, au pire 0
+  }
+
+  // Base calculation on the planned date (relative to today)
+  const target = getTargetDate(dayKey, now, startDate, mealTime);
+
+  // Use precise hour difference to flip at 24h as requested (compare date + hour)
+  const diffMs = target.getTime() - start.getTime();
+  
+  const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  
+  // Return null if days < 0 (should already be covered by future check but kept for safety)
+  return days < 0 ? null : days;
 }
 
 // ─── Text Normalization (with LRU cache) ────────────────────────────────────

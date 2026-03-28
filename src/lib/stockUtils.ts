@@ -200,6 +200,7 @@ export interface MealAnalysis {
   maxCounterName: string | null;
   earliestCounterDate: string | null;
   counterIngredientNames: Set<string>;
+  hasCounterableIngredient: boolean;
 }
 
 /**
@@ -221,6 +222,7 @@ export function analyzeMealIngredients(
     maxCounterName: null,
     earliestCounterDate: null,
     counterIngredientNames: new Set(),
+    hasCounterableIngredient: false,
   };
 
   if (!meal.ingredients?.trim()) return result;
@@ -257,25 +259,29 @@ export function analyzeMealIngredients(
             }
           }
         }
-        // Counter analysis
-        if (fi.counter_start_date) {
-          const days = computeCounterDays(fi.counter_start_date);
-          if (days !== null) {
-            if (result.maxIngredientCounter === null || days > result.maxIngredientCounter) {
-              result.maxIngredientCounter = days;
-              result.maxCounterName = fi.name;
+          // Counter analysis
+          if (fi.counter_start_date) {
+            const days = computeCounterDays(fi.counter_start_date);
+            if (days !== null) {
+              if (result.maxIngredientCounter === null || days > result.maxIngredientCounter) {
+                result.maxIngredientCounter = days;
+                result.maxCounterName = fi.name;
+              }
+              result.counterIngredientNames.add(normalizeKey(alt.name));
             }
-            result.counterIngredientNames.add(normalizeKey(alt.name));
+            // Always collect the earliest starting date, even if 0 days old, 
+            // to allow derived views (like Tuesday planning) to calculate offsets correctly.
+            if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
+              result.earliestCounterDate = fi.counter_start_date;
+            }
           }
-          // Always collect the earliest starting date, even if 0 days old, 
-          // to allow derived views (like Tuesday planning) to calculate offsets correctly.
-          if (!result.earliestCounterDate || fi.counter_start_date < result.earliestCounterDate) {
-            result.earliestCounterDate = fi.counter_start_date;
+
+          if (fi.storage_type !== 'surgele' && !fi.no_counter) {
+            result.hasCounterableIngredient = true;
           }
         }
       }
     }
-  }
 
   if (earliestSoonName) result.expiringSoonIngredientNames.add(earliestSoonName);
   return result;
@@ -406,9 +412,9 @@ export function compareExpirationWithCounter(
   const aEffective = aCounter !== null && aCounter > 0;
   const bEffective = bCounter !== null && bCounter > 0;
 
-  // Groups: 0=active counter, 1=no date & no counter (top), 2=has date, 3=has counter=0 but no date
-  const aGroup = aEffective ? 0 : (!aDate && aCounter === null ? 1 : (!!aDate ? 2 : 3));
-  const bGroup = bEffective ? 0 : (!bDate && bCounter === null ? 1 : (!!bDate ? 2 : 3));
+  // Groups: 0=active counter, 1=no date & no counter (top), 2=has date
+  const aGroup = aEffective ? 0 : (!aDate && (aCounter === null || aCounter === 0) ? 1 : 2);
+  const bGroup = bEffective ? 0 : (!bDate && (bCounter === null || bCounter === 0) ? 1 : 2);
 
   if (aGroup !== bGroup) return aGroup - bGroup;
   if (aGroup === 0) {

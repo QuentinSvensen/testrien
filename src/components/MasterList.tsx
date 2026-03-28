@@ -117,6 +117,8 @@ export function MasterList({ category, meals, foodItems, sortMode, sortAsc, onTo
                 missingIngredientNames={missingIngs.size > 0 ? missingIngs : undefined}
                 expirationLabel={expLabel} expirationDate={analysis.earliestExpiration} expirationIsToday={expIsTodayM}
                 expiredIngredientNames={analysis.expiredIngredientNames} expiringSoonIngredientNames={analysis.expiringSoonIngredientNames}
+                maxIngredientCounter={analysis.maxIngredientCounter} counterIngredientNames={analysis.counterIngredientNames}
+                earliestCounterDate={analysis.earliestCounterDate}
                 onDragStart={(e) => { e.dataTransfer.setData("mealId", meal.id); e.dataTransfer.setData("source", "master"); setDragIndex(index); }}
                 onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
                 onDrop={(e) => { e.preventDefault(); e.stopPropagation(); if (dragIndex !== null && dragIndex !== index) onReorder(dragIndex, index); setDragIndex(null); }} />

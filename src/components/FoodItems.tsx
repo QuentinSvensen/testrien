@@ -14,6 +14,7 @@ import { toast } from "@/hooks/use-toast";
 import { colorFromName, computeCounterDays, computeCounterHours } from "@/lib/ingredientUtils";
 import { usePreferences } from "@/hooks/usePreferences";
 import { useSortModes, FoodSortMode } from "@/hooks/useSortModes";
+import { getSortedFoodItems } from "@/lib/foodSortUtils";
 
 export { colorFromName };
 
@@ -229,7 +230,7 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
   const counterDays = computeCounterDays(item.counter_start_date);
   const counterHours = computeCounterHours(item.counter_start_date);
   const formattedProgDate = isFuture && item.counter_start_date ? (() => {
-    const s = format(parseISO(item.counter_start_date), "EEEE HH'h'", { locale: fr });
+    const s = format(parseISO(item.counter_start_date), "eeee d HH'h'", { locale: fr });
     return s.charAt(0).toUpperCase() + s.slice(1);
   })() : null;
   const counterUrgent = counterDays !== null && counterDays >= 3;
@@ -239,9 +240,6 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
     const today = new Date();
     return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
   })() : false;
-  const counterDays = computeCounterDays(item.counter_start_date);
-  const counterHours = computeCounterHours(item.counter_start_date);
-  const counterUrgent = counterDays !== null && counterDays >= 3;
   const gramsData = parseStoredGrams(item.grams);
   const displayDefaultGrams = gramsData.unit !== null ? `${formatNumeric(gramsData.unit)}g` : item.grams;
   const displayPartialGrams = gramsData.remainder !== null ? `${formatNumeric(gramsData.remainder)}g` : null;
@@ -599,7 +597,7 @@ function FoodItemCard({ item, onUpdate, onDelete, onDuplicate, onDragStart, onDr
           onClick={() => onUpdate({ counter_start_date: item.counter_start_date ? null : new Date().toISOString() })}
           className="text-[10px] text-white/40 bg-white/10 hover:bg-white/20 px-1.5 py-0.5 rounded-full flex items-center gap-0.5"
           title={item.counter_start_date 
-            ? (isFuture ? `prog : ${formattedProgDate}` : `Arrêter compteur${counterHours !== null ? ` (${counterHours}h)` : ''}`) 
+            ? (isFuture ? formattedProgDate : `Arrêter compteur${counterHours !== null ? ` (${counterHours}h)` : ''}`) 
             : 'Démarrer compteur'}
         >
           <Timer className="h-2.5 w-2.5" />
@@ -763,99 +761,12 @@ export function FoodItems() {
 
   const [dragIndex, setDragIndex] = useState<number | null>(null);
 
-  const normalizeSearch = (text: string) =>
-    text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/s$/g, "");
-
-  const filterBySearch = (itemsList: FoodItem[]): FoodItem[] => {
-    if (!searchQuery.trim()) return itemsList;
-    const q = normalizeSearch(searchQuery);
-    return itemsList.filter(item => normalizeSearch(item.name).includes(q));
-  };
-
   const getSortedItems = (storageType: StorageType): FoodItem[] => {
     const sectionItems = items.filter(i => i.storage_type === storageType);
     const mode = foodSortModes[storageType] || "manual";
     const asc = sortDirections[`food-${storageType}`] !== false; // default to true (ascending)
 
-    if (mode === "manual") return filterBySearch(sectionItems);
-
-    let sorted = [...sectionItems];
-
-    if (mode === "expiration") {
-      sorted.sort((a, b) => {
-        if (a.is_meal && !a.expiration_date && !(b.is_meal && !b.expiration_date)) return -1;
-        if (b.is_meal && !b.expiration_date && !(a.is_meal && !a.expiration_date)) return 1;
-
-        const aExpired = isExpiredDate(a.expiration_date);
-        const bExpired = isExpiredDate(b.expiration_date);
-        const aCounter = computeCounterDays(a.counter_start_date);
-        const bCounter = computeCounterDays(b.counter_start_date);
-
-        const parseCal = (fi: FoodItem): number => {
-          if (!fi.calories) return 0;
-          const m = fi.calories.replace(',', '.').match(/-?\d+(?:\.\d+)?/);
-          return m ? parseFloat(m[0]) || 0 : 0;
-        };
-
-        const aG1 = aExpired && aCounter !== null;
-        const bG1 = bExpired && bCounter !== null;
-        if (aG1 && !bG1) return asc ? -1 : 1;
-        if (!aG1 && bG1) return asc ? 1 : -1;
-        if (aG1 && bG1) {
-          if (aCounter !== bCounter) return asc ? (bCounter ?? 0) - (aCounter ?? 0) : (aCounter ?? 0) - (bCounter ?? 0);
-          const dateCmp = (a.expiration_date ?? '').localeCompare(b.expiration_date ?? '');
-          if (dateCmp !== 0) return asc ? dateCmp : -dateCmp;
-          return asc ? parseCal(a) - parseCal(b) : parseCal(b) - parseCal(a);
-        }
-
-        const aG2 = !aExpired && aCounter !== null;
-        const bG2 = !bExpired && bCounter !== null;
-        if (aG2 && !bG2) return asc ? -1 : 1;
-        if (!aG2 && bG2) return asc ? 1 : -1;
-        if (aG2 && bG2) {
-          if ((bCounter ?? 0) !== (aCounter ?? 0)) return asc ? (bCounter ?? 0) - (aCounter ?? 0) : (aCounter ?? 0) - (bCounter ?? 0);
-          const dateCmp = (a.expiration_date ?? '').localeCompare(b.expiration_date ?? '');
-          if (dateCmp !== 0) return asc ? dateCmp : -dateCmp;
-          return asc ? parseCal(a) - parseCal(b) : parseCal(b) - parseCal(a);
-        }
-
-        const aG3 = aExpired && aCounter === null;
-        const bG3 = bExpired && bCounter === null;
-        if (aG3 && !bG3) return asc ? -1 : 1;
-        if (!aG3 && bG3) return asc ? 1 : -1;
-        if (aG3 && bG3) {
-          const dateCmp = (a.expiration_date ?? '').localeCompare(b.expiration_date ?? '');
-          if (dateCmp !== 0) return asc ? dateCmp : -dateCmp;
-          return asc ? parseCal(a) - parseCal(b) : parseCal(b) - parseCal(a);
-        }
-
-        if (!a.expiration_date && !b.expiration_date) return 0;
-        if (!a.expiration_date) return asc ? 1 : -1;
-        if (!b.expiration_date) return asc ? -1 : 1;
-        const dateCmp = a.expiration_date.localeCompare(b.expiration_date);
-        if (dateCmp !== 0) return asc ? dateCmp : -dateCmp;
-        return asc ? parseCal(a) - parseCal(b) : parseCal(b) - parseCal(a);
-      });
-    } else if (mode === "name") {
-      sorted.sort((a, b) => {
-        const cmp = a.name.localeCompare(b.name, 'fr', { sensitivity: 'base' });
-        return asc ? cmp : -cmp;
-      });
-    } else if (mode === "calories") {
-      sorted.sort((a, b) => {
-        const parseCal = (fi: FoodItem) => parseFloat((fi.calories || "0").replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
-        const diff = parseCal(a) - parseCal(b);
-        return asc ? diff : -diff;
-      });
-    } else if (mode === "protein") {
-      sorted.sort((a, b) => {
-        const parsePro = (fi: FoodItem) => parseFloat((fi.protein || "0").replace(',', '.').replace(/[^0-9.]/g, '')) || 0;
-        const diff = parsePro(a) - parsePro(b);
-        return asc ? diff : -diff;
-      });
-    }
-
-    return filterBySearch(sorted);
+    return getSortedFoodItems(sectionItems, mode, asc, searchQuery);
   };
 
   const handleAdd = () => {

@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ArrowLeft, Copy, MoreVertical, Trash2, Calendar, Timer, Flame, Weight, Hash, List, Undo2, Percent, Thermometer, SplitSquareHorizontal } from "lucide-react";
+import { ArrowLeft, Copy, MoreVertical, Trash2, Calendar, Timer, Flame, Weight, Hash, List, Undo2, Percent, Thermometer, SplitSquareHorizontal, Pin } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IngredientEditor } from "@/components/IngredientEditor";
@@ -16,8 +16,8 @@ import {
   type IngLine, parseIngredientLineDisplay, formatQtyDisplay,
   parseIngredientsToLines, serializeIngredients, computeIngredientCalories,
   computeIngredientProtein, cleanIngredientText, normalizeKey,
-  hasNegativeMetric, getMealColor, getAdaptedCounterDays, getDateForDayKey,
-  extractMetrics, parseIngredientLineRaw
+  hasNegativeMetric, getMealColor, getAdaptedCounterDays, getDateForDayKey, getTargetDate,
+  extractMetrics, parseIngredientLineRaw, computeCounterHours
 } from "@/lib/ingredientUtils";
 import { scaleIngredientStringExact, findStockKey, getDisplayedPMCalories, getDisplayedPMProtein } from "@/lib/stockUtils";
 import type { StockInfo } from "@/lib/stockUtils";
@@ -71,6 +71,7 @@ export function PossibleMealCard({
   const [editing, setEditing] = useState<"calories" | "grams" | "quantity" | "ratio" | null>(null);
   const [editValue, setEditValue] = useState("");
   const [calOpen, setCalOpen] = useState(false);
+  const [calMobileOpen, setCalMobileOpen] = useState(false);
   const [editingIngredients, setEditingIngredients] = useState(false);
   const [ingLines, setIngLines] = useState<IngLine[]>([]);
 
@@ -155,20 +156,18 @@ export function PossibleMealCard({
   const detectedRatio = detectScaleRatio();
 
   const isExpired = pm.expiration_date && new Date(pm.expiration_date) < new Date();
-  const expIsToday = pm.expiration_date ? (() => {
-    const d = new Date(pm.expiration_date!);
-    const today = new Date();
-    return d.getFullYear() === today.getFullYear() && d.getMonth() === today.getMonth() && d.getDate() === today.getDate();
-  })() : false;
-  const effectiveCounterStart = realtimeCounterStartDate !== undefined ? realtimeCounterStartDate : pm.counter_start_date;
+  const todayISO = format(new Date(), 'yyyy-MM-dd');
+  const effectiveCounterStart = realtimeCounterStartDate ?? pm.counter_start_date;
+  const targetDate = getTargetDate(pm.day_of_week, new Date(), effectiveCounterStart, pm.meal_time);
   const counterDays = getAdaptedCounterDays(effectiveCounterStart, pm.day_of_week, pm.created_at, pm.meal_time);
+  const counterHours = computeCounterHours(effectiveCounterStart, targetDate);
 
   // Stop blinking if the meal's day is in the past!
   let isPast = false;
   if (pm.day_of_week) {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
-    const target = getDateForDayKey(pm.day_of_week, parseISO(pm.created_at));
+    const target = getDateForDayKey(pm.day_of_week, new Date());
     isPast = target.getTime() < today.getTime();
   }
 
@@ -233,81 +232,126 @@ export function PossibleMealCard({
     setEditingIngredients(false);
   };
 
-  const todayDow = new Date().getDay();
-  const todayIdx = todayDow === 0 ? 6 : todayDow - 1;
-  const todayKey = DAYS[todayIdx];
-
   const selectedDate = pm.expiration_date ? parseISO(pm.expiration_date) : undefined;
+  const expIsToday = pm.expiration_date === todayISO;
 
-  const datesSection = (
-    <div className="flex items-center gap-1 flex-wrap shrink-0">
-      <Calendar className="h-2.5 w-2.5 text-white/50 shrink-0" />
-      <Popover open={calOpen} onOpenChange={setCalOpen}>
-        <PopoverTrigger asChild>
-          <button
-            className={`h-5 min-w-[88px] border bg-white/10 text-white text-[10px] px-1.5 rounded-md flex items-center hover:bg-white/20 transition-colors ${expIsToday ? 'border-red-500 ring-1 ring-red-500 text-red-200' : isExpired ? 'border-white/20 text-red-200' : 'border-white/20'
-              }`}
-          >
-            {pm.expiration_date
-              ? format(parseISO(pm.expiration_date), 'd MMM yy', { locale: fr })
-              : <span className="text-white/40">Date péremption</span>
-            }
-          </button>
-        </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
-          <CalendarPicker
-            mode="single"
-            selected={selectedDate}
-            onSelect={(date) => {
-              onUpdateExpiration(date ? format(date, 'yyyy-MM-dd') : null);
-              setCalOpen(false);
-            }}
-            initialFocus
-          />
-          {pm.expiration_date && (
-            <div className="p-2 border-t">
-              <button
-                onClick={() => { onUpdateExpiration(null); setCalOpen(false); }}
-                className="text-xs text-muted-foreground hover:text-destructive w-full text-center"
+  const renderDatesSection = (isMobile: boolean) => {
+    const isOpen = isMobile ? calMobileOpen : calOpen;
+    const setIsOpen = isMobile ? setCalMobileOpen : setCalOpen;
+
+    return (
+      <div className="flex items-center gap-1 flex-wrap shrink-0">
+        <Calendar className="h-2.5 w-2.5 text-white/50 shrink-0" />
+        <Popover open={isOpen} onOpenChange={setIsOpen}>
+          <PopoverTrigger asChild>
+            <button
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              className={`h-5 min-w-[88px] border bg-white/10 text-white text-[10px] px-1.5 rounded-md flex items-center hover:bg-white/20 transition-colors ${expIsToday ? 'border-red-500 ring-1 ring-red-500 text-red-200' : isExpired ? 'border-white/20 text-red-200' : 'border-white/20'
+                }`}
+            >
+              {pm.expiration_date
+                ? format(parseISO(pm.expiration_date), 'd MMM yy', { locale: fr })
+                : <span className="text-white/40">Date péremption</span>
+              }
+            </button>
+          </PopoverTrigger>
+          <PopoverContent className="w-auto p-0" align="start">
+            <CalendarPicker
+              mode="single"
+              selected={selectedDate}
+              onSelect={(date) => {
+                onUpdateExpiration(date ? format(date, 'yyyy-MM-dd') : null);
+                setIsOpen(false);
+              }}
+              initialFocus
+            />
+            {pm.expiration_date && (
+              <div className="p-2 border-t">
+                <button
+                  onClick={() => { onUpdateExpiration(null); setIsOpen(false); }}
+                  className="text-xs text-muted-foreground hover:text-destructive w-full text-center"
+                >
+                  Effacer la date
+                </button>
+              </div>
+            )}
+          </PopoverContent>
+        </Popover>
+
+        {(() => {
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const monday = new Date(today);
+          const dayOf = monday.getDay();
+          const diff = monday.getDate() - dayOf + (dayOf === 0 ? -6 : 1);
+          monday.setDate(diff);
+
+          const planningDays = Array.from({ length: 14 }).map((_, i) => {
+            const d = new Date(monday);
+            d.setDate(d.getDate() + i);
+            return {
+              iso: format(d, 'yyyy-MM-dd'),
+              label: format(d, 'EEEE d', { locale: fr }).replace(/^\w/, c => c.toUpperCase())
+            };
+          });
+
+          return (
+            <Select
+              value={pm.day_of_week && /^\d{4}-\d{2}-\d{2}$/.test(pm.day_of_week) ? pm.day_of_week : "none"}
+              onValueChange={(val) => onUpdatePlanning(val === "none" ? null : val, pm.meal_time)}
+            >
+              <SelectTrigger
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                className="h-5 min-w-[58px] w-auto justify-start p-0 px-1.5 border border-white/20 bg-white/10 text-white text-[10px] flex items-center gap-1 hover:bg-white/20 transition-colors [&>svg:last-child]:hidden focus:ring-0 focus:ring-offset-0"
               >
-                Effacer la date
-              </button>
-            </div>
-          )}
-        </PopoverContent>
-      </Popover>
+                <Calendar className="h-2.5 w-2.5 opacity-50 shrink-0" />
+                {pm.day_of_week ? (
+                  /^\d{4}-\d{2}-\d{2}$/.test(pm.day_of_week)
+                    ? format(parseISO(pm.day_of_week), 'eee d', { locale: fr })
+                    : DAY_LABELS[pm.day_of_week] || pm.day_of_week
+                ) : (
+                  <span className="opacity-40">Jour</span>
+                )}
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">— Nul —</SelectItem>
+                {planningDays.map(d => (
+                  <SelectItem 
+                    key={d.iso} 
+                    value={d.iso}
+                    className={d.iso === todayISO ? 'bg-primary/15 focus:bg-primary/25 font-bold' : ''}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span>{d.iso === todayISO ? `📅 ${d.label}` : d.label}</span>
+                    </div>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          );
+        })()}
 
-      <Select value={pm.day_of_week || "none"} onValueChange={(val) => onUpdatePlanning(val === "none" ? null : val, pm.meal_time)}>
-        <SelectTrigger className={`h-5 w-[58px] border-white/20 bg-white/10 text-white text-[10px] px-1 ${pm.day_of_week === todayKey ? 'ring-1 ring-primary/40' : ''}`}>
-          <SelectValue placeholder="Jour" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">—</SelectItem>
-          {DAYS.map((d) => (
-            <SelectItem key={d} value={d} className={d === todayKey ? 'bg-primary/10 font-bold' : ''}>
-              <span className="flex items-center gap-0.5">
-                <span className="hidden [[data-radix-select-viewport]_&]:inline">{d === todayKey ? '📅 ' : ''}</span>
-                {DAY_LABELS[d]}
-              </span>
-            </SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-
-      <Select value={pm.meal_time || "none"} onValueChange={(val) => onUpdatePlanning(pm.day_of_week, val === "none" ? null : val)}>
-        <SelectTrigger className="h-5 w-[50px] border-white/20 bg-white/10 text-white text-[10px] px-1">
-          <SelectValue placeholder="Quand" />
-        </SelectTrigger>
-        <SelectContent>
-          <SelectItem value="none">—</SelectItem>
-          {meal.category === "petit_dejeuner" && <SelectItem value="matin">Matin</SelectItem>}
-          {TIMES.map((t) => (
-            <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
-          ))}
-        </SelectContent>
-      </Select>
-    </div>
-  );
+        <Select value={pm.meal_time || "none"} onValueChange={(val) => onUpdatePlanning(pm.day_of_week, val === "none" ? null : val)}>
+          <SelectTrigger
+            onPointerDown={(e) => e.stopPropagation()}
+            onClick={(e) => e.stopPropagation()}
+            className="h-5 w-[50px] border-white/20 bg-white/10 text-white text-[10px] px-1"
+          >
+            <SelectValue placeholder="Quand" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="none">—</SelectItem>
+            {meal.category === "petit_dejeuner" && <SelectItem value="matin">Matin</SelectItem>}
+            {TIMES.map((t) => (
+              <SelectItem key={t} value={t}>{t.charAt(0).toUpperCase() + t.slice(1)}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+    );
+  };
 
   return (
     <div
@@ -341,7 +385,7 @@ export function PossibleMealCard({
 
         {/* Desktop-only dates (top right) */}
         <div className="hidden md:flex items-center shrink-0 mt-0.5">
-          {datesSection}
+          {renderDatesSection(false)}
         </div>
       </div>
 
@@ -362,12 +406,12 @@ export function PossibleMealCard({
 
         {/* Dates - Mobile only */}
         <div className="md:hidden flex items-center gap-1 flex-wrap shrink-0">
-          {datesSection}
+          {renderDatesSection(true)}
         </div>
 
         {/* Options */}
         <div className="ml-auto flex items-center justify-end gap-1.5 shrink-0 flex-wrap">
-          {counterDays !== null && counterDays >= 1 && (
+          {counterDays !== null ? (
             <button
               onClick={() => onUpdateCounter(null)}
               className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-all shrink-0 ${counterUrgent
@@ -376,10 +420,11 @@ export function PossibleMealCard({
                   : 'bg-red-500/80 text-white shadow-lg shadow-red-500/30' // Frozen past urgent
                 : 'bg-white/25 text-white'
                 }`}
+              title={`Arrêter le compteur${counterHours !== null ? ` (${counterHours}h écoulées)` : ''}`}
             >
               <Timer className="h-3 w-3" /> {counterDays}j
             </button>
-          )}
+          ) : null}
 
           {(pm.quantity > 1 || onUpdateQuantity) && (
             <button

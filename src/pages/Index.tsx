@@ -476,8 +476,6 @@ const Index = () => {
 
   const handleMoveToPossibleGeneral = async (mealId: string, source?: string, pmId?: string | null) => {
     if (pmId) {
-      // If we already have a possible_meal ID, it's a move (e.g. from planning back to possible list)
-      // So we just unplan it
       updatePlanning.mutate({ id: pmId, day_of_week: null, meal_time: null });
       return;
     }
@@ -485,21 +483,32 @@ const Index = () => {
     const meal = meals.find(m => m.id === mealId);
     if (!meal) return;
 
-    // 1. Create the card FIRST — before any deduction — so it doesn't inherit a counter
-    //    that would only exist because this card itself opened an ingredient.
-    const result = await moveToPossible.mutateAsync({ mealId });
+    // 1. Analyse stock before deduction for expiration
+    const anBefore = analyzeMealIngredients(meal, foodItems, foodItemIndex);
 
-    // 2. Deduct ingredients from stock (this may start counters on food items)
-    const { snapshots, consumedIds } = await deductIngredientsFromStock(meal, undefined);
+    // 2. IMPORTANT: Deduct ingredients from stock FIRST to get the EXACT oldest counter based on picked alternatives
+    const { snapshots, oldestCounter } = await deductIngredientsFromStock(meal, undefined);
     const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
     if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
 
-    // 3. Analyse stock AFTER deduction to get expiration date, then update the card
+    // 3. Create the card with the oldest counter from ingredients (or from analyze if no ingredients)
+    let hasCounterable = anBefore.hasCounterableIngredient;
+    if (!meal.ingredients?.trim() && nameMatch) {
+      hasCounterable = nameMatch.storage_type !== 'surgele' && !nameMatch.no_counter;
+    }
+
+    let finalCounterDate: string | null = null;
+    if (oldestCounter) finalCounterDate = oldestCounter;
+    else if (anBefore.earliestCounterDate) finalCounterDate = anBefore.earliestCounterDate;
+    else if (hasCounterable) finalCounterDate = new Date().toISOString();
+
+    const result = await moveToPossible.mutateAsync({
+      mealId,
+      expiration_date: anBefore.earliestExpiration,
+      counter_start_date: finalCounterDate
+    });
+
     if (result?.id) {
-      const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
-      if (an.earliestExpiration) {
-        updateExpiration.mutate({ id: result.id, expiration_date: an.earliestExpiration });
-      }
       if (snapshots.length > 0) updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
       if (source === "master") setMasterSourcePmIds(prev => new Set([...prev, result.id]));
     }
@@ -861,22 +870,20 @@ const Index = () => {
                           onMoveToPossible={(mealId) => handleMoveToPossibleGeneral(mealId, "available")}
                           onMovePartialToPossible={async (meal, ratio) => {
                             const partialMeal = buildScaledMealForRatio(meal, ratio, stockMap);
+                            const anBefore = analyzeMealIngredients(meal, foodItems, foodItemIndex);
 
-                            // 1. Create the card FIRST — so it doesn't inherit a counter started by its own deduction
+                            // 1. Deduct FIRST
+                            const { snapshots, oldestCounter } = await deductIngredientsFromStock(partialMeal);
+                            
+                            // 2. Create the card directly with dates
                             const result = await addMealToPossibleDirectly.mutateAsync({
                               name: meal.name, category: cat.value,
                               calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients,
+                              expiration_date: anBefore.earliestExpiration,
+                              counter_start_date: oldestCounter || anBefore.earliestCounterDate,
                             });
 
-                            // 2. Deduct ingredients from stock
-                            const { snapshots, consumedIds } = await deductIngredientsFromStock(partialMeal);
-
-                            // 3. Analyse after deduction to get expiration, then update card
                             if (result?.id) {
-                              const an = analyzeMealIngredients(meal, foodItems, foodItemIndex, new Set(consumedIds));
-                              if (an.earliestExpiration) {
-                                updateExpiration.mutate({ id: result.id, expiration_date: an.earliestExpiration });
-                              }
                               updateSnapshots(prev => ({ ...prev, [result.id]: snapshots }));
                               if (partialMeal.ingredients && partialMeal.ingredients !== meal.ingredients) {
                                 updatePossibleIngredients.mutate({ id: result.id, ingredients_override: partialMeal.ingredients });
@@ -893,6 +900,8 @@ const Index = () => {
                                 name: meal.name, category: cat.value,
                                 calories: meal.calories, protein: meal.protein, grams: meal.grams,
                                 ingredients: baseIng,
+                                expiration_date: fi.expiration_date,
+                                counter_start_date: fi.counter_start_date,
                               });
                               if (result?.id && scaledIng) {
                                 updatePossibleIngredients.mutate({ id: result.id, ingredients_override: scaledIng });
@@ -980,17 +989,13 @@ const Index = () => {
                               duplicatePossibleMeal.mutate(id);
                             }
                           }}
-                          onUpdateExpiration={(id, d) => updateExpiration.mutate({ id, expiration_date: d })}
                           onUpdatePlanning={(id, day, time) => {
                             updatePlanning.mutate({ id, day_of_week: day, meal_time: time });
                             const pm = possibleMeals.find(p => p.id === id);
                             if (pm) {
                               const fallbackDate = pm.created_at;
-                              const newCounterDate = day ? computePlannedCounterDate(day, time) : fallbackDate;
-                              updateCounter.mutate({ id, counter_start_date: newCounterDate });
-
                               const ing = pm.ingredients_override ?? pm.meals?.ingredients;
-                              updateFoodItemCountersForPlanning(ing, day, time, fallbackDate);
+                              updateFoodItemCountersForPlanning(ing, day, time, fallbackDate, pm.created_at);
                             }
                           }}
                           onUpdateCounter={(id, d) => updateCounter.mutate({ id, counter_start_date: d })}
@@ -1206,6 +1211,7 @@ const Index = () => {
                               const pmResult = await addMealToPossibleDirectly.mutateAsync({
                                 name: fi.name, category: cat.value, calories, protein, grams: displayGrams,
                                 expiration_date: fi.expiration_date, possible_quantity: displayQty,
+                                counter_start_date: fi.counter_start_date,
                               });
                               if (pmResult?.id) {
                                 updateSnapshots(prev => ({ ...prev, [pmResult.id]: snapshot }));

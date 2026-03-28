@@ -1,4 +1,5 @@
 import { useMemo } from 'react';
+import { format, startOfWeek, addDays } from 'date-fns';
 import { useMeals, DAYS, TIMES, type PossibleMeal, type Meal } from '@/hooks/useMeals';
 import { usePreferences } from '@/hooks/usePreferences';
 import { computeIngredientCalories, computeIngredientProtein } from '@/lib/ingredientUtils';
@@ -145,13 +146,16 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     return !!pm.day_of_week && !!pm.meal_time;
   }), [possibleMeals]);
 
-  const getMealsForSlot = (day: string, time: string) =>
-    planningMeals.filter((pm) => pm.day_of_week === day && pm.meal_time === time);
+  const getMealsForSlot = (dayKey: string, time: string, isoDate?: string) =>
+    planningMeals.filter((pm) => 
+      (pm.day_of_week === dayKey || (isoDate && pm.day_of_week === isoDate)) && 
+      pm.meal_time === time
+    );
 
   /** Resolve a breakfast selection ID to a Meal-like object.
    *  Supports both prefixed format (pm:xxx / meal:xxx) and legacy plain IDs. */
-  const getBreakfastForDay = (day: string): Meal | null => {
-    const selId = breakfastSelections[day];
+  const getBreakfastForDay = (dayKey: string, isoDate?: string): Meal | null => {
+    const selId = (isoDate && breakfastSelections[isoDate]) || breakfastSelections[dayKey];
     if (!selId) return null;
 
     // Prefixed format
@@ -176,27 +180,27 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
       || null;
   };
 
-  const getDayCalories = (day: string): number => {
-    // Sum displayed card calories for each slot (including matin for possible meals)
+  const getDayCalories = (dayKey: string, isoDate?: string): number => {
     const mealCals = (['matin', ...TIMES] as string[]).reduce((total, time) => {
-      const slotMeals = getMealsForSlot(day, time);
+      const slotMeals = getMealsForSlot(dayKey, time, isoDate);
       if (slotMeals.length > 0) {
         return total + slotMeals.reduce((s, pm) =>
           s + getCardDisplayCalories(pm, calOverrides[pm.id], isAvailable)
           , 0);
       }
-      return total + (manualCalories[`${day}-${time}`] || 0);
+      const manualKey = (isoDate && manualCalories[`${isoDate}-${time}`] !== undefined) ? `${isoDate}-${time}` : `${dayKey}-${time}`;
+      return total + (manualCalories[manualKey] || 0);
     }, 0);
 
-    const breakfast = getBreakfastForDay(day);
+    const breakfast = getBreakfastForDay(dayKey, isoDate);
     let breakfastCal = 0;
     if (breakfast) {
-      const selId = breakfastSelections[day];
+      const selId = (isoDate && breakfastSelections[isoDate]) || breakfastSelections[dayKey];
       // If it's a possible meal selection, use card display calories (respects overrides)
       if (selId?.startsWith('pm:')) {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        if (possiblePdj && possiblePdj.day_of_week === day && possiblePdj.meal_time === 'matin') {
+        if (possiblePdj && (possiblePdj.day_of_week === dayKey || (isoDate && possiblePdj.day_of_week === isoDate)) && possiblePdj.meal_time === 'matin') {
           // Already counted in mealCals via 'matin' slot calculations!
           breakfastCal = 0;
         } else {
@@ -207,58 +211,67 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
         breakfastCal = getDisplayedCalories(breakfast, null, undefined, isAvailable) || 0;
       }
     } else {
-      breakfastCal = breakfastManualCalories[day] || 0;
+      const manualKey = (isoDate && breakfastManualCalories[isoDate] !== undefined) ? isoDate : dayKey;
+      breakfastCal = breakfastManualCalories[manualKey] || 0;
     }
 
-    const extraManual = extraCalories[day] || 0;
+    const manualExtraKey = (isoDate && extraCalories[isoDate] !== undefined) ? isoDate : dayKey;
+    const extraManual = extraCalories[manualExtraKey] || 0;
+    
     const extraSelections = getPreference<Record<string, string[]>>('planning_extra_selections', {});
-    const selectedExtraIds = extraSelections[day] || [];
+    const selectionKey = (isoDate && extraSelections[isoDate] !== undefined) ? isoDate : dayKey;
+    const selectedExtraIds = extraSelections[selectionKey] || [];
     const extraSelectedCal = selectedExtraIds.reduce((sum, id) => {
       const item = foodItems.find(fi => fi.id === id);
       return sum + parseCalories(item?.calories);
     }, 0);
 
-    const drinkCal = TIMES.reduce((sum, time) => sum + (drinkChecks[`${day}-${time}`] ? DRINK_CALORIES : 0), 0);
+    const drinkCal = TIMES.reduce((sum, time) => {
+      const drinkKey = (isoDate && drinkChecks[`${isoDate}-${time}`] !== undefined) ? `${isoDate}-${time}` : `${dayKey}-${time}`;
+      return sum + (drinkChecks[drinkKey] ? DRINK_CALORIES : 0);
+    }, 0);
 
     return mealCals + breakfastCal + extraManual + extraSelectedCal + drinkCal;
   };
 
-  const getDayProtein = (day: string): number => {
+  const getDayProtein = (dayKey: string, isoDate?: string): number => {
     const mealPro = (['matin', ...TIMES] as string[]).reduce((total, time) => {
-      const slotMeals = getMealsForSlot(day, time);
+      const slotMeals = getMealsForSlot(dayKey, time, isoDate);
       if (slotMeals.length > 0) {
-        return total + slotMeals.reduce((s, pm) => {
-          const displayIngredients = pm.ingredients_override ?? pm.meals?.ingredients;
-          const ingPro = computeIngredientProtein(displayIngredients, isAvailable);
-          return s + (ingPro !== null ? ingPro : parseCalories(pm.meals?.protein));
-        }, 0);
+        return total + slotMeals.reduce((s, pm) => s + getCardDisplayProtein(pm, isAvailable), 0);
       }
-      return total + (manualProteins[`${day}-${time}`] || 0);
+      const manualKey = (isoDate && manualProteins[`${isoDate}-${time}`] !== undefined) ? `${isoDate}-${time}` : `${dayKey}-${time}`;
+      return total + (manualProteins[manualKey] || 0);
     }, 0);
 
-    const breakfast = getBreakfastForDay(day);
+    const breakfast = getBreakfastForDay(dayKey, isoDate);
     let breakfastPro = 0;
     if (breakfast) {
-      const selId = breakfastSelections[day];
+      const selId = (isoDate && breakfastSelections[isoDate]) || breakfastSelections[dayKey];
       if (selId?.startsWith('pm:')) {
         const pmId = selId.slice(3);
         const possiblePdj = possibleMeals.find(pm => pm.id === pmId);
-        if (possiblePdj && possiblePdj.day_of_week === day && possiblePdj.meal_time === 'matin') {
+        if (possiblePdj && (possiblePdj.day_of_week === dayKey || (isoDate && possiblePdj.day_of_week === isoDate)) && possiblePdj.meal_time === 'matin') {
           // Already counted in mealPro via 'matin' slot calculations!
           breakfastPro = 0;
         } else {
-          breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailable) : parseCalories(breakfast.protein);
+          breakfastPro = possiblePdj ? getCardDisplayProtein(possiblePdj, isAvailable) : parseProtein(breakfast.protein);
         }
       } else {
+        // Use ingredient-computed protein
         breakfastPro = getDisplayedProtein(breakfast, null, undefined, isAvailable) || 0;
       }
     } else {
-      breakfastPro = breakfastManualProteins[day] || 0;
+      const manualKey = (isoDate && breakfastManualProteins[isoDate] !== undefined) ? isoDate : dayKey;
+      breakfastPro = breakfastManualProteins[manualKey] || 0;
     }
 
-    const extraManual = extraProteins[day] || 0;
+    const manualExtraKey = (isoDate && extraProteins[isoDate] !== undefined) ? isoDate : dayKey;
+    const extraManual = extraProteins[manualExtraKey] || 0;
+    
     const extraSelections = getPreference<Record<string, string[]>>('planning_extra_selections', {});
-    const selectedExtraIds = extraSelections[day] || [];
+    const selectionKey = (isoDate && extraSelections[isoDate] !== undefined) ? isoDate : dayKey;
+    const selectedExtraIds = extraSelections[selectionKey] || [];
     const extraSelectedPro = selectedExtraIds.reduce((sum, id) => {
       const item = foodItems.find(fi => fi.id === id);
       return sum + parseProtein(item?.protein);
@@ -271,13 +284,15 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     const todayNum = new Date().getDay();
     const todayKey = JS_DAY_TO_KEY[todayNum];
     const todayIndex = DAY_KEY_TO_INDEX[todayKey];
+    const currentStart = startOfWeek(new Date(), { weekStartsOn: 1 });
 
     let differencesSum = 0;
     let daysCount = 0;
 
     for (let i = 0; i < todayIndex; i++) {
       const pastDayKey = DAYS[i];
-      const consumed = getDayCalories(pastDayKey);
+      const pastIso = format(addDays(currentStart, i), 'yyyy-MM-dd');
+      const consumed = getDayCalories(pastDayKey, pastIso);
       if (consumed > 0) {
         differencesSum += (consumed - DAILY_GOAL);
         daysCount++;
@@ -285,7 +300,8 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
     }
 
     const avgDifference = daysCount > 0 ? (differencesSum / daysCount) : 0;
-    const todayConsumed = getDayCalories(todayKey);
+    const todayIso = format(new Date(), 'yyyy-MM-dd');
+    const todayConsumed = getDayCalories(todayKey, todayIso);
     const remainingToday = DAILY_GOAL - todayConsumed;
     const threshold = remainingToday - avgDifference;
     return Math.max(0, threshold);
@@ -294,7 +310,8 @@ export function useCalorieBalance(isAvailable?: (name: string) => boolean) {
   const getRemainingProtein = () => {
     const todayNum = new Date().getDay();
     const todayKey = JS_DAY_TO_KEY[todayNum];
-    const todayConsumed = getDayProtein(todayKey);
+    const todayIso = format(new Date(), 'yyyy-MM-dd');
+    const todayConsumed = getDayProtein(todayKey, todayIso);
     return Math.max(0, DAILY_PROTEIN_GOAL - todayConsumed);
   };
 

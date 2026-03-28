@@ -145,36 +145,14 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
   const sortLabel = sortMode === "manual" ? "Manuel" : sortMode === "expiration" ? "Péremption" : "Planning";
   const SortIcon = sortMode === "expiration" ? CalendarDays : sortMode === "planning" ? CalendarClock : ArrowUpDown;
   const displayItemsWithAnalysis = useMemo(() => {
-    const list = sortMode !== "expiration" ? items : [...items].sort((a, b) => {
-      const aCounter = getAdaptedCounterDays(a.counter_start_date, a.day_of_week, a.created_at, a.meal_time);
-      const bCounter = getAdaptedCounterDays(b.counter_start_date, b.day_of_week, b.created_at, b.meal_time);
-      if (aCounter === null || bCounter === null || aCounter !== bCounter) return 0;
-      if (aCounter !== 0) {
-        const aDate = a.expiration_date;
-        const bDate = b.expiration_date;
-        if (aDate && bDate) {
-          const dateCmp = aDate.localeCompare(bDate);
-          if (dateCmp !== 0) return dateCmp;
-        }
-        if (aDate && !bDate) return -1;
-        if (!aDate && bDate) return 1;
-      }
-      const aCal = getDisplayedPMCalories(a);
-      const bCal = getDisplayedPMCalories(b);
-      if (aCal !== null && bCal !== null && aCal !== bCal) return aCal - bCal;
-      if (aCal !== null && bCal === null) return -1;
-      if (aCal === null && bCal !== null) return 1;
-      return (a.meals?.name ?? "").localeCompare(b.meals?.name ?? "");
-    });
-
-    return list.map(pm => {
+    return items.map(pm => {
       const meal = pm.meals;
       if (!meal) return { pm, analysis: null };
       const currentIngredients = pm.ingredients_override ?? meal.ingredients;
       const analysis = analyzeMealIngredients({ ...meal, ingredients: currentIngredients }, foodItems, foodItemIndex);
       return { pm, analysis };
     });
-  }, [items, sortMode, foodItems, foodItemIndex]);
+  }, [items, foodItems, foodItemIndex]);
 
   return (
     <MealList title={`${category.label} possibles`} emoji={category.emoji} count={displayItemsWithAnalysis.length} onExternalDrop={onExternalDrop}

@@ -1,5 +1,5 @@
 import React, { useState, forwardRef } from "react";
-import { ArrowRight, MoreVertical, Pencil, Trash2, Flame, Weight, List, Star, Thermometer, Hash, Link2 } from "lucide-react";
+import { ArrowRight, MoreVertical, Pencil, Trash2, Flame, Weight, List, Star, Thermometer, Hash, Link2, Timer } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { IngredientEditor } from "@/components/IngredientEditor";
@@ -11,7 +11,7 @@ import {
   type IngLine, parseIngredientLineDisplay, formatQtyDisplay,
   parseIngredientsToLines, serializeIngredients, normalizeKey,
   computeIngredientCalories, computeIngredientProtein, cleanIngredientText,
-  hasNegativeMetric, getMealColor
+  hasNegativeMetric, getMealColor, computeCounterHours
 } from "@/lib/ingredientUtils";
 import { findStockKey, type StockInfo, getDisplayedCalories, getDisplayedProtein } from "@/lib/stockUtils";
 
@@ -42,6 +42,7 @@ interface MealCardProps {
   counterIngredientNames?: Set<string>;
   expiringSoonIngredientNames?: Set<string>;
   stockMap?: Map<string, StockInfo>;
+  earliestCounterDate?: string | null;
 }
 
 // Ingredient parsing utilities imported from @/lib/ingredientUtils
@@ -51,7 +52,8 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
   onUpdateIngredients, onToggleFavorite, onUpdateOvenTemp, onUpdateOvenMinutes, onDragStart,
   onDragOver, onDrop, isHighlighted, hideDelete, expirationLabel, expirationDate,
   expirationIsToday, expiringIngredientName, expiredIngredientNames, expiringSoonIngredientNames,
-  maxIngredientCounter, missingIngredientNames, counterIngredientNames, stockMap
+  maxIngredientCounter, missingIngredientNames, counterIngredientNames, stockMap,
+  earliestCounterDate
 }, _ref) {
   const parseIngredientLine = parseIngredientLineDisplay;
   const formatQty = formatQtyDisplay;
@@ -131,8 +133,10 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
                 <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-bold ${maxIngredientCounter >= 3 ? 'bg-red-500/50 text-red-100' :
                     maxIngredientCounter >= 1 ? 'bg-amber-400/30 text-amber-100' :
                       'bg-white/25 text-white/80'
-                  }`}>
-                  ⏱ {maxIngredientCounter}j
+                  }`}
+                  title={earliestCounterDate ? `${computeCounterHours(earliestCounterDate)}h écoulées` : undefined}
+                >
+                  <Timer className="h-3 w-3" /> {maxIngredientCounter}j
                 </span>
               )}
               {meal.grams && (
