@@ -43,6 +43,7 @@ interface MealCardProps {
   expiringSoonIngredientNames?: Set<string>;
   stockMap?: Map<string, StockInfo>;
   earliestCounterDate?: string | null;
+  hideCounter?: boolean;
 }
 
 // Ingredient parsing utilities imported from @/lib/ingredientUtils
@@ -53,7 +54,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
   onDragOver, onDrop, isHighlighted, hideDelete, expirationLabel, expirationDate,
   expirationIsToday, expiringIngredientName, expiredIngredientNames, expiringSoonIngredientNames,
   maxIngredientCounter, missingIngredientNames, counterIngredientNames, stockMap,
-  earliestCounterDate
+  earliestCounterDate, hideCounter
 }, _ref) {
   const parseIngredientLine = parseIngredientLineDisplay;
   const formatQty = formatQtyDisplay;
@@ -129,7 +130,7 @@ export const MealCard = React.memo(forwardRef<HTMLDivElement, MealCardProps>(fun
             </span>
             {/* Options row - wraps below title on narrow screens and stays right-aligned */}
             <div className="ml-auto flex w-full sm:w-auto items-center justify-end gap-1 shrink-0 flex-wrap">
-              {maxIngredientCounter !== null && maxIngredientCounter !== undefined && (
+              {maxIngredientCounter !== null && maxIngredientCounter !== undefined && !hideCounter && (
                 <span className={`text-xs px-1.5 py-0.5 rounded-full flex items-center gap-0.5 shrink-0 font-bold ${maxIngredientCounter >= 3 ? 'bg-red-500/50 text-red-100' :
                     maxIngredientCounter >= 1 ? 'bg-amber-400/30 text-amber-100' :
                       'bg-white/25 text-white/80'

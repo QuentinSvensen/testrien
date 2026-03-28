@@ -1912,7 +1912,9 @@ export function WeeklyPlanning() {
           onDrop={handleDropUnplanned}
           className={`rounded-2xl p-3 sm:p-4 transition-all ${dragOverUnplanned || touchHighlight === "unplanned" ? "bg-muted/60 ring-2 ring-border" : "bg-card/80 backdrop-blur-sm"}`}
         >
-          <h3 className="text-sm sm:text-base font-bold text-foreground mb-2">Hors planning</h3>
+          <div className="flex items-center justify-between mb-2">
+            <h3 className="text-sm sm:text-base font-bold text-foreground">Hors planning</h3>
+          </div>
           {unplanned.length === 0 ? (
             <p className={`text-xs italic ${dragOverUnplanned ? "text-foreground/60" : "text-muted-foreground/50"}`}>
               {dragOverUnplanned ? "Relâche pour retirer du planning ↓" : "Tous les repas sont planifiés ✨"}
@@ -1921,7 +1923,6 @@ export function WeeklyPlanning() {
             <div className="flex flex-wrap gap-2">{unplanned.map((pm) => renderMiniCard(pm, true))}</div>
           )}
         </div>
-
       </>) : weekOffset <= -1 ? (
         /* ─── Previous Week (Backup View) ─── */
         (() => {
@@ -1957,6 +1958,7 @@ export function WeeklyPlanning() {
           });
 
           const dailyTotals: number[] = [];
+          const dailyProteins: number[] = [];
 
           return (
             <div className="space-y-3">
@@ -2036,6 +2038,7 @@ export function WeeklyPlanning() {
                 // Drinks calculation already included in slot totals
 
                 dailyTotals.push(dayTotal);
+                dailyProteins.push(dayPro);
 
                 return (
                   <div key={iso} className="rounded-2xl bg-card/80 backdrop-blur-sm p-2 sm:p-4">
@@ -2180,6 +2183,14 @@ export function WeeklyPlanning() {
                         <Flame className="h-4 w-4" />
                         {Math.round(weekTotalCals)} <span className="text-muted-foreground/50 font-normal text-xs">/ {WEEKLY_GOAL}</span>
                       </span>
+                      {(() => {
+                        const weekTotalPro = dailyProteins.reduce((a, b) => a + b, 0);
+                        return (
+                          <span className="flex items-center gap-1.5 text-sm font-black text-blue-400">
+                            🍗 {Math.round(weekTotalPro)} <span className="text-blue-400/50 font-normal text-xs">/ {DAILY_PROTEIN_GOAL_PREF * 7}</span>
+                          </span>
+                        );
+                      })()}
                     </div>
                   </div>
                 );
@@ -2342,11 +2353,22 @@ export function WeeklyPlanning() {
                   </div>
                 </div>
                 <div className="grid grid-cols-[1fr_1fr_auto] gap-1 sm:gap-3">
-                  {TIMES.map(time => {
+                      {TIMES.map(time => {
                     const kIso = `${iso}-${time}`;
                     const kKey = `${key}-${time}`;
+                    const slotId = `${key}-${time}`;
+                    const isOver = dragOverSlot === slotId;
                     return (
-                      <div key={time} className="min-h-[44px] sm:min-h-[52px] rounded-xl border border-dashed border-border/40 p-1 sm:p-1.5">
+                      <div 
+                        key={time} 
+                        data-slot={slotId}
+                        data-day={key}
+                        data-time={time}
+                        onDragOver={(e) => { e.preventDefault(); setDragOverSlot(slotId); }}
+                        onDragLeave={() => setDragOverSlot(null)}
+                        onDrop={(e) => { e.preventDefault(); handleDrop(e, key, time); }}
+                        className={`min-h-[44px] sm:min-h-[52px] rounded-xl border border-dashed p-1 sm:p-1.5 transition-all ${isOver ? 'bg-primary/20 border-primary scale-[1.02] shadow-lg ring-2 ring-primary/40' : 'border-border/40'}`}
+                      >
                         <div className="flex items-center justify-between mb-0.5">
                           <div className="flex items-center gap-1">
                             <span className="text-[8px] sm:text-[10px] font-semibold text-muted-foreground uppercase tracking-wide">{TIME_LABELS[time]}</span>
@@ -2397,41 +2419,48 @@ export function WeeklyPlanning() {
                               <Zap className="w-3 h-3 text-amber-400 animate-pulse" />
                             </div>
                             <div className="space-y-1.5 max-h-64 overflow-y-auto pr-1 custom-scrollbar">
-                              {getSortedFoodItems(
-                                foodItems.filter(fi => fi.storage_type === 'extras'),
-                                foodSortModes['extras'] || "manual",
-                                sortDirections['food-extras'] !== false
-                              ).map(fi => {
-                                const count = effExtraSel.filter(id => id === fi.id).length;
-                                return (
-                                  <div key={fi.id} className={`w-full p-2 rounded-xl border transition-all group flex items-center gap-3 ${count > 0 ? 'bg-orange-500/20 border-orange-500/40 shadow-inner' : 'bg-muted/30 hover:bg-orange-500/10 border-transparent hover:border-orange-500/20'}`}>
-                                    <div className="flex-1 min-w-0">
-                                      <p className={`text-[11px] font-bold transition-colors truncate ${count > 0 ? 'text-orange-600' : 'text-foreground group-hover:text-orange-600'}`}>{fi.name}</p>
-                                      {(fi.grams || fi.quantity) && (
-                                        <p className="text-[9px] text-muted-foreground/60">{fi.grams ? `${fi.grams}` : ''}{fi.grams && fi.quantity ? ' · ' : ''}{fi.quantity ? `x${fi.quantity}` : ''}</p>
-                                      )}
-                                    </div>
-                                    <div className="flex items-center gap-1.5 shrink-0">
-                                      {count > 0 && (<>
-                                        <button onClick={() => { const u = { ...nextExtraSelections }; const c = u[iso] || u[key] || []; const idx = c.lastIndexOf(fi.id); if (idx >= 0) u[iso] = [...c.slice(0, idx), ...c.slice(idx + 1)]; delete u[key]; setPreference.mutate({ key: 'next_week_extra_selections', value: u }); }} className="h-5 w-5 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-500 text-xs font-bold">−</button>
-                                        <span className="text-[10px] font-black text-orange-500 min-w-[14px] text-center">{count}</span>
-                                      </>)}
-                                      <button onClick={() => { const u = { ...nextExtraSelections }; u[iso] = [...(u[iso] || u[key] || []), fi.id]; delete u[key]; setPreference.mutate({ key: 'next_week_extra_selections', value: u }); }} className="h-5 w-5 flex items-center justify-center rounded-full bg-orange-500/20 hover:bg-orange-500/40 text-orange-500 text-xs font-bold">+</button>
-                                      {fi.protein && (
-                                        <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-blue-500 border border-blue-500/10">
-                                          🍗 {fi.protein}
-                                        </div>
-                                      )}
-                                      {fi.calories && (
-                                        <div className="flex items-center gap-1 bg-orange-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-orange-500">
-                                          <Flame className="w-2.5 h-2.5" />
-                                          {fi.calories}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
+                              {(() => {
+                                const availableExtras = foodItems.filter(fi => fi.storage_type === 'extras');
+                                const sortedItems = getSortedFoodItems(
+                                  availableExtras,
+                                  foodSortModes['extras'] || "manual",
+                                  sortDirections['food-extras'] !== false
                                 );
-                              })}
+                                // Sort selected items to the top
+                                const selected = sortedItems.filter(fi => effExtraSel.includes(fi.id));
+                                const others = sortedItems.filter(fi => !effExtraSel.includes(fi.id));
+                                return [...selected, ...others].map(fi => {
+                                  const count = effExtraSel.filter(id => id === fi.id).length;
+                                  return (
+                                    <div key={fi.id} className={`w-full p-2 rounded-xl border transition-all group flex items-center gap-3 ${count > 0 ? 'bg-orange-500/20 border-orange-500/40 shadow-inner' : 'bg-muted/30 hover:bg-orange-500/10 border-transparent hover:border-orange-500/20'}`}>
+                                      <div className="flex-1 min-w-0">
+                                        <p className={`text-[11px] font-bold transition-colors truncate ${count > 0 ? 'text-orange-600' : 'text-foreground group-hover:text-orange-600'}`}>{fi.name}</p>
+                                        {(fi.grams || fi.quantity) && (
+                                          <p className="text-[9px] text-muted-foreground/60">{fi.grams ? `${fi.grams}` : ''}{fi.grams && fi.quantity ? ' · ' : ''}{fi.quantity ? `x${fi.quantity}` : ''}</p>
+                                        )}
+                                      </div>
+                                      <div className="flex items-center gap-1.5 shrink-0">
+                                        {count > 0 && (<>
+                                          <button onClick={() => { const u = { ...nextExtraSelections }; const c = u[iso] || u[key] || []; const idx = c.lastIndexOf(fi.id); if (idx >= 0) u[iso] = [...c.slice(0, idx), ...c.slice(idx + 1)]; delete u[key]; setPreference.mutate({ key: 'next_week_extra_selections', value: u }); }} className="h-5 w-5 flex items-center justify-center rounded-full bg-red-500/20 hover:bg-red-500/40 text-red-500 text-xs font-bold">−</button>
+                                          <span className="text-[10px] font-black text-orange-500 min-w-[14px] text-center">{count}</span>
+                                        </>)}
+                                        <button onClick={() => { const u = { ...nextExtraSelections }; u[iso] = [...(u[iso] || u[key] || []), fi.id]; delete u[key]; setPreference.mutate({ key: 'next_week_extra_selections', value: u }); }} className="h-5 w-5 flex items-center justify-center rounded-full bg-orange-500/20 hover:bg-orange-500/40 text-orange-500 text-xs font-bold">+</button>
+                                        {fi.protein && (
+                                          <div className="flex items-center gap-1 bg-blue-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-blue-500 border border-blue-500/10">
+                                            🍗 {fi.protein}
+                                          </div>
+                                        )}
+                                        {fi.calories && (
+                                          <div className="flex items-center gap-1 bg-orange-500/10 px-1.5 py-0.5 rounded-lg text-[9px] font-black text-orange-500">
+                                            <Flame className="w-2.5 h-2.5" />
+                                            {fi.calories}
+                                          </div>
+                                        )}
+                                      </div>
+                                    </div>
+                                  );
+                                });
+                              })()}
                             </div>
                           </PopoverContent>
                         </Popover>

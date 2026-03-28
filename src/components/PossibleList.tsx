@@ -162,46 +162,67 @@ export function PossibleList({ category, items, sortMode, stockMap, onToggleSort
         <Button size="sm" variant="ghost" onClick={onRandomPick} className="h-6 w-6 p-0"><Dice5 className="h-3.5 w-3.5" /></Button>
       </>}>
       {displayItemsWithAnalysis.length === 0 && <p className="text-muted-foreground text-sm text-center py-6 italic">Glisse des repas ici →</p>}
-      {displayItemsWithAnalysis.map(({ pm, analysis }, index) => {
-        const meal = pm.meals;
-        if (!meal || !analysis) return null;
-        const expiredIngs = analysis.expiredIngredientNames;
-        const soonIngs = analysis.expiringSoonIngredientNames;
+      {(() => {
+        let hasTodayLine = false;
+        const todayISO = format(new Date(), 'yyyy-MM-dd');
+        
+        return displayItemsWithAnalysis.map(({ pm, analysis }, index) => {
+          const meal = pm.meals;
+          if (!meal || !analysis) return null;
+          const expiredIngs = analysis.expiredIngredientNames;
+          const soonIngs = analysis.expiringSoonIngredientNames;
 
-        return (
-          <MemoizedPossibleMealCard key={pm.id} pm={pm} stockMap={stockMap}
-            expiredIngredientNames={expiredIngs}
-            expiringSoonIngredientNames={soonIngs}
-            onRemove={() => onRemove(pm.id)}
-            onReturnWithoutDeduction={masterSourcePmIds.has(pm.id) ? undefined : () => onReturnWithoutDeduction(pm.id)}
-            onReturnWithoutDeductionLabel={unParUnSourcePmIds.has(pm.id) ? "Revenir dans Un par un" : undefined}
-            onReturnToMaster={masterSourcePmIds.has(pm.id) ? () => onReturnToMaster(pm.id) : undefined}
-            onDelete={() => onDelete(pm.id)}
-            onDuplicate={() => onDuplicate(pm.id)}
-            onUpdateExpiration={(d) => onUpdateExpiration(pm.id, d)}
-            onUpdatePlanning={(day, time) => onUpdatePlanning(pm.id, day, time)}
-            onUpdateCounter={(d) => onUpdateCounter(pm.id, d)}
-            onUpdateCalories={(cal) => onUpdateCalories(pm.meal_id, cal)}
-            onUpdateGrams={(g) => onUpdateGrams(pm.meal_id, g, pm.id)}
-            onUpdateIngredients={(ing) => onUpdateIngredients(pm.meal_id, ing)}
-            onUpdatePossibleIngredients={(newIng) => onUpdatePossibleIngredients(pm.id, newIng)}
-            onUpdateQuantity={unParUnSourcePmIds.has(pm.id) ? (qty) => onUpdateQuantity(pm.id, qty) : undefined}
-            onSplitQuantity={onSplitQuantity ? (ratio, baseIng) => onSplitQuantity(pm.id, ratio, baseIng) : undefined}
-            onDragStart={(e) => { e.dataTransfer.setData("mealId", pm.meal_id); e.dataTransfer.setData("pmId", pm.id); e.dataTransfer.setData("source", "possible"); setDragIndex(index); }}
-            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-            onDrop={(e) => {
-              e.preventDefault();
-              e.stopPropagation();
-              if (dragIndex !== null && dragIndex !== index) {
-                onReorder(dragIndex, index);
-              }
-              setDragIndex(null);
-            }}
-            onDoubleClick={() => setPopupPm(pm)}
-            isHighlighted={highlightedId === pm.id}
-            realtimeCounterStartDate={analysis.earliestCounterDate} />
-        );
-      })}
+          const isTodayPM = pm.day_of_week === todayISO;
+          const showSeparator = isTodayPM && !hasTodayLine;
+          if (showSeparator) hasTodayLine = true;
+
+          return (
+            <React.Fragment key={pm.id}>
+              {showSeparator && (
+                <div className="relative py-2 px-1">
+                  <div className="absolute inset-0 flex items-center" aria-hidden="true">
+                    <div className="w-full border-t border-white/20"></div>
+                  </div>
+                  <div className="relative flex justify-center">
+                    <span className="bg-[#121212] px-2 text-[10px] uppercase tracking-wider font-bold text-white/40">Aujourd'hui</span>
+                  </div>
+                </div>
+              )}
+              <MemoizedPossibleMealCard pm={pm} stockMap={stockMap}
+                expiredIngredientNames={expiredIngs}
+                expiringSoonIngredientNames={soonIngs}
+                onRemove={() => onRemove(pm.id)}
+                onReturnWithoutDeduction={masterSourcePmIds.has(pm.id) ? undefined : () => onReturnWithoutDeduction(pm.id)}
+                onReturnWithoutDeductionLabel={unParUnSourcePmIds.has(pm.id) ? "Revenir dans Un par un" : undefined}
+                onReturnToMaster={masterSourcePmIds.has(pm.id) ? () => onReturnToMaster(pm.id) : undefined}
+                onDelete={() => onDelete(pm.id)}
+                onDuplicate={() => onDuplicate(pm.id)}
+                onUpdateExpiration={(d) => onUpdateExpiration(pm.id, d)}
+                onUpdatePlanning={(day, time) => onUpdatePlanning(pm.id, day, time)}
+                onUpdateCounter={(d) => onUpdateCounter(pm.id, d)}
+                onUpdateCalories={(cal) => onUpdateCalories(pm.meal_id, cal)}
+                onUpdateGrams={(g) => onUpdateGrams(pm.meal_id, g, pm.id)}
+                onUpdateIngredients={(ing) => onUpdateIngredients(pm.meal_id, ing)}
+                onUpdatePossibleIngredients={(newIng) => onUpdatePossibleIngredients(pm.id, newIng)}
+                onUpdateQuantity={unParUnSourcePmIds.has(pm.id) ? (qty) => onUpdateQuantity(pm.id, qty) : undefined}
+                onSplitQuantity={onSplitQuantity ? (ratio, baseIng) => onSplitQuantity(pm.id, ratio, baseIng) : undefined}
+                onDragStart={(e) => { e.dataTransfer.setData("mealId", pm.meal_id); e.dataTransfer.setData("pmId", pm.id); e.dataTransfer.setData("source", "possible"); setDragIndex(index); }}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  if (dragIndex !== null && dragIndex !== index) {
+                    onReorder(dragIndex, index);
+                  }
+                  setDragIndex(null);
+                }}
+                onDoubleClick={() => setPopupPm(pm)}
+                isHighlighted={highlightedId === pm.id}
+                realtimeCounterStartDate={analysis.earliestCounterDate} />
+            </React.Fragment>
+          );
+        });
+      })()}
 
       <Dialog open={!!popupPm} onOpenChange={(open) => { if (!open) setPopupPm(null); }}>
         <DialogContent className="max-w-md p-0 overflow-hidden" aria-describedby={undefined}>

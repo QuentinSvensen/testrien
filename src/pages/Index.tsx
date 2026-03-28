@@ -242,6 +242,20 @@ const Index = () => {
         }
       }
     }
+
+    // Force "peremption" sort by default for all "au choix" (AvailableList) categories
+    const availableSortModes = getPreference<Record<string, string>>('meal_available_sort_modes', {});
+    const updatedSortModes = { ...availableSortModes };
+    let changed = false;
+    for (const cat of CATEGORIES) {
+      if (updatedSortModes[cat.value] !== 'expiration') {
+        updatedSortModes[cat.value] = 'expiration';
+        changed = true;
+      }
+    }
+    if (changed) {
+      setPreference.mutate({ key: 'meal_available_sort_modes', value: updatedSortModes });
+    }
   }, [unlocked, isPreferencesLoading]);
 
   const macroLookup = useMemo(() => {
