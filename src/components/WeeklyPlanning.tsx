@@ -683,6 +683,89 @@ export function WeeklyPlanning() {
     return map;
   }, [meals]);
 
+  const backupTotals = useMemo(() => {
+    if (weekOffset !== -1) return null;
+    const backupRaw = getPreference<any>('possible_meals_backup', null);
+    if (!backupRaw) return null;
+    
+    const isNF = backupRaw && !Array.isArray(backupRaw) && backupRaw.cards;
+    const cards: any[] = isNF ? backupRaw.cards : (Array.isArray(backupRaw) ? backupRaw : []);
+    const bMC = isNF ? (backupRaw.manualCalories || {}) : {};
+    const bMP = isNF ? (backupRaw.manualProteins || {}) : {};
+    const bEC = isNF ? (backupRaw.extraCalories || {}) : {};
+    const bEP = isNF ? (backupRaw.extraProteins || {}) : {};
+    const bES = isNF ? (backupRaw.extraSelections || {}) : {};
+    const bBC = isNF ? (backupRaw.breakfastManualCalories || {}) : {};
+    const bBP = isNF ? (backupRaw.breakfastManualProteins || {}) : {};
+    const bBS = isNF ? (backupRaw.breakfastSelections || {}) : {};
+    const bDC = isNF ? (backupRaw.drinkChecks || {}) : {};
+    const bCO = isNF ? (backupRaw.calOverrides || {}) : {};
+
+    // Restore archived goals if present, otherwise fallback to current goals
+    const archivedDailyGoal = isNF && backupRaw.daily_goal ? backupRaw.daily_goal : DAILY_GOAL;
+    const archivedProteinGoal = isNF && backupRaw.protein_goal ? backupRaw.protein_goal : DAILY_PROTEIN_GOAL_PREF;
+
+    let totalCal = 0;
+    let totalPro = 0;
+
+    const bDates = weekDates;
+    bDates.forEach(({ key, iso }) => {
+      const isTodayBack = iso === todayISO;
+      let dayCal = 0;
+      let dayPro = 0;
+
+      // Meals
+      cards.filter(c => c.day_of_week === key || c.day_of_week === iso).forEach(c => {
+        const m = allMealsById.get(c.meal_id);
+        if (m) {
+          const overrideCal = bCO[c.id];
+          dayCal += overrideCal ? (parseFloat(overrideCal) || 0) : getCardDisplayCalories(c, undefined, isAvailableCb);
+          dayPro += getCardDisplayProtein(c, isAvailableCb);
+        }
+      });
+
+      // Manual
+      dayCal += (bMC[iso] || bMC[key] || 0);
+      dayPro += (bMP[iso] || bMP[key] || 0);
+
+      // Extra
+      const eCal = (bEC[iso] || bEC[key] || 0) + (bES[iso] || bES[key] || []).reduce((s: number, id: string) => s + parseCalories(foodItems.find(fi => fi.id === id)?.calories), 0);
+      const ePro = (bEP[iso] || bEP[key] || 0) + (bES[iso] || bES[key] || []).reduce((s: number, id: string) => s + parseProtein(foodItems.find(fi => fi.id === id)?.protein), 0);
+      dayCal += eCal;
+      dayPro += ePro;
+
+      // Breakfast
+      const bfSel = bBS[iso] || bBS[key];
+      if (bfSel) {
+        if (bfSel.startsWith('pm:')) {
+          const pm = cards.find(p => p.id === bfSel.slice(3));
+          if (pm) {
+            dayCal += getCardDisplayCalories(pm, bCO[pm.id], isAvailableCb);
+            dayPro += getCardDisplayProtein(pm, isAvailableCb);
+          }
+        } else {
+          const m = allMealsById.get(bfSel);
+          if (m) {
+            dayCal += parseCalories(m.calories);
+            dayPro += parseProtein(m.protein);
+          }
+        }
+      }
+      dayCal += (bBC[iso] || bBC[key] || 0);
+      dayPro += (bBP[iso] || bBP[key] || 0);
+
+      // Drinks
+      if (bDC[iso] || bDC[key]) {
+        dayCal += 150;
+      }
+
+      totalCal += dayCal;
+      totalPro += dayPro;
+    });
+
+    return { totalCal, totalPro, archivedDailyGoal, archivedProteinGoal };
+  }, [getPreference, weekOffset, DAILY_GOAL, DAILY_PROTEIN_GOAL_PREF, allMealsById, meals, foodItems, weekDates]);
+
   const handleAddExtraItem = (day: string, item: FoodItem, remove = false) => {
     const updated = { ...extraSelections };
     const current = updated[day] || [];
@@ -1000,6 +1083,8 @@ export function WeeklyPlanning() {
       if (raw.breakfastSelections) setPreference.mutate({ key: 'planning_breakfast', value: raw.breakfastSelections });
       if (raw.drinkChecks) setPreference.mutate({ key: 'planning_drink_checks', value: raw.drinkChecks });
       if (raw.calOverrides) setPreference.mutate({ key: 'planning_cal_overrides', value: raw.calOverrides });
+      if (raw.daily_goal) setPreference.mutate({ key: 'planning_daily_goal', value: raw.daily_goal });
+      if (raw.protein_goal) setPreference.mutate({ key: 'planning_protein_goal', value: raw.protein_goal });
     }
 
     qc.invalidateQueries({ queryKey: ["possible_meals"] });
@@ -1032,6 +1117,8 @@ export function WeeklyPlanning() {
       breakfastSelections,
       drinkChecks,
       calOverrides,
+      daily_goal: DAILY_GOAL,
+      protein_goal: DAILY_PROTEIN_GOAL_PREF,
     };
     const userId = (await supabase.auth.getUser()).data.user?.id;
     await supabase.from('user_preferences').upsert({ key: 'possible_meals_backup', value: fullBackup, user_id: userId } as any, { onConflict: 'user_id,key' });
@@ -1157,6 +1244,24 @@ export function WeeklyPlanning() {
                 onKeyDown={(e) => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
                 className="w-14 h-6 text-xs bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 focus:outline-none focus:border-blue-400/50 text-center"
               />
+              <span className="text-[9px] text-muted-foreground">prot/j</span>
+            </div>
+          </>
+        )}
+        {weekOffset === -1 && backupTotals && (
+          <>
+            <div className="flex items-center gap-1">
+              <Flame className="h-3 w-3 text-orange-500" />
+              <div className="w-16 h-6 text-xs bg-transparent border border-dashed border-orange-300/30 rounded px-1 text-orange-500 flex items-center justify-center font-bold">
+                {Math.round(backupTotals.archivedDailyGoal)}
+              </div>
+              <span className="text-[9px] text-muted-foreground">kcal/j</span>
+            </div>
+            <div className="flex items-center gap-1">
+              <span className="text-xs">🍗</span>
+              <div className="w-14 h-6 text-xs bg-transparent border border-dashed border-blue-400/20 rounded px-1 text-blue-400 flex items-center justify-center font-bold">
+                {Math.round(backupTotals.archivedProteinGoal)}
+              </div>
               <span className="text-[9px] text-muted-foreground">prot/j</span>
             </div>
           </>
@@ -1741,7 +1846,6 @@ export function WeeklyPlanning() {
                                 foodSortModes['extras'] || "manual",
                                 sortDirections['food-extras'] !== false
                               );
-
                               if (sortedExtras.length === 0) {
                                 return (
                                   <div className="text-center py-4 bg-muted/20 rounded-xl">
@@ -1751,9 +1855,14 @@ export function WeeklyPlanning() {
                                 );
                               }
 
-                              return sortedExtras.map((fi) => {
-                                const extraSels = getPreference<Record<string, string[]>>('planning_extra_selections', {});
-                                const currentIds = extraSels[iso] || extraSels[key] || [];
+                              const extraSels = getPreference<Record<string, string[]>>('planning_extra_selections', {});
+                              const currentIds = extraSels[iso] || extraSels[key] || [];
+
+                              // Sort selected items to the top
+                              const selected = sortedExtras.filter(fi => currentIds.includes(fi.id));
+                              const others = sortedExtras.filter(fi => !currentIds.includes(fi.id));
+
+                              return [...selected, ...others].map((fi) => {
                                 const count = currentIds.filter(id => id === fi.id).length;
                                 return (
                                   <div key={fi.id} className={`w-full p-2 rounded-xl border transition-all group flex items-center gap-3 ${count > 0 ? 'bg-orange-500/20 border-orange-500/40 shadow-inner' : 'bg-muted/30 hover:bg-orange-500/10 border-transparent hover:border-orange-500/20'}`}>
@@ -1808,7 +1917,7 @@ export function WeeklyPlanning() {
                                     </div>
                                   </div>
                                 );
-                              })
+                              });
                             })()}
                           </div>
                         </PopoverContent>
@@ -2079,16 +2188,11 @@ export function WeeklyPlanning() {
                       <div className="flex items-center gap-1.5 shrink-0 ml-auto flex-wrap justify-end">
                         <span className="flex items-center gap-1 text-[11px] font-bold text-muted-foreground bg-muted/60 rounded-full px-2 py-0.5 whitespace-nowrap">
                           <Flame className="h-2.5 w-2.5 text-orange-500" />
-                          {Math.round(dayTotal)} <span className="text-muted-foreground/50 font-normal">/ {DAILY_GOAL}</span>
+                          {Math.round(dayTotal)} <span className="text-muted-foreground/50 font-normal">/ {backupTotals.archivedDailyGoal}</span>
                         </span>
                         {dayTotal > 0 && (
-                          <span className={`text-[10px] font-bold whitespace-nowrap ${DAILY_GOAL - dayTotal > 0 ? 'text-muted-foreground/60' : 'text-orange-500'}`}>
-                            {DAILY_GOAL - dayTotal > 0 ? `reste ${Math.round(DAILY_GOAL - dayTotal)}` : `+${Math.round(dayTotal - DAILY_GOAL)}`}
-                          </span>
-                        )}
-                        {dayPro > 0 && (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-blue-400 bg-blue-500/10 rounded-full px-2 py-0.5 whitespace-nowrap">
-                            🍗 {Math.round(dayPro)} <span className="text-blue-400/50 font-normal">/ {DAILY_PROTEIN_GOAL_PREF}</span>
+                          <span className={`text-[10px] font-bold whitespace-nowrap ${backupTotals.archivedDailyGoal - dayTotal > 0 ? 'text-muted-foreground/60' : 'text-orange-500'}`}>
+                            {backupTotals.archivedDailyGoal - dayTotal > 0 ? `reste ${Math.round(backupTotals.archivedDailyGoal - dayTotal)}` : `+${Math.round(dayTotal - backupTotals.archivedDailyGoal)}`}
                           </span>
                         )}
                       </div>
@@ -2181,16 +2285,8 @@ export function WeeklyPlanning() {
                       </span>
                       <span className="flex items-center gap-1.5 text-sm font-black text-orange-500">
                         <Flame className="h-4 w-4" />
-                        {Math.round(weekTotalCals)} <span className="text-muted-foreground/50 font-normal text-xs">/ {WEEKLY_GOAL}</span>
+                        {Math.round(weekTotalCals)} <span className="text-muted-foreground/50 font-normal text-xs">/ {backupTotals.archivedDailyGoal * 7}</span>
                       </span>
-                      {(() => {
-                        const weekTotalPro = dailyProteins.reduce((a, b) => a + b, 0);
-                        return (
-                          <span className="flex items-center gap-1.5 text-sm font-black text-blue-400">
-                            🍗 {Math.round(weekTotalPro)} <span className="text-blue-400/50 font-normal text-xs">/ {DAILY_PROTEIN_GOAL_PREF * 7}</span>
-                          </span>
-                        );
-                      })()}
                     </div>
                   </div>
                 );
@@ -2353,14 +2449,14 @@ export function WeeklyPlanning() {
                   </div>
                 </div>
                 <div className="grid grid-cols-[1fr_1fr_auto] gap-1 sm:gap-3">
-                      {TIMES.map(time => {
+                  {TIMES.map(time => {
                     const kIso = `${iso}-${time}`;
                     const kKey = `${key}-${time}`;
                     const slotId = `${key}-${time}`;
                     const isOver = dragOverSlot === slotId;
                     return (
-                      <div 
-                        key={time} 
+                      <div
+                        key={time}
                         data-slot={slotId}
                         data-day={key}
                         data-time={time}
@@ -2556,7 +2652,7 @@ export function WeeklyPlanning() {
                     </span>
                   )}
                   {counterDays === null && popupPm.counter_start_date && new Date(popupPm.counter_start_date).getTime() > new Date().getTime() && (
-                    <span 
+                    <span
                       className="text-sm font-bold bg-blue-500/40 px-2.5 py-1 rounded-full flex items-center gap-1 border border-blue-300/30"
                     >
                       <Timer className="h-3.5 w-3.5" /> 📅 Prog.
