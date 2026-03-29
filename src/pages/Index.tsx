@@ -507,6 +507,9 @@ const Index = () => {
   const [masterSourcePmIds, setMasterSourcePmIds] = useState<Set<string>>(new Set());
   const [unParUnSourcePmIds, setUnParUnSourcePmIds] = useState<Set<string>>(new Set());
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Transfert d'un repas vers la liste "Possible" (avec déduction de stock)
+  // ═══════════════════════════════════════════════════════════════════════════
   const handleMoveToPossibleGeneral = async (mealId: string, source?: string, pmId?: string | null) => {
     if (pmId) {
       updatePlanning.mutate({ id: pmId, day_of_week: null, meal_time: null });
