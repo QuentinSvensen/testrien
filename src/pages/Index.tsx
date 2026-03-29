@@ -97,6 +97,9 @@ const LazyPossibleList = lazyRetry(importPossibleList, "PossibleList");
 const LazyAvailableList = lazyRetry(importAvailableList, "AvailableList");
 const LazyUnParUnSection = lazyRetry(importUnParUnSection, "UnParUnSection");
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Catégories de repas disponibles dans l'application
+// ═══════════════════════════════════════════════════════════════════════════════
 const CATEGORIES: { value: MealCategory; label: string; emoji: string; }[] = [
   { value: "petit_dejeuner", label: "Petit déj", emoji: "🥐" },
   { value: "entree", label: "Entrées", emoji: "🥗" },
@@ -104,11 +107,12 @@ const CATEGORIES: { value: MealCategory; label: string; emoji: string; }[] = [
   { value: "dessert", label: "Desserts", emoji: "🍰" },
   { value: "bonus", label: "Bonus", emoji: "⭐" }];
 
-/** Get displayed calories for a meal: uses shared helper */
+/** Récupère les calories affichées pour un repas (via le helper partagé) */
 function getDisplayedMealCalories(meal: Meal): number {
   return getDisplayedCalories(meal) ?? 0;
 }
 
+/** Valide le nom d'un repas avant création */
 function validateMealName(name: string): string | null {
   const trimmed = name.trim();
   if (trimmed.length === 0) return "Le nom est requis";
