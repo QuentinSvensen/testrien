@@ -276,8 +276,7 @@ export function analyzeMealIngredients(
             }
           }
 
-          // Un ingrédient est "comptable" uniquement s'il est frais (ni surgelé, ni sec, ni marqué no_counter)
-          if (fi.storage_type !== 'surgele' && !fi.is_dry && !fi.no_counter) {
+          if (fi.storage_type !== 'surgele' && !fi.no_counter) {
             result.hasCounterableIngredient = true;
           }
         }

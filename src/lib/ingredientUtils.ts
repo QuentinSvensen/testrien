@@ -23,16 +23,14 @@ export const DAY_KEY_TO_INDEX: Record<string, number> = {
   lundi: 0, mardi: 1, mercredi: 2, jeudi: 3, vendredi: 4, samedi: 5, dimanche: 6,
 };
 
-/** Calcule le nombre de jours écoulés depuis counter_start_date.
- *  Utilise un calcul en heures (floor de diffMs / 24h) pour ne basculer à 1j qu'après 24h réelles.
- *  Retourne null si pas de compteur ou si le compteur est programmé dans le futur. */
+/** Compute counter days from counter_start_date. Returns null if no counter or if counter is in the future (scheduled). */
 export function computeCounterDays(counterStartDate: string | null | undefined): number | null {
   if (!counterStartDate) return null;
   const start = parseISO(counterStartDate);
   const now = new Date();
   if (now < start) return null;
-  const diffMs = now.getTime() - start.getTime();
-  return Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  const days = differenceInCalendarDays(now, start);
+  return days;
 }
 
 /** Compute total hours elapsed since counter_start_date. */
