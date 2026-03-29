@@ -153,7 +153,7 @@ const Index = () => {
 
   const unlocked = !!session;
 
-  // All hooks always enabled once unlocked — data is cached by react-query
+  // ─── Hooks de données (activés seulement après authentification) ──────────
   const { items: foodItems, deleteItem: deleteFoodItemMutation } = useFoodItems({ enabled: unlocked });
   const deleteFoodItem = (id: string) => deleteFoodItemMutation.mutate(id);
 
@@ -172,6 +172,7 @@ const Index = () => {
   const { groups: shoppingGroups, items: shoppingItems, toggleSecondaryCheck: toggleShoppingSecondaryCheck, updateItemQuantity: updateShoppingItemQuantity } = useShoppingList({ enabled: unlocked });
   const { getPreference, setPreference, isLoading: isPreferencesLoading } = usePreferences({ enabled: unlocked });
 
+  // ─── Données dérivées (memoized) ────────────────────────────────────────
   const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
   const foodItemIndex = useMemo(() => buildFoodItemIndex(foodItems), [foodItems]);
   const { deductIngredientsFromStock, restoreIngredientsToStock, adjustStockForIngredientChange, deductNameMatchStock, updateFoodItemCountersForPlanning } = useMealTransfers(foodItems);
