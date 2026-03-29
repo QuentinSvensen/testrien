@@ -415,13 +415,14 @@ export function PossibleMealCard({
 
         {/* Options */}
         <div className="ml-auto flex items-center justify-end gap-1.5 shrink-0 flex-wrap">
-          {counterDays !== null ? (
+          {/* Affiche le compteur uniquement à partir de 1j (masque 0j pour réduire le bruit visuel) */}
+          {counterDays !== null && counterDays >= 1 ? (
             <button
               onClick={() => onUpdateCounter(null)}
               className={`text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 transition-all shrink-0 ${counterUrgent
                 ? animateUrgent
                   ? 'bg-red-500/80 text-white animate-pulse shadow-lg shadow-red-500/30'
-                  : 'bg-red-500/80 text-white shadow-lg shadow-red-500/30' // Frozen past urgent
+                  : 'bg-red-500/80 text-white shadow-lg shadow-red-500/30'
                 : 'bg-white/25 text-white'
                 }`}
               title={`Arrêter le compteur${counterHours !== null ? ` (${counterHours}h écoulées)` : ''}`}
