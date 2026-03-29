@@ -1,6 +1,15 @@
 /**
- * Shared ingredient parsing utilities.
- * Used by MealCard, PossibleMealCard, MealPlanGenerator, Index, and stockUtils.
+ * Utilitaires partagés pour le parsing et le calcul des ingrédients.
+ * 
+ * Ce module fournit toutes les fonctions nécessaires pour :
+ * - Parser les chaînes d'ingrédients (quantités, grammes, alternatives)
+ * - Normaliser les noms pour la correspondance (accents, pluriels, typos)
+ * - Calculer les macros (calories, protéines) à partir des ingrédients
+ * - Gérer les compteurs d'ouverture (jours/heures depuis l'ouverture)
+ * - Éditer et sérialiser les ingrédients (pour l'UI)
+ * - Propager les macros entre repas partageant les mêmes ingrédients
+ * 
+ * Utilisé par : MealCard, PossibleMealCard, MealPlanGenerator, Index, stockUtils
  */
 
 import type { FoodItem } from "@/components/FoodItems";
@@ -9,7 +18,11 @@ export { colorFromName };
 
 import { differenceInCalendarDays, parseISO, startOfDay, addDays } from "date-fns";
 
-/** Check if an ISO date string is strictly in the past (before today 00:00). */
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 1 : Dates et compteurs d'ouverture
+// ═══════════════════════════════════════════════════════════════════════════════
+
+/** Vérifie si une date ISO est strictement dans le passé (avant aujourd'hui 00:00) */
 export function isExpiredDate(dateIso: string | null | undefined): boolean {
   if (!dateIso) return false;
   const d = startOfDay(parseISO(dateIso));
@@ -17,23 +30,27 @@ export function isExpiredDate(dateIso: string | null | undefined): boolean {
   return d.getTime() < today.getTime();
 }
 
-// ─── Counter Utility ────────────────────────────────────────────────────────
-
+/** Table de correspondance jour français → index (0=Lundi, 6=Dimanche) */
 export const DAY_KEY_TO_INDEX: Record<string, number> = {
   lundi: 0, mardi: 1, mercredi: 2, jeudi: 3, vendredi: 4, samedi: 5, dimanche: 6,
 };
 
-/** Compute counter days from counter_start_date. Returns null if no counter or if counter is in the future (scheduled). */
+/**
+ * Calcule le nombre de jours écoulés depuis counter_start_date.
+ * Retourne null si pas de compteur ou si le compteur est dans le futur (programmé).
+ */
 export function computeCounterDays(counterStartDate: string | null | undefined): number | null {
   if (!counterStartDate) return null;
   const start = parseISO(counterStartDate);
   const now = new Date();
   if (now < start) return null;
-  const days = differenceInCalendarDays(now, start);
-  return days;
+  return differenceInCalendarDays(now, start);
 }
 
-/** Compute total hours elapsed since counter_start_date. */
+/**
+ * Calcule le nombre d'heures écoulées depuis counter_start_date.
+ * Utilisé pour l'affichage fin (ex: "7h") quand le compteur est < 1 jour.
+ */
 export function computeCounterHours(counterStartDate: string | null | undefined, target?: Date): number | null {
   if (!counterStartDate) return null;
   const start = parseISO(counterStartDate);
@@ -43,16 +60,19 @@ export function computeCounterHours(counterStartDate: string | null | undefined,
   return Math.floor(diffMs / (1000 * 60 * 60));
 }
 
-/** Get a stable Date for a given day Key or ISO date relative to a reference Date */
+/**
+ * Convertit une clé de jour (ex: "lundi" ou "2024-03-15") en objet Date stable.
+ * Pour les jours nommés, calcule la date relative à la semaine de `ref`.
+ */
 export function getDateForDayKey(dayKey: string, ref: Date = new Date()): Date {
-  // If dayKey is already a date (YYYY-MM-DD), use it directly
+  // Si c'est déjà une date ISO (YYYY-MM-DD), l'utiliser directement
   if (/^\d{4}-\d{2}-\d{2}$/.test(dayKey)) {
     return startOfDay(parseISO(dayKey));
   }
 
   const d = startOfDay(ref);
-  const refDow = d.getDay(); // 0=Sun
-  const refIdx = refDow === 0 ? 6 : refDow - 1; // 0=Mon
+  const refDow = d.getDay(); // 0=Dim
+  const refIdx = refDow === 0 ? 6 : refDow - 1; // 0=Lun
   const lowKey = (dayKey || "").toLowerCase();
   const targetIdx = DAY_KEY_TO_INDEX[lowKey] ?? 0;
   const diff = targetIdx - refIdx;
@@ -61,7 +81,15 @@ export function getDateForDayKey(dayKey: string, ref: Date = new Date()): Date {
   return target;
 }
 
-/** Get the target planning date, wrapping to next week if it occurs before the counter start */
+/**
+ * Calcule la date cible du planning, en ajustant l'heure selon le repas.
+ * Si le compteur a démarré après la date cible, avance d'une semaine.
+ * 
+ * @param dayKey - Jour du planning ("lundi" ou "2024-03-15")
+ * @param refDate - Date de référence (aujourd'hui)
+ * @param startDate - Date de début du compteur (optionnel)
+ * @param mealTime - Moment du repas : "midi" (12h), "soir" (19h), "matin" (8h)
+ */
 export function getTargetDate(dayKey: string | null | undefined, refDate: Date, startDate?: string | null, mealTime?: string | null): Date {
   let target: Date;
   
@@ -73,7 +101,7 @@ export function getTargetDate(dayKey: string | null | undefined, refDate: Date, 
     target = getDateForDayKey(dayKey, refDate);
   }
 
-  // Apply meal time precision (Midi=12h, Soir=19h)
+  // Appliquer l'heure du repas (Midi=12h, Soir=19h, Matin=8h)
   const lowTime = (mealTime || "").toLowerCase();
   if (lowTime === "soir") {
     target.setHours(19, 0, 0, 0);
@@ -85,6 +113,7 @@ export function getTargetDate(dayKey: string | null | undefined, refDate: Date, 
 
   if (!startDate) return target;
   
+  // Si le compteur a démarré après la date cible, avancer d'une semaine
   const start = parseISO(startDate);
   if (start > target && !(/^\d{4}-\d{2}-\d{2}$/.test(dayKey || ""))) {
     const nextWeek = addDays(target, 7);
@@ -94,10 +123,12 @@ export function getTargetDate(dayKey: string | null | undefined, refDate: Date, 
 }
 
 /** 
- * Calculate counter days for a Possible meal card.
- * counter_start_date is the source of truth:
- *   - In the future → null (card is scheduled, show 📅)
- *   - In the past   → days elapsed since then (hide if < 1)
+ * Calcule le nombre de jours du compteur d'ouverture pour une carte "Possible".
+ * 
+ * Logique :
+ * - counter_start_date dans le futur → null (carte programmée, affiche 📅)
+ * - counter_start_date dans le passé → jours écoulés
+ * - Sans jour planifié + avec created_at → compteur figé au moment de création
  */
 export function getAdaptedCounterDays(
   startDate: string | null,
@@ -111,37 +142,35 @@ export function getAdaptedCounterDays(
   const now = fixedNow || new Date();
   const start = parseISO(startDate);
 
-  // If the counter starts in the future compared to NOW, it's not "running" yet.
+  // Compteur dans le futur → pas encore actif
   if (start.getTime() > now.getTime()) return null;
 
-  // Si on a un created_at mais pas de jour planifié, on FIGE le compteur au moment où la carte est apparue dans "Possible".
+  // Sans jour planifié : figer le compteur au moment de la création
   if (!dayKey && createdAt) {
     const createdDate = parseISO(createdAt);
-    // On compare le startDate à la date de création de la carte (moment de la consommation virtuelle)
     const diffMs = createdDate.getTime() - start.getTime();
     const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
-    return days < 0 ? 0 : days; // Ne jamais afficher null si c'est figé, au pire 0
+    return days < 0 ? 0 : days;
   }
 
-  // Base calculation on the planned date (relative to today)
+  // Calcul basé sur la date planifiée (relative à aujourd'hui)
   const target = getTargetDate(dayKey, now, startDate, mealTime);
-
-  // Use precise hour difference to flip at 24h as requested (compare date + hour)
   const diffMs = target.getTime() - start.getTime();
-  
   const days = Math.floor(diffMs / (1000 * 60 * 60 * 24));
   
-  // Return null if days < 0 (should already be covered by future check but kept for safety)
   return days < 0 ? null : days;
 }
 
-// ─── Text Normalization (with LRU cache) ────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 2 : Normalisation de texte (avec cache LRU)
+// ═══════════════════════════════════════════════════════════════════════════════
 
 const _normCache = new Map<string, string>();
 const _keyCache = new Map<string, string>();
 const _lightCache = new Map<string, string>();
 const NORM_CACHE_MAX = 600;
 
+/** Normalise un texte pour la correspondance : minuscule, sans accents, sans caractères spéciaux */
 export function normalizeForMatch(text: string): string {
   const cached = _normCache.get(text);
   if (cached !== undefined) return cached;
@@ -151,7 +180,7 @@ export function normalizeForMatch(text: string): string {
   return result;
 }
 
-/** Lowercase but preserve accents — used to detect accent-different words (pâte vs pâté) */
+/** Minuscule mais conserve les accents — utilisé pour détecter "pâte" vs "pâté" */
 export function lightNormalize(text: string): string {
   const cached = _lightCache.get(text);
   if (cached !== undefined) return cached;
@@ -161,7 +190,7 @@ export function lightNormalize(text: string): string {
   return result;
 }
 
-/** Normalize + strip trailing 's' for ingredient key matching */
+/** Normalise + supprime le 's' final pour la correspondance d'ingrédients (singulier/pluriel) */
 export function normalizeKey(name: string): string {
   const cached = _keyCache.get(name);
   if (cached !== undefined) return cached;
@@ -172,24 +201,19 @@ export function normalizeKey(name: string): string {
 }
 
 /**
- * Accent-safe key comparison: normalizeKey equality + verify accented forms don't conflict.
- * Prevents "épicé" matching "épice" while still allowing "epice" == "épice" (case/accent normalization).
+ * Comparaison de clés tenant compte des accents.
+ * Empêche "épicé" de matcher "épice" tout en autorisant "epice" == "épice".
  */
 export function accentSafeKeyMatch(a: string, b: string): boolean {
   if (normalizeKey(a) !== normalizeKey(b)) return false;
-  // Check that light-normalized forms (preserving accents) agree
   const la = lightNormalize(a).replace(/s$/, "");
   const lb = lightNormalize(b).replace(/s$/, "");
   if (la === lb) return true;
-  // If lengths differ by >1 → different words
   if (Math.abs(la.length - lb.length) > 1) return false;
-  // Allow trailing 'e' tolerance (haché/hachée) but reject accent-different endings (épicé/épice)
   const shorter = la.length <= lb.length ? la : lb;
   const longer = la.length <= lb.length ? lb : la;
-  // If one is prefix of the other + trailing 'e'/'s' → OK
   if (longer.startsWith(shorter)) return true;
   if (shorter.length === longer.length) {
-    // Same length: check char-by-char for accent conflicts
     let diffs = 0;
     for (let i = 0; i < shorter.length; i++) {
       if (shorter[i] !== longer[i]) diffs++;
@@ -199,20 +223,21 @@ export function accentSafeKeyMatch(a: string, b: string): boolean {
   return false;
 }
 
-// ─── Smart Food Matching ────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 3 : Correspondance intelligente des noms d'aliments
+// ═══════════════════════════════════════════════════════════════════════════════
 
-/** French prepositions/articles that signal a compound food name */
+/** Prépositions/articles français signalant un nom composé */
 const FOOD_PREPOSITIONS = new Set(['de', 'du', 'au', 'aux', 'a', 'la', 'le', 'les', 'des']);
 
-const stripTrailingE = (s: string) => s.replace(/e+$/, '');
 const fuzzyWord = (s: string) => s.replace(/[es]+$/i, '');
 
 /**
- * Smart "contains" match for food items:
- * - Accepts adjective additions: "pâte intégrale" matches "pâte" ✓
- * - Rejects compound food names: "pain de mie" does NOT match "pain" ✗
- * - Rejects accent-different words: "pâté" does NOT match "pâte" ✗
- * - Handles trailing 'e' tolerance: "hachée" matches "haché" ✓
+ * Correspondance intelligente "contient" pour les aliments :
+ * - Accepte les adjectifs : "pâte intégrale" matche "pâte" ✓
+ * - Rejette les noms composés : "pain de mie" NE matche PAS "pain" ✗
+ * - Rejette les accents différents : "pâté" NE matche PAS "pâte" ✗
+ * - Tolère le 'e' final : "hachée" matche "haché" ✓
  */
 export function smartFoodContains(a: string, b: string): boolean {
   const aNorm = normalizeForMatch(a);
@@ -224,8 +249,8 @@ export function smartFoodContains(a: string, b: string): boolean {
   const [shorter, longer, shorterIsA] = wordsA.length <= wordsB.length
     ? [wordsA, wordsB, true] : [wordsB, wordsA, false];
 
-  // All words of shorter must appear in longer (with fuzzy e-tolerance)
-  const matchedPairs: [number, number][] = []; // [shorterIdx, longerIdx]
+  // Tous les mots du plus court doivent être trouvés dans le plus long (tolérance fuzzy)
+  const matchedPairs: [number, number][] = [];
   const matchedIndices = new Set<number>();
   for (let si = 0; si < shorter.length; si++) {
     const sw = shorter[si];
@@ -242,7 +267,7 @@ export function smartFoodContains(a: string, b: string): boolean {
     if (!found) return false;
   }
 
-  // Accent-level check on matched word pairs (prevents "épicée" matching "épice/épices")
+  // Vérification des accents sur les paires matchées (empêche "épicée" → "épice")
   const aLight = lightNormalize(a).split(/\s+/);
   const bLight = lightNormalize(b).split(/\s+/);
   const shorterLight = shorterIsA ? aLight : bLight;
@@ -252,26 +277,19 @@ export function smartFoodContains(a: string, b: string): boolean {
     const sWord = shorterLight[si];
     const lWord = longerLight[li];
     if (!sWord || !lWord) continue;
-    // Skip accent check if either word is already fully accent-stripped (pre-normalized input)
     if (sWord === normalizeForMatch(sWord) || lWord === normalizeForMatch(lWord)) continue;
-    // Both have accent info — compare singularized forms (less aggressive than fuzzyWord)
-    // "épice" vs "épicée" → different, "épices" vs "épice" → same after singularize
     const sSing = singularize(sWord);
     const lSing = singularize(lWord);
     if (sSing !== lSing) {
-      // Allow trailing 'e' tolerance: "haché" vs "hachée" → same after removing single trailing 'e'
-      // But "épice" vs "épicée" → "épic" vs "épicé" → different → reject
       const sBase = sSing.replace(/e$/, '');
       const lBase = lSing.replace(/e$/, '');
       if (sBase !== lBase) return false;
     }
   }
 
-  if (shorter.length === longer.length) {
-    return true;
-  }
+  if (shorter.length === longer.length) return true;
 
-  // Extra words in longer: reject if they contain prepositions (compound food name)
+  // Mots supplémentaires : rejeter si contient des prépositions (nom composé)
   const extraWords = longer.filter((_, i) => !matchedIndices.has(i));
   if (extraWords.some(w => FOOD_PREPOSITIONS.has(w))) return false;
 
@@ -279,17 +297,16 @@ export function smartFoodContains(a: string, b: string): boolean {
 }
 
 /**
- * Strict name matching: handles singular/plural ('s'), case, diacritics,
- * and a maximum distance of 1 typo.
+ * Correspondance stricte de noms : gère singulier/pluriel, casse, diacritiques,
+ * et tolère maximum 1 typo (distance d'édition ≤ 1).
+ * Les mots courts (≤3 car.) exigent une correspondance exacte.
  */
 export function strictNameMatch(a: string, b: string): boolean {
   const na = normalizeKey(a);
   const nb = normalizeKey(b);
   if (na === nb) return true;
   if (!na || !nb) return false;
-  // Short words (≤3 chars) require exact match to avoid false positives (riz/ris, sel/sol)
   if (na.length <= 3 || nb.length <= 3) return false;
-  // Reject if word counts differ (e.g. "speculoos" vs "pate speculoos")
   const wordsA = na.split(/\s+/);
   const wordsB = nb.split(/\s+/);
   if (wordsA.length !== wordsB.length) return false;
@@ -311,8 +328,11 @@ export function strictNameMatch(a: string, b: string): boolean {
   return true;
 }
 
-// ─── Numeric Parsing ────────────────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 4 : Parsing numérique
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/** Parse une quantité en grammes depuis une chaîne (ex: "150g" → 150, "100|30" → 100) */
 export function parseQty(qty: string | null | undefined): number {
   if (!qty) return 0;
   const [base] = qty.split("|");
@@ -320,6 +340,7 @@ export function parseQty(qty: string | null | undefined): number {
   return match ? parseFloat(match[0]) || 0 : 0;
 }
 
+/** Parse la partie partielle d'une quantité encodée "base|partiel" (ex: "100|30" → 30) */
 export function parsePartialQty(qty: string | null | undefined): number {
   if (!qty || !qty.includes("|")) return 0;
   const [, partial] = qty.split("|");
@@ -327,17 +348,28 @@ export function parsePartialQty(qty: string | null | undefined): number {
   return match ? parseFloat(match[0]) || 0 : 0;
 }
 
+/** Formate un nombre pour l'affichage/stockage (arrondi à 1 décimale, sans ".0" inutile) */
 export function formatNumeric(n: number): string {
   const rounded = Math.round(n * 10) / 10;
   return Number.isInteger(rounded) ? String(Math.trunc(rounded)) : String(rounded).replace(/\.0$/, "");
 }
 
+/**
+ * Encode les grammes pour le stockage : "unité|partiel"
+ * Ex: unité=100g, partiel=30g → "100|30"
+ * Si pas de partiel ou partiel ≥ unité → juste "100"
+ */
 export function encodeStoredGrams(unit: number, partial: number | null): string {
   const unitPart = formatNumeric(unit);
   if (!partial || partial <= 0 || partial >= unit) return unitPart;
   return `${unitPart}|${formatNumeric(partial)}`;
 }
 
+/**
+ * Calcule le poids total d'un aliment en stock.
+ * Tient compte des unités complètes + éventuel reliquat partiel.
+ * Ex: 3 × 100g avec 30g de partiel → 2×100 + 30 = 230g
+ */
 export function getFoodItemTotalGrams(fi: FoodItem): number {
   const unit = parseQty(fi.grams);
   if (unit <= 0) return 0;
@@ -347,18 +379,32 @@ export function getFoodItemTotalGrams(fi: FoodItem): number {
   return unit * fi.quantity;
 }
 
-// ─── Ingredient Parsing (Numeric — for computation) ─────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 5 : Parsing d'ingrédients (version numérique — pour les calculs)
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/** Ingrédient parsé pour les calculs de stock */
 export interface ParsedIngredient { qty: number; count: number; name: string; optional: boolean; }
+/** Ingrédient parsé avec le nom brut (non normalisé) pour l'affichage */
 export interface ParsedIngredientRaw { qty: number; count: number; name: string; rawName: string; optional: boolean; }
 
-// Precompiled regex patterns (avoid recompilation per call)
+// Regex pré-compilées pour éviter la recompilation à chaque appel
 const _RE_METRIC_STRIP = /(?:\{-?\d+(?:[.,]\d+)?\})?(?:\s*\[-?\d+(?:[.,]\d+)?\])?\s*$/;
 const _UNIT = "(?:g|gr|grammes?|kg|ml|cl|l)";
 const _RE_FULL = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_UNIT}\\s+(\\d+(?:[.,]\\d+)?)\\s+(.+)$`, "i");
 const _RE_UNIT = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_UNIT}\\s+(.+)$`, "i");
 const _RE_NUM = /^(\d+(?:[.,]\d+)?)\s+(.+)$/;
 
+/**
+ * Parse une ligne d'ingrédient en valeurs numériques.
+ * Formats reconnus :
+ * - "100g 2 poulet" → qty=100, count=2, name="poulet"
+ * - "150g salade"   → qty=150, count=0, name="salade"
+ * - "3 oeufs"       → qty=0,   count=3, name="oeufs"
+ * - "sel"           → qty=0,   count=0, name="sel"
+ * Les préfixes "?" marquent un ingrédient optionnel.
+ * Les suffixes {cal} et [pro] sont retirés avant le parsing.
+ */
 export function parseIngredientLine(ing: string): ParsedIngredient {
   let trimmed = ing.trim().replace(/\s+/g, " ");
   const optional = trimmed.startsWith("?");
@@ -377,7 +423,7 @@ export function parseIngredientLine(ing: string): ParsedIngredient {
   return { qty: 0, count: 0, name: normalizeForMatch(trimmed), optional };
 }
 
-/** Same as parseIngredientLine but preserves original name casing in rawName */
+/** Comme parseIngredientLine mais conserve le nom original (non normalisé) dans rawName */
 export function parseIngredientLineRaw(ing: string): ParsedIngredientRaw {
   let trimmed = ing.trim().replace(/\s+/g, " ");
   const optional = trimmed.startsWith("?");
@@ -397,9 +443,17 @@ export function parseIngredientLineRaw(ing: string): ParsedIngredientRaw {
 }
 
 /**
- * Parse ingredient string into OR groups.
- * "100g poulet | 80g dinde, 50g salade" → [[{poulet}, {dinde}], [{salade}]]
- * Optional ingredients are prefixed with "?" e.g. "?50g parmesan"
+ * Parse une chaîne d'ingrédients en groupes d'alternatives (OR).
+ * 
+ * Exemple : "100g poulet | 80g dinde, 50g salade"
+ * Résultat : [[{poulet}, {dinde}], [{salade}]]
+ * 
+ * - Séparateur de groupes : virgule ou saut de ligne
+ * - Séparateur d'alternatives : pipe "|"
+ * - Préfixe "?" = ingrédient optionnel (non déduit du stock)
+ * - Les ingrédients avec des macros négatifs sont filtrés (marqueurs internes)
+ * 
+ * Résultats mis en cache (LRU 300 entrées) car appelé très fréquemment.
  */
 const _groupsCache = new Map<string, ParsedIngredient[][]>();
 const GROUPS_CACHE_MAX = 300;
@@ -419,11 +473,14 @@ export function parseIngredientGroups(raw: string): ParsedIngredient[][] {
   return result;
 }
 
-// ─── Ingredient Editing (String-based — for UI) ─────────────────────────────
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 6 : Édition d'ingrédients (version string — pour l'UI)
+// ═══════════════════════════════════════════════════════════════════════════════
 
+/** Ligne d'ingrédient pour l'éditeur UI (toutes les valeurs en string) */
 export interface IngLine { qty: string; count: string; name: string; cal: string; pro: string; isOr: boolean; isOptional: boolean; }
 
-/** Extract {cal} and [pro] suffixes from a raw ingredient token */
+/** Extrait les suffixes {cal} et [pro] d'un token d'ingrédient brut */
 export function extractMetrics(raw: string): { text: string; cal: string; pro: string } {
   const match = raw.match(/(.*?)(?:\{(-?\d+(?:[.,]\d+)?)\})?(?:\s*\[(-?\d+(?:[.,]\d+)?)\])?\s*$/);
   if (match) {
@@ -436,25 +493,25 @@ export function extractMetrics(raw: string): { text: string; cal: string; pro: s
   return { text: raw, cal: "", pro: "" };
 }
 
-/** Check if a raw ingredient token has a negative cal or pro value */
+/** Vérifie si un token d'ingrédient a une valeur cal ou pro négative (marqueur interne à filtrer) */
 export function hasNegativeMetric(raw: string): boolean {
   const { cal, pro } = extractMetrics(raw);
   return (cal !== "" && parseFloat(cal) < 0) || (pro !== "" && parseFloat(pro) < 0);
 }
 
-/** Removes {cal} and [pro] strings globally for clean UI display */
+/** Nettoie une chaîne d'ingrédients en retirant tous les marqueurs {cal} et [pro] pour l'affichage */
 export function cleanIngredientText(text: string | null | undefined): string {
   if (!text) return "";
-  // Strip {number} cal markers and [number] protein markers — use * to also catch empty {}
   return text.replace(/\{[^}]*\}/g, "").replace(/\[[^\]]*\]/g, "").replace(/\s+/g, " ").trim();
 }
 
-// Pre-compiled regex for parseIngredientLineDisplay (avoid recompilation per call)
+// Regex pré-compilées pour parseIngredientLineDisplay
 const _DISP_UNIT = "(?:g|gr|gramme?s?|kg|ml|cl|l)";
 const _RE_DISP_FULL = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_DISP_UNIT}\\s+(\\d+(?:[.,]\\d+)?)\\s+(.+)$`, "i");
 const _RE_DISP_UNIT = new RegExp(`^(\\d+(?:[.,]\\d+)?)\\s*${_DISP_UNIT}\\s+(.+)$`, "i");
 const _RE_DISP_NUM = /^(\d+(?:[.,]\d+)?)\s+(.+)$/;
 
+/** Parse une ligne d'ingrédient pour l'affichage dans l'éditeur (conserve les strings) */
 export function parseIngredientLineDisplay(raw: string): IngLine {
   let trimmed = raw.trim().replace(/\s+/g, " ");
   if (!trimmed) return { qty: "", count: "", name: "", cal: "", pro: "", isOr: false, isOptional: false };
@@ -475,6 +532,7 @@ export function parseIngredientLineDisplay(raw: string): IngLine {
   return { qty: "", count: "", name: trimmed, cal, pro, isOr: false, isOptional };
 }
 
+/** Formate une quantité pour l'affichage : ajoute "g" si c'est juste un nombre */
 export function formatQtyDisplay(qty: string): string {
   const trimmed = qty.trim();
   if (!trimmed) return "";
@@ -482,6 +540,7 @@ export function formatQtyDisplay(qty: string): string {
   return trimmed;
 }
 
+/** Convertit une chaîne d'ingrédients brute en tableau de IngLine pour l'éditeur */
 export function parseIngredientsToLines(raw: string | null): IngLine[] {
   if (!raw) return [{ qty: "", count: "", name: "", cal: "", pro: "", isOr: false, isOptional: false }];
   const groups = raw.split(/(?:\n|,(?!\d))/).map(s => s.trim()).filter(Boolean);
@@ -498,6 +557,7 @@ export function parseIngredientsToLines(raw: string | null): IngLine[] {
   return lines;
 }
 
+/** Sérialise un tableau de IngLine en chaîne d'ingrédients pour le stockage */
 export function serializeIngredients(lines: IngLine[]): string | null {
   const result: string[] = [];
   let currentGroup: string[] = [];
@@ -517,9 +577,22 @@ export function serializeIngredients(lines: IngLine[]): string | null {
   return result.length ? result.join(", ") : null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 7 : Calcul des macros (calories et protéines)
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Shared macro computation — eliminates 90% code duplication between calories and protein.
- * Before: two 55-line functions with identical structure. After: one 30-line core + two 1-line wrappers.
+ * Calcule les macros (cal ou pro) depuis une chaîne d'ingrédients.
+ * 
+ * Logique de calcul par ingrédient :
+ * - Si qty (grammes) > 0 : macro = valeur × qty / 100
+ * - Si count > 0         : macro = valeur × count
+ * - Sinon                : macro = valeur brute
+ * 
+ * Pour les groupes d'alternatives (A | B), prend celui qui est disponible en stock.
+ * Les ingrédients optionnels (?) sont ignorés.
+ * 
+ * Résultats mis en cache (LRU 500 entrées).
  */
 const _calCache = new Map<string, number | null>();
 const _proCache = new Map<string, number | null>();
@@ -540,6 +613,7 @@ function _computeMacro(
   let total = 0;
   let hasValue = false;
 
+  // Regrouper les lignes en groupes (séparées par isOr)
   const groups: IngLine[][] = [];
   let currentGroup: IngLine[] = [];
   for (const line of lines) {
@@ -550,6 +624,7 @@ function _computeMacro(
   if (currentGroup.length > 0) groups.push(currentGroup);
 
   for (const group of groups) {
+    // Choisir l'alternative disponible en stock, sinon la première
     let chosenLine = group[0];
     if (isAvailable) {
       for (const alt of group) {
@@ -574,19 +649,23 @@ function _computeMacro(
   return result;
 }
 
+/** Calcule les calories totales depuis une chaîne d'ingrédients */
 export function computeIngredientCalories(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
   return _computeMacro(ingredientStr, 'cal', _calCache, isAvailable);
 }
 
+/** Calcule les protéines totales depuis une chaîne d'ingrédients */
 export function computeIngredientProtein(ingredientStr: string | null, isAvailable?: (name: string) => boolean): number | null {
   return _computeMacro(ingredientStr, 'pro', _proCache, isAvailable);
 }
 
-
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 8 : Propagation des macros entre repas
+// ═══════════════════════════════════════════════════════════════════════════════
 
 /**
- * Extract a map of ingredient name → { cal, pro } from an ingredient string.
- * Only includes ingredients that have at least one of cal or pro set.
+ * Extrait une map nom_ingrédient → { cal, pro } depuis une chaîne d'ingrédients.
+ * Ne retourne que les ingrédients ayant au moins une valeur cal ou pro définie.
  */
 export function extractIngredientMacros(ingredientStr: string | null): Map<string, { cal: string; pro: string }> {
   const map = new Map<string, { cal: string; pro: string }>();
@@ -604,9 +683,9 @@ export function extractIngredientMacros(ingredientStr: string | null): Map<strin
 }
 
 /**
- * Apply macros from a source map to an ingredient string.
- * For each ingredient with a matching name in the map, overwrite cal/pro.
- * Returns the updated ingredient string, or null if nothing changed.
+ * Applique des macros depuis une map source sur une chaîne d'ingrédients.
+ * Pour chaque ingrédient correspondant, écrase cal/pro avec les valeurs de la map.
+ * Retourne la chaîne mise à jour, ou null si rien n'a changé.
  */
 export function applyIngredientMacros(ingredientStr: string | null, macros: Map<string, { cal: string; pro: string }>): string | null {
   if (!ingredientStr?.trim() || macros.size === 0) return null;
@@ -624,10 +703,13 @@ export function applyIngredientMacros(ingredientStr: string | null, macros: Map<
   return changed ? serializeIngredients(lines) : null;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// SECTION 9 : Couleur des cartes de repas
+// ═══════════════════════════════════════════════════════════════════════════════
+
 /**
- * Generates a consistent HSL color based on the first ingredient.
- * - Base hue is determined by the first letter of the first ingredient.
- * - A hash of the full ingredient name adds a subtle "nuance" to hue, saturation, and lightness.
+ * Génère une couleur HSL cohérente basée sur le premier ingrédient du repas.
+ * Si pas d'ingrédients, utilise le nom du repas.
  */
 export function getMealColor(ingredients: string | null, mealName: string): string {
   if (!ingredients || !ingredients.trim()) return colorFromName(mealName);
