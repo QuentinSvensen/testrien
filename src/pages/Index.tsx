@@ -97,6 +97,9 @@ const LazyPossibleList = lazyRetry(importPossibleList, "PossibleList");
 const LazyAvailableList = lazyRetry(importAvailableList, "AvailableList");
 const LazyUnParUnSection = lazyRetry(importUnParUnSection, "UnParUnSection");
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// Catégories de repas disponibles dans l'application
+// ═══════════════════════════════════════════════════════════════════════════════
 const CATEGORIES: { value: MealCategory; label: string; emoji: string; }[] = [
   { value: "petit_dejeuner", label: "Petit déj", emoji: "🥐" },
   { value: "entree", label: "Entrées", emoji: "🥗" },
@@ -104,11 +107,12 @@ const CATEGORIES: { value: MealCategory; label: string; emoji: string; }[] = [
   { value: "dessert", label: "Desserts", emoji: "🍰" },
   { value: "bonus", label: "Bonus", emoji: "⭐" }];
 
-/** Get displayed calories for a meal: uses shared helper */
+/** Récupère les calories affichées pour un repas (via le helper partagé) */
 function getDisplayedMealCalories(meal: Meal): number {
   return getDisplayedCalories(meal) ?? 0;
 }
 
+/** Valide le nom d'un repas avant création */
 function validateMealName(name: string): string | null {
   const trimmed = name.trim();
   if (trimmed.length === 0) return "Le nom est requis";
@@ -134,6 +138,9 @@ const PAGE_TO_ROUTE: Record<MainPage, string> = {
   courses: "/courses"
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPOSANT PRINCIPAL : Index
+// ═══════════════════════════════════════════════════════════════════════════════
 const Index = () => {
   const qc = useQueryClient();
   const [session, setSession] = useState<import("@supabase/supabase-js").Session | null | undefined>(undefined);
@@ -146,7 +153,7 @@ const Index = () => {
 
   const unlocked = !!session;
 
-  // All hooks always enabled once unlocked — data is cached by react-query
+  // ─── Hooks de données (activés seulement après authentification) ──────────
   const { items: foodItems, deleteItem: deleteFoodItemMutation } = useFoodItems({ enabled: unlocked });
   const deleteFoodItem = (id: string) => deleteFoodItemMutation.mutate(id);
 
@@ -165,6 +172,7 @@ const Index = () => {
   const { groups: shoppingGroups, items: shoppingItems, toggleSecondaryCheck: toggleShoppingSecondaryCheck, updateItemQuantity: updateShoppingItemQuantity } = useShoppingList({ enabled: unlocked });
   const { getPreference, setPreference, isLoading: isPreferencesLoading } = usePreferences({ enabled: unlocked });
 
+  // ─── Données dérivées (memoized) ────────────────────────────────────────
   const stockMap = useMemo(() => buildStockMap(foodItems), [foodItems]);
   const foodItemIndex = useMemo(() => buildFoodItemIndex(foodItems), [foodItems]);
   const { deductIngredientsFromStock, restoreIngredientsToStock, adjustStockForIngredientChange, deductNameMatchStock, updateFoodItemCountersForPlanning } = useMealTransfers(foodItems);
@@ -499,6 +507,9 @@ const Index = () => {
   const [masterSourcePmIds, setMasterSourcePmIds] = useState<Set<string>>(new Set());
   const [unParUnSourcePmIds, setUnParUnSourcePmIds] = useState<Set<string>>(new Set());
 
+  // ═══════════════════════════════════════════════════════════════════════════
+  // Transfert d'un repas vers la liste "Possible" (avec déduction de stock)
+  // ═══════════════════════════════════════════════════════════════════════════
   const handleMoveToPossibleGeneral = async (mealId: string, source?: string, pmId?: string | null) => {
     if (pmId) {
       updatePlanning.mutate({ id: pmId, day_of_week: null, meal_time: null });
