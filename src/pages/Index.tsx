@@ -138,6 +138,9 @@ const PAGE_TO_ROUTE: Record<MainPage, string> = {
   courses: "/courses"
 };
 
+// ═══════════════════════════════════════════════════════════════════════════════
+// COMPOSANT PRINCIPAL : Index
+// ═══════════════════════════════════════════════════════════════════════════════
 const Index = () => {
   const qc = useQueryClient();
   const [session, setSession] = useState<import("@supabase/supabase-js").Session | null | undefined>(undefined);
