@@ -908,7 +908,7 @@ const Index = () => {
                             let finalCounterDate: string | null = null;
                             if (oldestCounter) finalCounterDate = oldestCounter;
                             else if (anBefore.earliestCounterDate) finalCounterDate = anBefore.earliestCounterDate;
-                            else if (anBefore.hasCounterableIngredient) finalCounterDate = new Date().toISOString();
+                            else if (anBefore.hasCounterableIngredient && snapshots.length > 0) finalCounterDate = new Date().toISOString();
 
                             const result = await addMealToPossibleDirectly.mutateAsync({
                               name: meal.name, category: cat.value,
