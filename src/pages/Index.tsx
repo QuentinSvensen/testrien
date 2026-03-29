@@ -523,8 +523,14 @@ const Index = () => {
     }
 
     let finalCounterDate: string | null = null;
-    if (oldestCounter) finalCounterDate = oldestCounter;
-    else if (anBefore.earliestCounterDate) finalCounterDate = anBefore.earliestCounterDate;
+    if (oldestCounter) {
+      finalCounterDate = oldestCounter;
+    } else if (anBefore.earliestCounterDate) {
+      finalCounterDate = anBefore.earliestCounterDate;
+    } else if (hasCounterable) {
+      // If no existing counter found but the meal IS counterable, start it NOW
+      finalCounterDate = new Date().toISOString();
+    }
 
     const result = await moveToPossible.mutateAsync({
       mealId,
@@ -899,12 +905,16 @@ const Index = () => {
                             // 1. Deduct FIRST
                             const { snapshots, oldestCounter } = await deductIngredientsFromStock(partialMeal);
                             
-                            // 2. Create the card directly with dates
+                            let finalCounterDate: string | null = null;
+                            if (oldestCounter) finalCounterDate = oldestCounter;
+                            else if (anBefore.earliestCounterDate) finalCounterDate = anBefore.earliestCounterDate;
+                            else if (anBefore.hasCounterableIngredient) finalCounterDate = new Date().toISOString();
+
                             const result = await addMealToPossibleDirectly.mutateAsync({
                               name: meal.name, category: cat.value,
                               calories: meal.calories, protein: meal.protein, grams: meal.grams, ingredients: meal.ingredients,
                               expiration_date: anBefore.earliestExpiration,
-                              counter_start_date: oldestCounter || anBefore.earliestCounterDate,
+                              counter_start_date: finalCounterDate,
                             });
 
                             if (result?.id) {
@@ -934,7 +944,9 @@ const Index = () => {
                             }
                             const snapshot = [{ ...fi }];
                             if (!fi.is_infinite) await deductNameMatchStock(meal);
-                            const result = await moveToPossible.mutateAsync({ mealId: meal.id, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
+                            const shouldStartOnMove = fi.storage_type !== 'surgele' && !fi.no_counter;
+                            const finalCd = fi.counter_start_date || (shouldStartOnMove ? new Date().toISOString() : null);
+                            const result = await moveToPossible.mutateAsync({ mealId: meal.id, expiration_date: fi.expiration_date, counter_start_date: finalCd });
                             if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshot }));
                           }}
                           onMoveFoodItemToPossible={async (fi) => {
@@ -949,7 +961,14 @@ const Index = () => {
                             const fiMacro = macroLookup.get(fiKey);
                             const calories = fi.calories || fiMacro?.cal || null;
                             const protein = fi.protein || fiMacro?.pro || null;
-                            const pmResult = await addMealToPossibleDirectly.mutateAsync({ name: fi.name, category: cat.value, calories, protein, grams: fi.grams, expiration_date: fi.expiration_date, counter_start_date: fi.counter_start_date });
+                            const shouldStart = fi.storage_type !== 'surgele' && !fi.no_counter;
+                            const finalCd = fi.counter_start_date || (shouldStart ? new Date().toISOString() : null);
+                            const pmResult = await addMealToPossibleDirectly.mutateAsync({
+                              name: fi.name, category: cat.value,
+                              calories, protein, grams: fi.grams,
+                              expiration_date: fi.expiration_date,
+                              counter_start_date: finalCd
+                            });
                             if (pmResult?.id) updateSnapshots(prev => ({ ...prev, [pmResult.id]: snapshot }));
                           }}
                           onDeleteFoodItem={(id) => { deleteFoodItem(id); }}

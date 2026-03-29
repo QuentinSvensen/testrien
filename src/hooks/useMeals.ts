@@ -186,7 +186,7 @@ export function useMeals(options?: { enabled?: boolean }) {
           sort_order: maxOrder,
           quantity: normalizedQuantity,
           ...(expiration_date ? { expiration_date } : {}),
-          counter_start_date: counter_start_date !== undefined ? counter_start_date : new Date().toISOString(),
+          counter_start_date: counter_start_date ?? null,
         })
         .select()
         .single();
@@ -328,7 +328,7 @@ export function useMeals(options?: { enabled?: boolean }) {
       const insertData: Record<string, unknown> = { 
         meal_id: mealId, 
         sort_order: maxOrder,
-        counter_start_date: counter_start_date !== undefined ? counter_start_date : new Date().toISOString()
+        counter_start_date: counter_start_date ?? null
       };
       if (expiration_date) insertData.expiration_date = expiration_date;
       const { data, error } = await supabase
