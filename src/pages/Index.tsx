@@ -527,8 +527,8 @@ const Index = () => {
       finalCounterDate = oldestCounter;
     } else if (anBefore.earliestCounterDate) {
       finalCounterDate = anBefore.earliestCounterDate;
-    } else if (hasCounterable) {
-      // If no existing counter found but the meal IS counterable, start it NOW
+    } else if (hasCounterable && snapshots.length > 0) {
+      // Démarrer un compteur seulement si du stock a réellement été consommé/entamé
       finalCounterDate = new Date().toISOString();
     }
 
