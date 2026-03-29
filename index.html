@@ -18,7 +18,7 @@
           if (!original || original.__shielded) return;
           const wrapper = function (...args) { if (!shouldIgnore(args)) original.apply(console, args); };
           wrapper.__shielded = true;
-          try { Object.defineProperty(console, m, { value: wrapper, writable: false, configurable: false }); } catch (e) { console[m] = wrapper; }
+          try { Object.defineProperty(console, m, { value: wrapper, writable: true, configurable: true }); } catch (e) { console[m] = wrapper; }
         });
       };
       patch();
