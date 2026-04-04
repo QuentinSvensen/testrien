@@ -1,0 +1,7 @@
+project_id = "dnrzlhylpefsmfurnlif"
+
+[functions.verify-pin]
+verify_jwt = false
+
+[functions.ai-food-suggestions]
+verify_jwt = false
