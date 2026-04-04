@@ -21,6 +21,7 @@ import {
   normalizeForMatch, strictNameMatch,
   parseQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientGroups,
+  isActiveFoodItem,
 } from "@/lib/ingredientUtils";
 import {
   buildStockMap, findStockKey, pickBestAlternative,
@@ -153,7 +154,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
 
       // Trier pour consommer en priorité les items déjà ouverts
       const matchingItems = foodItems
-        .filter((fi) => strictNameMatch(fi.name, name) && !fi.is_infinite)
+        .filter((fi) => strictNameMatch(fi.name, name) && !fi.is_infinite && isActiveFoodItem(fi))
         .sort(sortStockDeductionPriority);
 
       if (neededCount > 0) {
@@ -646,7 +647,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
 
       // Trouver les aliments en stock correspondant à cet ingrédient
       const matchingItems = foodItems.filter(
-        fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && shouldStartCounter(fi)
+        fi => strictNameMatch(fi.name, alt.name) && !fi.is_infinite && shouldStartCounter(fi) && isActiveFoodItem(fi)
       );
       
       for (const fi of matchingItems) {

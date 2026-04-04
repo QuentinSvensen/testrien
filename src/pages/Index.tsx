@@ -28,7 +28,7 @@ import {
   normalizeForMatch, normalizeKey, strictNameMatch, accentSafeKeyMatch,
   parseQty, parsePartialQty, formatNumeric, encodeStoredGrams,
   getFoodItemTotalGrams, parseIngredientGroups, computeIngredientCalories, smartFoodContains,
-  extractIngredientMacros,
+  extractIngredientMacros, isActiveFoodItem,
 } from "@/lib/ingredientUtils";
 import {
   buildStockMap, buildFoodItemIndex, findStockKey, pickBestAlternative,
@@ -554,7 +554,7 @@ const Index = () => {
 
     // 2. IMPORTANT : Déduire les ingrédients du stock D'ABORD pour obtenir le compteur le plus ancien EXACT en fonction des alternatives choisies
     const { snapshots, oldestCounter } = await deductIngredientsFromStock(meal, undefined);
-    const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
+    const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite && isActiveFoodItem(fi));
     if (nameMatch && !snapshots.find(s => s.id === nameMatch.id)) snapshots.push({ ...nameMatch });
 
     // 3. Créer la carte avec le compteur le plus ancien provenant des ingrédients (ou de l'analyse s'il n'y a pas d'ingrédients)

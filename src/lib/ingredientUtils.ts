@@ -143,7 +143,8 @@ export function getAdaptedCounterDays(
   const start = parseISO(startDate);
 
   // Compteur dans le futur : on ne l'affiche que si un jour est planifié (prédiction)
-  if (!dayKey && start.getTime() > now.getTime()) return null;
+  // BUGFIX : Toujours renvoyer null si le début du compteur est dans le futur
+  if (start.getTime() > now.getTime()) return null;
 
   // Sans jour planifié : figer le compteur au moment de la création
   if (!dayKey && createdAt) {
@@ -370,6 +371,14 @@ export function encodeStoredGrams(unit: number, partial: number | null): string 
  * Tient compte des unités complètes + éventuel reliquat partiel.
  * Ex: 3 × 100g avec 30g de partiel → 2×100 + 30 = 230g
  */
+/** Vérifie si un aliment possède encore du stock (quantité ou grammes > 0) ou s'il est infini. */
+export function isActiveFoodItem(fi: FoodItem): boolean {
+  if (fi.is_infinite) return true;
+  const count = fi.quantity ?? 1;
+  const grams = getFoodItemTotalGrams(fi);
+  return count > 0 || grams > 0;
+}
+
 export function getFoodItemTotalGrams(fi: FoodItem): number {
   const unit = parseQty(fi.grams);
   if (unit <= 0) return 0;

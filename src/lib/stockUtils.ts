@@ -20,7 +20,7 @@ import {
   getFoodItemTotalGrams, parseIngredientLine, parseIngredientLineRaw, parseIngredientGroups,
   extractMetrics, computeIngredientCalories, computeIngredientProtein,
   extractIngredientMacros, applyIngredientMacros,
-  computeCounterDays,
+  computeCounterDays, isActiveFoodItem,
   type ParsedIngredient,
 } from "@/lib/ingredientUtils";
 import { format, parseISO } from "date-fns";
@@ -66,9 +66,9 @@ function lookupFoodItems(name: string, foodItems: FoodItem[], index?: FoodItemIn
         results.push(...items);
       }
     }
-    return results;
+    return results.filter(isActiveFoodItem);
   }
-  return foodItems.filter(fi => strictNameMatch(fi.name, name));
+  return foodItems.filter(fi => strictNameMatch(fi.name, name) && isActiveFoodItem(fi));
 }
 
 // ═══════════════════════════════════════════════════════════════════════════════
@@ -85,6 +85,7 @@ export interface StockInfo { grams: number; count: number; infinite: boolean; in
 export function buildStockMap(foodItems: FoodItem[]): Map<string, StockInfo> {
   const map = new Map<string, StockInfo>();
   for (const fi of foodItems) {
+    if (!isActiveFoodItem(fi)) continue;
     const key = normalizeKey(fi.name);
     const prev = map.get(key) ?? { grams: 0, count: 0, infinite: false, indivisibleUnit: 0 };
     if (fi.is_infinite) {

@@ -442,6 +442,13 @@ export function PossibleMealCard({
             >
               <Timer className="h-3 w-3" /> {counterDays}j
             </button>
+          ) : effectiveCounterStart && new Date(effectiveCounterStart).getTime() > new Date().getTime() ? (
+            <div
+              className="text-xs font-bold px-1.5 py-0.5 rounded-full flex items-center gap-0.5 bg-blue-500/40 text-white border border-blue-400/30 shrink-0"
+              title={`Programmé pour ${format(parseISO(effectiveCounterStart), 'd MMM HH:mm', { locale: fr })}`}
+            >
+              <Timer className="h-3 w-3" /> Prog.
+            </div>
           ) : null}
 
           {(pm.quantity > 1 || onUpdateQuantity) && (
