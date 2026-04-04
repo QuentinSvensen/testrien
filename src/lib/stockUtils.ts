@@ -306,6 +306,12 @@ export function analyzeMealIngredients(
       for (const fi of lookupFoodItems(alt.name, foodItems, index)) {
         if (skipIds?.has(fi.id)) continue;
 
+        // Ignorer les items vides/finis
+        const count = fi.quantity ?? 1;
+        const grams = getFoodItemTotalGrams(fi);
+        const isFinished = !fi.is_infinite && grams <= 0 && count <= 0;
+        if (isFinished) continue;
+
         // --- Analyse de péremption ---
         if (fi.expiration_date) {
           if (!result.earliestExpiration || fi.expiration_date < result.earliestExpiration) {
