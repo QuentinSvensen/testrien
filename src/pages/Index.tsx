@@ -571,8 +571,6 @@ const Index = () => {
       if (existingDates.length > 0) {
         existingDates.sort();
         finalCounterDate = existingDates[0];
-      } else if (hasCounterable && snapshots.length > 0) {
-        finalCounterDate = new Date().toISOString();
       }
     }
 
@@ -955,7 +953,6 @@ const Index = () => {
                             let finalCounterDate: string | null = null;
                             if (oldestCounter) finalCounterDate = oldestCounter;
                             else if (anBefore.earliestCounterDate) finalCounterDate = anBefore.earliestCounterDate;
-                            else if (anBefore.hasCounterableIngredient && snapshots.length > 0) finalCounterDate = new Date().toISOString();
 
                             const result = await addMealToPossibleDirectly.mutateAsync({
                               name: meal.name, category: cat.value,
@@ -991,8 +988,7 @@ const Index = () => {
                             }
                             const snapshot = [{ ...fi }];
                             if (!fi.is_infinite) await deductNameMatchStock(meal);
-                            const shouldStartOnMove = fi.storage_type !== 'surgele' && !fi.no_counter;
-                            const finalCd = fi.counter_start_date || (shouldStartOnMove ? new Date().toISOString() : null);
+                            const finalCd = fi.counter_start_date;
                             const result = await moveToPossible.mutateAsync({ mealId: meal.id, expiration_date: fi.expiration_date, counter_start_date: finalCd });
                             if (result?.id) updateSnapshots(prev => ({ ...prev, [result.id]: snapshot }));
                           }}
@@ -1008,8 +1004,7 @@ const Index = () => {
                             const fiMacro = macroLookup.get(fiKey);
                             const calories = fi.calories || fiMacro?.cal || null;
                             const protein = fi.protein || fiMacro?.pro || null;
-                            const shouldStart = fi.storage_type !== 'surgele' && !fi.no_counter;
-                            const finalCd = fi.counter_start_date || (shouldStart ? new Date().toISOString() : null);
+                            const finalCd = fi.counter_start_date;
                             const pmResult = await addMealToPossibleDirectly.mutateAsync({
                               name: fi.name, category: cat.value,
                               calories, protein, grams: fi.grams,

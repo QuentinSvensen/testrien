@@ -95,8 +95,9 @@ export function useMealTransfers(foodItems: FoodItem[]) {
    * Vérifie si le compteur doit être mis à jour (pas déjà en cours ou forcé).
    * Protège les compteurs manuels existants qui sont déjà dans le passé.
    */
-  const needsCounterUpdate = (fi: FoodItem, counterToSet: string, forcedCounterDate?: string) => {
+  const needsCounterUpdate = (fi: FoodItem, counterToSet?: string, forcedCounterDate?: string) => {
     if (!shouldStartCounter(fi)) return false;
+    if (!counterToSet) return false;
     if (!fi.counter_start_date) return true;
     const isFuture = new Date(fi.counter_start_date) > new Date(counterToSet);
     return isFuture || !!forcedCounterDate;
@@ -130,7 +131,8 @@ export function useMealTransfers(foodItems: FoodItem[]) {
      * Collecte le compteur le plus ancien parmi les items déjà ouverts.
      * Ne prend en compte que les compteurs déjà actifs (pas dans le futur).
      */
-    const trackOldestCounter = (fi: FoodItem, counterToSet: string) => {
+    const trackOldestCounter = (fi: FoodItem, counterToSet?: string) => {
+      if (!counterToSet) return;
       if (fi.counter_start_date && new Date(fi.counter_start_date) <= new Date(counterToSet)) {
         if (!oldestCounter || new Date(fi.counter_start_date) < new Date(oldestCounter)) {
           oldestCounter = fi.counter_start_date;
@@ -165,7 +167,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
           toDeduct -= deduct;
           rememberSnapshot(fi);
 
-          const counterToSet = forcedCounterDate || new Date().toISOString();
+          const counterToSet = forcedCounterDate;
           trackOldestCounter(fi, counterToSet);
 
           if (remaining <= 0) {
@@ -174,7 +176,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             updatesById.set(fi.id, { 
               id: fi.id, 
               quantity: Math.ceil(remaining),
-              ...(needsCounterUpdate(fi, counterToSet, forcedCounterDate) ? { counter_start_date: counterToSet } : {})
+              ...(needsCounterUpdate(fi, counterToSet, forcedCounterDate) && counterToSet ? { counter_start_date: counterToSet } : {})
             });
           }
         }
@@ -191,7 +193,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
           toDeduct -= deduct;
           rememberSnapshot(fi);
 
-          const counterToSet = forcedCounterDate || new Date().toISOString();
+          const counterToSet = forcedCounterDate;
           trackOldestCounter(fi, counterToSet);
 
           if (remaining <= 0) { updatesById.set(fi.id, { id: fi.id, delete: true }); continue; }
@@ -206,7 +208,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
                 id: fi.id, 
                 quantity: Math.max(1, fullUnits + 1), 
                 grams: encodeStoredGrams(perUnit, remainder), 
-                ...(needsCounterUpdate(fi, counterToSet, forcedCounterDate) ? { counter_start_date: counterToSet } : {}) 
+                ...(needsCounterUpdate(fi, counterToSet, forcedCounterDate) && counterToSet ? { counter_start_date: counterToSet } : {}) 
               });
             } else if (fullUnits > 0) {
               // Unités complètes restantes → pas d'ouverture, reset du compteur
@@ -218,7 +220,7 @@ export function useMealTransfers(foodItems: FoodItem[]) {
             updatesById.set(fi.id, { 
               id: fi.id, 
               grams: formatNumeric(remaining), 
-              ...(needsCounterUpdate(fi, counterToSet, forcedCounterDate) && isNewUnit ? { counter_start_date: counterToSet } : {}) 
+              ...(needsCounterUpdate(fi, counterToSet, forcedCounterDate) && isNewUnit && counterToSet ? { counter_start_date: counterToSet } : {}) 
             });
           }
         }
@@ -554,8 +556,8 @@ export function useMealTransfers(foodItems: FoodItem[]) {
     const nameMatch = foodItems.find(fi => strictNameMatch(fi.name, meal.name) && !fi.is_infinite);
     if (!nameMatch) return;
 
-    const counterToSet = forcedCounterDate || new Date().toISOString();
-    const canStartCounter = shouldStartCounter(nameMatch);
+    const counterToSet = forcedCounterDate;
+    const canStartCounter = shouldStartCounter(nameMatch) && !!counterToSet;
 
     if (mealGrams <= 0) {
       // Pas de grammes spécifiés → déduire 1 unité

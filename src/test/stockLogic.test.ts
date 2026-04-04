@@ -299,7 +299,7 @@ describe("getMealFractionalRatio", () => {
   it("limite correctement à l'ingrédient limitant, pas à l'ingrédient abondant", () => {
     const items = [
       makeFoodItem({ name: "Viande hachée", quantity: 1, grams: "250" }),  // assez
-      makeFoodItem({ name: "Galette", quantity: 1 }),                // 1/1 = 1.0
+      makeFoodItem({ name: "Galette", quantity: 3 }),                // 3/3 = 1.0
       makeFoodItem({ name: "Sauce", quantity: 1, grams: "25" }),     // 25/25 = 1.0
       makeFoodItem({ name: "Chorizo", quantity: 1, grams: "10" }),   // 10/15 = 0.666
       makeFoodItem({ name: "Poitrine", quantity: 2 }),               // 2/2 = 1.0
@@ -307,12 +307,12 @@ describe("getMealFractionalRatio", () => {
     ];
     const meal = makeMeal({
       name: "Burrito viande",
-      ingredients: "250g Viande hachée, 1 Galette, 25g Sauce, 15g Chorizo, 2 Poitrine, 30g Gruyère"
+      ingredients: "250g Viande hachée, 3 Galette, 25g Sauce, 15g Chorizo, 2 Poitrine, 30g Gruyère"
     });
     const map = buildStockMap(items);
-    // Chorizo limite : 10/15 = 0.666
+    // Chorizo limite à 0.666, mais Poitrine (2) snap à 1/2 = 0.5. Donc le ratio final est 0.5.
     const ratio = getMealFractionalRatio(meal, map);
-    expect(ratio).toBeCloseTo(10 / 15);
+    expect(ratio).toBeCloseTo(0.5);
   });
 });
 
